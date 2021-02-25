@@ -1,7 +1,12 @@
 module OpenAPI.Checker.Report where
 
-import           Data.Text    (Text)
-import           GHC.Generics (Generic)
+import           Data.Map.Strict                as M
+import           Data.Text                      (Text)
+import           GHC.Generics                   (Generic)
+import           OpenAPI.Checker.Validate.Monad
+
+printReport :: Report -> IO ()
+printReport = error "FIXME: printReport not implemented"
 
 data Report = Report
   { status :: Status
@@ -11,21 +16,29 @@ data Report = Report
 data Status = Success | Fail Text
   deriving (Eq, Ord, Show, Generic)
 
-type Errorable = Either Text
-
 type Path = FilePath -- From the library
 
 data ReportTree = ReportTree
-  { paths :: [PathTree]
+  { paths :: Map Path (Errorable PathItemTree)
   } deriving (Eq, Ord, Show, Generic)
 
-data PathTree = PathTree
-  { path     :: Path
-  , pathItem :: Errorable PathItemTree
-  } deriving (Eq, Ord, Show, Generic)
+newtype PathItemTree = PathItemTree
+  { operations :: Map OperationName (Errorable OperationTree)
+  } deriving (Eq, Ord, Show, Generic, Semigroup, Monoid)
 
-data PathItemTree = PathItemTree
+instance Nested PathItemTree where
+  type Parent PathItemTree = ReportTree
+  type Key PathItemTree = Path
+  nest key p = ReportTree $ M.singleton key p
+
+data OperationName
+  = Get | Put | Post | Delete | Options | Head | Patch | Trace
   deriving (Eq, Ord, Show, Generic)
 
-printReport :: Report -> IO ()
-printReport = error "FIXME: printReport not implemented"
+data OperationTree = OperationTree
+  deriving (Eq, Ord, Show, Generic)
+
+instance Nested OperationTree where
+  type Parent OperationTree = PathItemTree
+  type Key OperationTree = OperationName
+  nest key p = PathItemTree $ M.singleton key p

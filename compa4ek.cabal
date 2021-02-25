@@ -32,9 +32,11 @@ common common-options
   default-language:    Haskell2010
   build-depends:       base >= 4.12.0.0 && < 4.14
                      , aeson
+                     , containers
                      , insert-ordered-containers
                      , openapi3
                      , text
+
   default-extensions: ConstraintKinds
                     , DataKinds
                     , DeriveFoldable
