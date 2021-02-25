@@ -1,5 +1,5 @@
 cabal-version:       2.4
-name:                compa4ek
+name:                openapi-diff
 version:             0.0.0.0
 synopsis:            Compatibility checker for OpenAPI
 description:         Compatibility checker for OpenAPI
@@ -77,21 +77,21 @@ library
                   , OpenAPI.Checker.Validate
                   , OpenAPI.Checker.Validate.Monad
 
-executable compa4ek
+executable openapi-diff
   import:              common-options
   hs-source-dirs:      app
   main-is:             Main.hs
-  build-depends:       compa4ek
+  build-depends:       openapi-diff
   ghc-options:         -threaded
                        -rtsopts
                        -with-rtsopts=-N
 
-test-suite compa4ek-test
+test-suite openapi-diff-test
   import:              common-options
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
-  build-depends:       compa4ek
+  build-depends:       openapi-diff
   ghc-options:         -threaded
                        -rtsopts
                        -with-rtsopts=-N

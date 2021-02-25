@@ -1,6 +1,6 @@
 # Changelog
 
-`compa4ek` uses [PVP Versioning][1].
+`openapi-diff` uses [PVP Versioning][1].
 
 ## 0.0.0.0
 
