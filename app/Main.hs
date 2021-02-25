@@ -1,7 +1,7 @@
 module Main (main) where
 
-import Compa4ek (someFunc)
+import           OpenAPI.Checker.Run (runChecker)
 
 
 main :: IO ()
-main = someFunc
+main = runChecker

@@ -1,1 +1,4 @@
 resolver: lts-15.5
+extra-deps:
+  - openapi3-3.0.1.0
+  - generics-sop-0.5.1.0
