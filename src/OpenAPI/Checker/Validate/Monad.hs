@@ -4,6 +4,7 @@ import           Data.Text (Text)
 
 
 data TreeM t a = TreeM
+
 instance Functor (TreeM t)
 instance Applicative (TreeM t)
 instance Monad (TreeM t)
@@ -19,10 +20,11 @@ class Nested t where
 runTreeM :: TreeM t a -> (t, a)
 runTreeM = error "FIXME: runReportTree not implemented"
 
-pathError :: Text -> TreeM t a
-pathError = error "FIXME: pathError not implemented"
+-- | Throws error in current tree
+treeError :: Text -> TreeM t a
+treeError = error "FIXME: treeError not implemented"
 
--- | Runs several computations in different paths
+-- | Runs several computations in different paths in subtrees
 follow
   :: (Traversable f, Nested t)
   => f (Key t, TreeM t a)

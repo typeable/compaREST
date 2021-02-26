@@ -1,6 +1,8 @@
 module OpenAPI.Checker.Report where
 
 import           Data.Map.Strict                as M
+import           Data.Monoid.Generic
+import           Data.Semigroup.Generic
 import           Data.Text                      (Text)
 import           GHC.Generics                   (Generic)
 import           OpenAPI.Checker.Validate.Monad
@@ -22,9 +24,16 @@ data ReportTree = ReportTree
   { paths :: Map Path (Errorable PathItemTree)
   } deriving (Eq, Ord, Show, Generic)
 
-newtype PathItemTree = PathItemTree
+data PathItemTree = PathItemTree
   { operations :: Map OperationName (Errorable OperationTree)
-  } deriving (Eq, Ord, Show, Generic, Semigroup, Monoid)
+  , server     :: Maybe (Errorable ServerTree)
+  } deriving (Eq, Ord, Show, Generic)
+
+instance Semigroup PathItemTree where
+  (<>) = genericMappend
+
+instance Monoid PathItemTree where
+  mempty = genericMempty
 
 instance Nested PathItemTree where
   type Parent PathItemTree = ReportTree
@@ -41,4 +50,7 @@ data OperationTree = OperationTree
 instance Nested OperationTree where
   type Parent OperationTree = PathItemTree
   type Key OperationTree = OperationName
-  nest key p = PathItemTree $ M.singleton key p
+  nest key p = PathItemTree (M.singleton key p) mempty
+
+data ServerTree = ServerTree
+  deriving (Eq, Ord, Show, Generic)

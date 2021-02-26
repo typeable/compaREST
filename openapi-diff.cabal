@@ -33,6 +33,7 @@ common common-options
   build-depends:       base >= 4.12.0.0 && < 4.14
                      , aeson
                      , containers
+                     , generic-monoid
                      , insert-ordered-containers
                      , openapi3
                      , text
@@ -72,7 +73,8 @@ common common-options
 library
   import:              common-options
   hs-source-dirs:      src
-  exposed-modules:  OpenAPI.Checker.Report
+  exposed-modules:  OpenAPI.Checker.Aux
+                  , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Validate
                   , OpenAPI.Checker.Validate.Monad
