@@ -35,8 +35,11 @@ common common-options
                      , containers
                      , generic-monoid
                      , insert-ordered-containers
+                     , lens
+                     , mtl
                      , openapi3
                      , text
+                     , transformers
 
   default-extensions: ConstraintKinds
                     , DataKinds

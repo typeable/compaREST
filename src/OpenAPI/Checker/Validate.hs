@@ -1,6 +1,7 @@
 module OpenAPI.Checker.Validate where
 
 import           Control.Monad
+import           Control.Monad.Reader
 import           Data.Functor
 import           Data.HashMap.Strict.InsOrd     as InsMap
 import           Data.HashSet.InsOrd            as InsSet
@@ -14,38 +15,52 @@ import           OpenAPI.Checker.Validate.Monad
 reportCompat :: OpenApi -> OpenApi -> Report
 reportCompat = error "FIXME: reportCompat not implemented"
 
-forwardCompatible :: OpenApi -> OpenApi -> ReportTree
-forwardCompatible old new = fst $ runTreeM $ openApiCompatible old new
+forwardCompatible :: OpenApi -> OpenApi -> Errorable ReportTree
+forwardCompatible old new
+  = fmap snd
+  $ runTreeM emptyEnv
+  $ openApiCompatible old new
 
 openApiCompatible :: OpenApi -> OpenApi -> TreeM ReportTree ()
-openApiCompatible old new = void $ follow $
-  (InsMap.toList $ _openApiPaths old) <&> \(path, oldItem) ->
-  (path, checkItem path oldItem)
+openApiCompatible old new = do
+  local (const servers) $ do
+    follow $ (InsMap.toList $ _openApiPaths old) <&> \(path, oldItem) ->
+      (path, checkItem path oldItem)
   where
-    oldServers = _openApiServers old
-    newServers = _openApiServers new
+    servers = Env
+      { oldServers = _openApiServers old
+      , newServers = _openApiServers new }
     checkItem path oldItem = do
       case (InsMap.lookup path $ _openApiPaths new) of
         Nothing      -> treeError $ "Path deleted"
         Just newItem ->
-          pathItemsCompatible (oldServers, oldItem) (newServers, newItem)
+          pathItemsCompatible oldItem newItem
+
+
+mergeEnvServers :: [Server] -> [Server] -> TreeM t Env
+mergeEnvServers olds news = do
+  env <- ask
+  return $ Env
+    { oldServers = mergeServers (oldServers env) olds
+    , newServers = mergeServers (newServers env) news }
 
 pathItemsCompatible
-  :: ([Server], PathItem)
-  -> ([Server], PathItem)
+  :: PathItem
+  -> PathItem
   -> TreeM PathItemTree ()
-pathItemsCompatible (oldServers' , old) (newServers' , new) = void $ follow
-  [ (Get, go _pathItemGet)
-  , (Put, go _pathItemPut)
-  , (Post, go _pathItemPost)
-  , (Delete, go _pathItemDelete)
-  , (Options, go _pathItemOptions)
-  , (Head, go _pathItemHead)
-  , (Patch, go _pathItemPatch)
-  , (Trace, go _pathItemTrace) ]
+pathItemsCompatible old new = do
+  newEnv <- mergeEnvServers (_pathItemServers old) (_pathItemServers new)
+  local (const newEnv) $ do
+    follow
+      [ (Get, go _pathItemGet)
+      , (Put, go _pathItemPut)
+      , (Post, go _pathItemPost)
+      , (Delete, go _pathItemDelete)
+      , (Options, go _pathItemOptions)
+      , (Head, go _pathItemHead)
+      , (Patch, go _pathItemPatch)
+      , (Trace, go _pathItemTrace) ]
   where
-    oldServers = mergeServers oldServers' (_pathItemServers old)
-    newServers = mergeServers newServers' (_pathItemServers new)
     go :: (PathItem -> Maybe Operation) -> TreeM OperationTree ()
     go getOp = case getOp old of
       Nothing -> return ()
@@ -54,10 +69,11 @@ pathItemsCompatible (oldServers' , old) (newServers' , new) = void $ follow
         Nothing -> do
         -- Operation was in old schema, but no in new one.
           treeError "Operation was deleted. Old client may try to use it."
-        Just newOp -> operationsCompatible (oldServers, oldOp) (newServers, newOp)
+        Just newOp ->
+          operationsCompatible oldOp newOp
 
 operationsCompatible
-  :: ([Server], Operation)
-  -> ([Server], Operation)
+  :: Operation
+  -> Operation
   -> TreeM OperationTree ()
 operationsCompatible = error "FIXME: operationsCompatible not implemented"

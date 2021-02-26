@@ -20,9 +20,9 @@ data Status = Success | Fail Text
 
 type Path = FilePath -- From the library
 
-data ReportTree = ReportTree
+newtype ReportTree = ReportTree
   { paths :: Map Path (Errorable PathItemTree)
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving (Eq, Ord, Show, Generic, Semigroup, Monoid)
 
 data PathItemTree = PathItemTree
   { operations :: Map OperationName (Errorable OperationTree)
@@ -46,6 +46,12 @@ data OperationName
 
 data OperationTree = OperationTree
   deriving (Eq, Ord, Show, Generic)
+
+instance Semigroup OperationTree where
+  _ <> _ = OperationTree
+
+instance Monoid OperationTree where
+  mempty = OperationTree
 
 instance Nested OperationTree where
   type Parent OperationTree = PathItemTree
