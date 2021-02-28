@@ -3,13 +3,15 @@ module OpenAPI.Checker.Validate where
 import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Functor
-import           Data.HashMap.Strict.InsOrd     as InsMap
-import           Data.HashSet.InsOrd            as InsSet
+import           Data.HashMap.Strict.InsOrd           as InsMap
+import           Data.HashSet.InsOrd                  as InsSet
+import           Data.Map.Strict                      as M
 import           Data.OpenApi
 import           Data.OpenApi.Internal
 import           Data.Traversable
 import           OpenAPI.Checker.Aux
 import           OpenAPI.Checker.Report
+import           OpenAPI.Checker.Validate.Dereference
 import           OpenAPI.Checker.Validate.Monad
 
 reportCompat :: OpenApi -> OpenApi -> Report
@@ -76,4 +78,19 @@ operationsCompatible
   :: Operation
   -> Operation
   -> TreeM OperationTree ()
-operationsCompatible = error "FIXME: operationsCompatible not implemented"
+operationsCompatible old new = do
+  oldParams <- traverse dereferenceParam $ _operationParameters old
+  newParams <- traverse dereferenceParam $ _operationParameters new
+  let
+    newPMap = M.fromList $ newParams <&> \p -> (getParamKey p, p)
+    checkParam pkey oldP = case M.lookup pkey newPMap of
+      Nothing ->
+        treeError "Param was deleted in new interface, but exists in old"
+      Just newP -> do
+        paramsCompatible oldP newP
+  follow $ oldParams <&> \oldP ->
+    let pkey = getParamKey oldP
+    in (pkey , checkParam pkey oldP)
+
+paramsCompatible :: Param -> Param -> TreeM ParamTree ()
+paramsCompatible = error "FIXME: paramsCompatible not implemented"

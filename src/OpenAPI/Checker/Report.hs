@@ -2,6 +2,7 @@ module OpenAPI.Checker.Report where
 
 import           Data.Map.Strict                as M
 import           Data.Monoid.Generic
+import           Data.OpenApi.Internal
 import           Data.Semigroup.Generic
 import           Data.Text                      (Text)
 import           GHC.Generics                   (Generic)
@@ -44,14 +45,9 @@ data OperationName
   = Get | Put | Post | Delete | Options | Head | Patch | Trace
   deriving (Eq, Ord, Show, Generic)
 
-data OperationTree = OperationTree
-  deriving (Eq, Ord, Show, Generic)
-
-instance Semigroup OperationTree where
-  _ <> _ = OperationTree
-
-instance Monoid OperationTree where
-  mempty = OperationTree
+newtype OperationTree = OperationTree
+  { parameters :: Map ParamKey (Errorable ParamTree)
+  } deriving (Eq, Ord, Show, Generic, Semigroup, Monoid)
 
 instance Nested OperationTree where
   type Parent OperationTree = PathItemTree
@@ -60,3 +56,30 @@ instance Nested OperationTree where
 
 data ServerTree = ServerTree
   deriving (Eq, Ord, Show, Generic)
+
+data ParamTree = ParamTree
+  deriving (Eq, Ord, Show, Generic)
+
+instance Semigroup ParamTree where
+  (<>) = error "Not implemented"
+instance Monoid ParamTree where
+  mappend = (<>)
+  mempty = error "Not implemented"
+
+instance Nested ParamTree where
+  type Key ParamTree = ParamKey
+  type Parent ParamTree = OperationTree
+  nest key p = OperationTree $ M.singleton key p
+
+deriving instance Ord ParamLocation
+
+data ParamKey = ParamKey
+  { name    :: Text
+  , paramIn :: ParamLocation
+  } deriving (Eq, Ord, Show, Generic)
+
+getParamKey :: Param -> ParamKey
+getParamKey p = ParamKey
+  { name = _paramName p
+  , paramIn = _paramIn p
+  }

@@ -22,6 +22,7 @@ data Env = Env
 emptyEnv :: Env
 emptyEnv = Env [] []
 
+-- | Might be different type in future
 type Errorable = Either Err
 
 type Err = Text

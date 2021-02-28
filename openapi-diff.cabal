@@ -80,6 +80,7 @@ library
                   , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Validate
+                  , OpenAPI.Checker.Validate.Dereference
                   , OpenAPI.Checker.Validate.Monad
 
 executable openapi-diff
