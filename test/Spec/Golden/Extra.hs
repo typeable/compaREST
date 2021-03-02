@@ -58,7 +58,11 @@ goldenInputsTree name filepath golden inp f = do
   return $
     testGroup name $
       x <&> \(t, GoldenMetadata {..}) ->
-        goldenVsString directoryName (directoryPath </> golden) (pure . f $ t)
+        goldenVsStringDiff
+          directoryName
+          (\ref new -> ["diff", "-u", ref, new])
+          (directoryPath </> golden)
+          (pure . f $ t)
 
 goldenInputsTreeUniform ::
   (Each t h (FilePath, FilePath -> IO a) a) =>
