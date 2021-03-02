@@ -1,12 +1,17 @@
 module OpenAPI.Checker.Report where
 
+import           Data.Aeson
+import           Data.Aeson.Types
+import qualified Data.Attoparsec.Text           as A
+import           Data.Functor
 import           Data.Map.Strict                as M
+import           Data.Maybe
 import           Data.Monoid.Generic
 import           Data.OpenApi.Internal
-import           Data.Semigroup.Generic
 import           Data.Text                      (Text)
-import           GHC.Generics                   (Generic)
+import           Deriving.Aeson.Stock
 import           OpenAPI.Checker.Validate.Monad
+import           Prelude                        as P
 
 printReport :: Report -> IO ()
 printReport = error "FIXME: printReport not implemented"
@@ -14,21 +19,29 @@ printReport = error "FIXME: printReport not implemented"
 data Report = Report
   { status :: Status
   , tree   :: ReportTree
-  } deriving (Eq, Ord, Show, Generic)
+  }
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ToJSON, FromJSON) via Snake Report
 
 data Status = Success | Fail Text
-  deriving (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ToJSON, FromJSON) via Snake Status
 
 type Path = FilePath -- From the library
 
 newtype ReportTree = ReportTree
   { paths :: Map Path (Errorable PathItemTree)
-  } deriving (Eq, Ord, Show, Generic, Semigroup, Monoid)
+  }
+  deriving stock (Show, Generic)
+  deriving newtype (Eq, Ord, Semigroup, Monoid)
+  deriving (ToJSON, FromJSON) via Snake ReportTree
 
 data PathItemTree = PathItemTree
   { operations :: Map OperationName (Errorable OperationTree)
   , server     :: Maybe (Errorable ServerTree)
-  } deriving (Eq, Ord, Show, Generic)
+  }
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ToJSON, FromJSON) via Snake PathItemTree
 
 instance Semigroup PathItemTree where
   (<>) = genericMappend
@@ -44,10 +57,14 @@ instance Nested PathItemTree where
 data OperationName
   = Get | Put | Post | Delete | Options | Head | Patch | Trace
   deriving (Eq, Ord, Show, Generic)
+  deriving (ToJSON, FromJSON) via Snake OperationName
+  deriving anyclass (ToJSONKey, FromJSONKey)
 
 newtype OperationTree = OperationTree
   { parameters :: Map ParamKey (Errorable ParamTree)
-  } deriving (Eq, Ord, Show, Generic, Semigroup, Monoid)
+  }
+  deriving stock (Show, Generic)
+  deriving newtype (Eq, Ord, Semigroup, Monoid, FromJSON, ToJSON)
 
 instance Nested OperationTree where
   type Parent OperationTree = PathItemTree
@@ -55,10 +72,12 @@ instance Nested OperationTree where
   nest key p = PathItemTree (M.singleton key p) mempty
 
 data ServerTree = ServerTree
-  deriving (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ToJSON, FromJSON) via Snake ServerTree
 
 data ParamTree = ParamTree
-  deriving (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ToJSON, FromJSON) via Snake ParamTree
 
 instance Semigroup ParamTree where
   (<>) = error "Not implemented"
@@ -76,7 +95,30 @@ deriving instance Ord ParamLocation
 data ParamKey = ParamKey
   { name    :: Text
   , paramIn :: ParamLocation
-  } deriving (Eq, Ord, Show, Generic)
+  }
+  deriving (Eq, Ord, Show, Generic)
+  deriving (FromJSON, ToJSON) via Snake ParamKey
+
+paramLocationText :: [(ParamLocation, Text)]
+paramLocationText =
+  [(ParamQuery, "query"), (ParamHeader, "header"), (ParamPath, "path"), (ParamCookie, "cookie")]
+
+paramLocationToText :: ParamLocation -> Text
+paramLocationToText p = fromJust $ P.lookup p paramLocationText
+
+instance ToJSONKey ParamKey where
+  toJSONKey = toJSONKeyText (\(ParamKey n p) -> n <> "(" <> paramLocationToText p <> ")")
+
+parseParamKey :: A.Parser ParamKey
+parseParamKey =
+  ParamKey <$> A.takeTill (== '(') <*>
+    ( A.char '('
+      *> A.choice (paramLocationText <&> \(p, t) -> A.string t $> p)
+      <* A.char ')'
+    )
+
+instance FromJSONKey ParamKey where
+  fromJSONKey = FromJSONKeyTextParser (either fail pure . A.parseOnly parseParamKey)
 
 getParamKey :: Param -> ParamKey
 getParamKey p = ParamKey
