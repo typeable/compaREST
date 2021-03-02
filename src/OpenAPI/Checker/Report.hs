@@ -16,12 +16,21 @@ import           Prelude                        as P
 printReport :: Report -> IO ()
 printReport = error "FIXME: printReport not implemented"
 
+class HasUnsupportedFeature x where
+  hasUnsupportedFeature :: x -> Bool
+
 data Report = Report
   { status :: Status
   , tree   :: ReportTree
   }
   deriving stock (Eq, Ord, Show, Generic)
   deriving (ToJSON, FromJSON) via Snake Report
+
+instance HasUnsupportedFeature Report 
+
+instance HasUnsupportedFeature x => HasUnsupportedFeature (Either e x) where
+  hasUnsupportedFeature (Left _) = False
+  hasUnsupportedFeature (Right x) = hasUnsupportedFeature x
 
 data Status = Success | Fail Text
   deriving stock (Eq, Ord, Show, Generic)
@@ -35,6 +44,8 @@ newtype ReportTree = ReportTree
   deriving stock (Show, Generic)
   deriving newtype (Eq, Ord, Semigroup, Monoid)
   deriving (ToJSON, FromJSON) via Snake ReportTree
+
+instance HasUnsupportedFeature ReportTree 
 
 data PathItemTree = PathItemTree
   { operations :: Map OperationName (Errorable OperationTree)

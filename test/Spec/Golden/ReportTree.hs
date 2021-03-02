@@ -3,7 +3,6 @@ module Spec.Golden.ReportTree
   )
 where
 
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml
 import OpenAPI.Checker.Validate
 import Spec.Golden.Extra
@@ -17,4 +16,4 @@ tests =
     "report-tree.yaml"
     ("a.yaml", "b.yaml")
     Yaml.decodeFileThrow
-    (\(a, b) -> BSL.fromStrict . Yaml.encode $ forwardCompatible a b)
+    (uncurry forwardCompatible)
