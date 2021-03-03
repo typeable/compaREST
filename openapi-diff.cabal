@@ -79,6 +79,7 @@ library
   hs-source-dirs:      src
   exposed-modules:  OpenAPI.Checker.Aux
                   , OpenAPI.Checker.Report
+                  , OpenAPI.Checker.Report.Orphans
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Validate
                   , OpenAPI.Checker.Validate.Dereference
