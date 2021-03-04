@@ -107,29 +107,9 @@ data ParamKey = ParamKey
   { name    :: Text
   , paramIn :: ParamLocation
   }
-  deriving (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Ord, Show, Generic)
   deriving (FromJSON, ToJSON) via Snake ParamKey
-
-paramLocationText :: [(ParamLocation, Text)]
-paramLocationText =
-  [(ParamQuery, "query"), (ParamHeader, "header"), (ParamPath, "path"), (ParamCookie, "cookie")]
-
-paramLocationToText :: ParamLocation -> Text
-paramLocationToText p = fromJust $ P.lookup p paramLocationText
-
-instance ToJSONKey ParamKey where
-  toJSONKey = toJSONKeyText (\(ParamKey n p) -> n <> "(" <> paramLocationToText p <> ")")
-
-parseParamKey :: A.Parser ParamKey
-parseParamKey =
-  ParamKey <$> A.takeTill (== '(') <*>
-    ( A.char '('
-      *> A.choice (paramLocationText <&> \(p, t) -> A.string t $> p)
-      <* A.char ')'
-    )
-
-instance FromJSONKey ParamKey where
-  fromJSONKey = FromJSONKeyTextParser (either fail pure . A.parseOnly parseParamKey)
+  deriving anyclass (ToJSONKey, FromJSONKey)
 
 getParamKey :: Param -> ParamKey
 getParamKey p = ParamKey
