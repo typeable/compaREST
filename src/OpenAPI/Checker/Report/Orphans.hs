@@ -3,8 +3,6 @@ module OpenAPI.Checker.Report.Orphans where
 import           Data.HashMap.Strict.InsOrd as InsMap
 import           Data.OpenApi.Internal
 
-deriving instance Ord ParamLocation
-
 -- deriving instance Ord Server
 
 -- deriving instance Ord PathItem

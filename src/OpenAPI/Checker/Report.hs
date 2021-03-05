@@ -2,6 +2,7 @@ module OpenAPI.Checker.Report where
 
 import           Control.Lens
 import           Data.Generics.Product
+import           Data.HashMap.Strict            as H
 import           Data.Map.Strict                as M
 import           Data.Monoid
 import           Data.Monoid.Generic
@@ -26,9 +27,16 @@ data Status = Success | Fail Text
 
 type Path = FilePath -- From the library
 
-newtype ReportTree = ReportTree
-  { paths :: Seq (Diff PathItemTree)
-  } deriving (Eq, Show, Generic, Semigroup, Monoid)
+data ReportTree = ReportTree
+  { paths                :: Seq (Diff PathItemTree)
+  , securityRequirements :: Seq (Final (HashMap Text [Text]))
+  } deriving (Eq, Show, Generic)
+
+instance Semigroup ReportTree where
+  (<>) = genericMappend
+instance Monoid ReportTree where
+  mappend = (<>)
+  mempty = genericMempty
 
 newtype PathItemTree = PathItemTree
   { operations :: Seq (Diff OperationTree)
@@ -38,7 +46,7 @@ instance Node PathItemTree where
   type Parent PathItemTree = ReportTree
   type Key PathItemTree = FilePath
   type Original PathItemTree = PathItem
-  nest key t = mappend $ ReportTree $ chdiff key t
+  nest key t = field @"paths" <>~ chdiff key t
 
 newtype OperationTree = OperationTree
   { parameters :: Seq (Diff ParamTree)
@@ -76,14 +84,3 @@ instance Node ParamTree where
   type Key ParamTree = ParamKey
   type Original ParamTree = Param
   nest key t = mappend $ OperationTree $ chdiff key t
-
-data ParamKey = ParamKey
-  { name    :: Text
-  , paramIn :: ParamLocation
-  } deriving (Eq, Ord, Show, Generic)
-
-getParamKey :: Param -> ParamKey
-getParamKey p = ParamKey
-  { name = _paramName p
-  , paramIn = _paramIn p
-  }

@@ -11,6 +11,7 @@ import           Data.HashSet.InsOrd                  as InsSet
 import           Data.Map.Strict                      as M
 import           Data.OpenApi
 import           Data.OpenApi.Internal
+import           Data.Set                             as S
 import           Data.Traversable
 import           OpenAPI.Checker.Aux
 import           OpenAPI.Checker.Report
@@ -28,14 +29,14 @@ forwardCompatible old new
 
 openApiCompatible :: OpenApi -> OpenApi -> TreeM ReportTree ()
 openApiCompatible old new = do
-  local (const servers) $ do
+  local (const env) $ do
     let
       oldPaths = _openApiPaths old
       newPaths = _openApiPaths new
-      common = InsMap.intersectionWith (,) oldPaths newPaths
-      removed = InsMap.difference oldPaths newPaths
-      added = InsMap.difference newPaths oldPaths
-    for_ (InsMap.toList removed) $ \(path, oldItem) -> do
+      commonPaths = InsMap.intersectionWith (,) oldPaths newPaths
+      removedPaths = InsMap.difference oldPaths newPaths
+      addedPaths = InsMap.difference newPaths oldPaths
+    for_ (InsMap.toList removedPaths) $ \(path, oldItem) -> do
       let
         a = Final
           { compat = Incompatible
@@ -43,35 +44,65 @@ openApiCompatible old new = do
           , diffOp = Removed
           , original = oldItem }
       field @"paths" <>= final a
-    for_ (InsMap.toList added) $ \ (path, newItem) -> do
+    for_ (InsMap.toList addedPaths) $ \ (path, newItem) -> do
       let
         a = Final
           { compat = Compatible
           , diffOp = Added
           , original = newItem }
       field @"paths" <>= final a
-    follow_ $ InsMap.toList common <&> \(path, (oldItem, newItem)) ->
+    follow_ $ InsMap.toList commonPaths <&> \(path, (oldItem, newItem)) ->
       (path, pathItemsCompatible oldItem newItem)
+    let
+      oldSecs = S.fromList
+        $ (InsMap.toHashMap . getSecurityRequirement) <$> _openApiSecurity old
+      newSecs = S.fromList
+        $ (InsMap.toHashMap . getSecurityRequirement) <$> _openApiSecurity new
+      addedSecs = S.difference newSecs oldSecs
+      removedSecs = S.difference oldSecs newSecs
+    for_ (S.toList addedSecs) $ \sec -> do
+      let
+        a = Final
+          { compat = Incompatible
+            "Added new security requirement which may be ommited by client."
+          , diffOp = Added
+          , original = sec }
+      field @"securityRequirements" <>= pure a
+    for_ (S.toList removedSecs) $ \sec -> do
+      let
+        a = Final
+          { compat = Compatible
+          -- Assume dropping security requirements is OK
+          , diffOp = Removed
+          , original = sec }
+      field @"securityRequirements" <>= pure a
   where
-    servers = Env
-      { oldServers = _openApiServers old
-      , newServers = _openApiServers new }
+    env = Env
+      { servers = OldNew
+        { old = fromServers $ _openApiServers old
+        , new = fromServers $ _openApiServers new
+        }
+      , parameters = mempty
+      }
 
-
-mergeEnvServers :: [Server] -> [Server] -> TreeM t Env
-mergeEnvServers olds news = do
-  env <- ask
-  return $ Env
-    { oldServers = mergeServers (oldServers env) olds
-    , newServers = mergeServers (newServers env) news }
+mergeEnvServers :: OldNew [Server] -> TreeM t a -> TreeM t a
+mergeEnvServers (OldNew olds news) ma = do
+  let
+    env = Env
+      { servers = OldNew
+        { old = fromServers olds
+        , new = fromServers news
+        }
+      , parameters = mempty
+      }
+  local (<> env) ma
 
 pathItemsCompatible
   :: PathItem
   -> PathItem
   -> TreeM PathItemTree ()
 pathItemsCompatible old new = do
-  newEnv <- mergeEnvServers (_pathItemServers old) (_pathItemServers new)
-  local (const newEnv) $ do
+  mergeEnvServers (OldNew (_pathItemServers old) (_pathItemServers new)) $ do
     go Get _pathItemGet
     go Put _pathItemPut
     go Post _pathItemPost

@@ -41,6 +41,7 @@ common common-options
                      , openapi3
                      , text
                      , transformers
+                     , unordered-containers
 
   default-extensions: ConstraintKinds
                     , DataKinds

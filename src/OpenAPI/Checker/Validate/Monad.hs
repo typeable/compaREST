@@ -9,6 +9,8 @@ import           Control.Monad.Trans.Reader
 import           Data.Foldable
 import           Data.Functor.Identity
 import           Data.Generics.Product
+import           Data.Map.Strict            (Map)
+import qualified Data.Map.Strict            as M
 import           Data.Monoid.Generic
 import           Data.OpenApi.Internal
 import           Data.Sequence              (Seq)
@@ -22,13 +24,56 @@ type TreeM n = ReaderT Env (State n)
 runTreeM :: (Monoid n) => Env -> TreeM n a -> (a, n)
 runTreeM env ma = runState (runReaderT ma env) mempty
 
+data OldNew a = OldNew
+  { old :: a
+  , new :: a
+  } deriving (Eq, Ord, Show, Generic)
+
+instance (Semigroup a) => Semigroup (OldNew a) where
+  (<>) = genericMappend
+
+instance (Monoid a) => Monoid (OldNew a) where
+  mappend = (<>)
+  mempty = genericMempty
+
 data Env = Env
-  { oldServers :: [Server]
-  , newServers :: [Server]
+  { servers    :: OldNew (Map ServerKey [Server])
+  , parameters :: OldNew (Map ParamKey [Param])
   } deriving (Eq, Generic)
 
+instance Semigroup Env where
+  (<>) = genericMappend
+
+instance Monoid Env where
+  mappend = (<>)
+  mempty = genericMempty
+
 emptyEnv :: Env
-emptyEnv = Env [] []
+emptyEnv = Env mempty mempty
+
+-- | Orphan for ParamKey
+deriving instance Ord ParamLocation
+
+data ParamKey = ParamKey
+  { name    :: Text
+  , paramIn :: ParamLocation
+  } deriving (Eq, Ord, Show, Generic)
+
+getParamKey :: Param -> ParamKey
+getParamKey p = ParamKey
+  { name = _paramName p
+  , paramIn = _paramIn p
+  }
+
+-- | Still not sure what identifies the server
+newtype ServerKey = ServerKey Text
+  deriving (Eq, Ord, Show, Generic)
+
+getServerKey :: Server -> ServerKey
+getServerKey s = ServerKey $ _serverUrl s
+
+fromServers :: [Server] -> Map ServerKey [Server]
+fromServers ss = M.fromListWith (++) $ ss <&> \s -> (getServerKey s, [s])
 
 data Diff n
   = DiffChanged (Changed n)
