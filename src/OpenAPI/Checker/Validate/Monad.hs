@@ -37,19 +37,10 @@ instance (Monoid a) => Monoid (OldNew a) where
   mempty = genericMempty
 
 data Env = Env
-  { servers    :: OldNew (Map ServerKey Server)
-  , parameters :: OldNew (Map ParamKey Param)
+  { roots      :: !(OldNew OpenApi)
+  , servers    :: !(OldNew (Map ServerKey Server))
+  , parameters :: !(OldNew (Map ParamKey Param))
   } deriving (Eq, Generic)
-
-instance Semigroup Env where
-  (<>) = genericMappend
-
-instance Monoid Env where
-  mappend = (<>)
-  mempty = genericMempty
-
-emptyEnv :: Env
-emptyEnv = Env mempty mempty
 
 -- | Orphan for ParamKey
 deriving instance Ord ParamLocation

@@ -24,12 +24,38 @@ reportCompat = error "FIXME: reportCompat not implemented"
 forwardCompatible :: OpenApi -> OpenApi -> ReportTree
 forwardCompatible old new
   = snd
-  $ runTreeM emptyEnv
+  $ runTreeM env
   $ openApiCompatible old new
+  where
+    env = Env
+      { roots = OldNew old new
+      , servers = mempty
+      , parameters = mempty
+      }
+
+mergeEnvServers :: OldNew [Server] -> TreeM t a -> TreeM t a
+mergeEnvServers (OldNew olds news) ma = do
+  let
+    updServers = (s <>)
+    s = OldNew
+      { old = fromServers olds
+      , new = fromServers news }
+  local (field @"servers" %~ updServers) ma
+
+mergeEnvParams :: OldNew [Referenced Param] -> TreeM t a -> TreeM t a
+mergeEnvParams (OldNew oldp newp) ma = do
+  oldParams <- traverse dereferenceOldParam oldp
+  newParams <- traverse dereferenceNewParam newp
+  let
+    p = OldNew
+      { old = fromParams oldParams
+      , new = fromParams newParams }
+    updParams = (p <>)
+  local (field @"parameters" %~ updParams) ma
 
 openApiCompatible :: OpenApi -> OpenApi -> TreeM ReportTree ()
 openApiCompatible old new = do
-  local (const env) $ do
+  mergeEnvServers (OldNew (_openApiServers old) (_openApiServers new)) $ do
     let
       oldPaths = _openApiPaths old
       newPaths = _openApiPaths new
@@ -76,40 +102,6 @@ openApiCompatible old new = do
           , diffOp = Removed
           , original = sec }
       field @"securityRequirements" <>= pure a
-  where
-    env = Env
-      { servers = OldNew
-        { old = fromServers $ _openApiServers old
-        , new = fromServers $ _openApiServers new
-        }
-      , parameters = mempty
-      }
-
-mergeEnvServers :: OldNew [Server] -> TreeM t a -> TreeM t a
-mergeEnvServers (OldNew olds news) ma = do
-  let
-    env = Env
-      { servers = OldNew
-        { old = fromServers olds
-        , new = fromServers news
-        }
-      , parameters = mempty
-      }
-  local (env <>) ma
-
-mergeEnvParams :: OldNew [Referenced Param] -> TreeM t a -> TreeM t a
-mergeEnvParams (OldNew oldp newp) ma = do
-  oldParams <- traverse dereferenceParam oldp
-  newParams <- traverse dereferenceParam newp
-  let
-    env = Env
-      { servers = mempty
-      , parameters = OldNew
-        { old = fromParams oldParams
-        , new = fromParams newParams
-        }
-      }
-  local (env <>) ma
 
 pathItemsCompatible
   :: PathItem
