@@ -21,8 +21,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: ~/.stack
-          key: ${{ runner.os }}-build-stack-${{ hashFiles('**/stack.yaml') }}
+          key: ${{ runner.os }}-build-stack-${{ hashFiles('**/stack.yaml') }}-${{ hashFiles('**/*.cabal') }}
           restore-keys: |
+            ${{ runner.os }}-build-stack-${{ hashFiles('**/stack.yaml') }}
             ${{ runner.os }}-build-stack-
       - name: Build
         run: stack build
