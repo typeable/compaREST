@@ -95,7 +95,21 @@ mergeEnvServers (OldNew olds news) ma = do
         }
       , parameters = mempty
       }
-  local (<> env) ma
+  local (env <>) ma
+
+mergeEnvParams :: OldNew [Referenced Param] -> TreeM t a -> TreeM t a
+mergeEnvParams (OldNew oldp newp) ma = do
+  oldParams <- traverse dereferenceParam oldp
+  newParams <- traverse dereferenceParam newp
+  let
+    env = Env
+      { servers = mempty
+      , parameters = OldNew
+        { old = fromParams oldParams
+        , new = fromParams newParams
+        }
+      }
+  local (env <>) ma
 
 pathItemsCompatible
   :: PathItem
@@ -103,14 +117,15 @@ pathItemsCompatible
   -> TreeM PathItemTree ()
 pathItemsCompatible old new = do
   mergeEnvServers (OldNew (_pathItemServers old) (_pathItemServers new)) $ do
-    go Get _pathItemGet
-    go Put _pathItemPut
-    go Post _pathItemPost
-    go Delete _pathItemDelete
-    go Options _pathItemOptions
-    go Head _pathItemHead
-    go Patch _pathItemPatch
-    go Trace _pathItemTrace
+    mergeEnvParams (OldNew (_pathItemParameters old) (_pathItemParameters new)) $ do
+      go Get _pathItemGet
+      go Put _pathItemPut
+      go Post _pathItemPost
+      go Delete _pathItemDelete
+      go Options _pathItemOptions
+      go Head _pathItemHead
+      go Patch _pathItemPatch
+      go Trace _pathItemTrace
   where
     go
       :: OperationName
@@ -141,34 +156,35 @@ operationsCompatible
   -> Operation
   -> TreeM OperationTree ()
 operationsCompatible old new = do
-  let toMap ps = M.fromList $ ps <&> \p -> (getParamKey p, p)
-  oldParams <- fmap toMap $ traverse dereferenceParam $ _operationParameters old
-  newParams <- fmap toMap $ traverse dereferenceParam $ _operationParameters new
-  let
-    common = M.intersectionWith (,) oldParams newParams
-    removed = M.difference oldParams newParams
-    added = M.difference newParams oldParams
-  for_ (M.toList removed) $ \(key, paramItem) -> do
+  mergeEnvParams (OldNew (_operationParameters old) (_operationParameters new)) $ do
+    env <- ask
     let
-      a = Final
-        { compat = Compatible
-        -- Assume removed parameters will be ignored by server
-        , diffOp = Removed
-        , original = paramItem }
-    field @"parameters" <>= final a
-  for_ (M.toList added) $ \(key, paramItem) -> do
-    let
-      a = Final
-        { compat
-        , diffOp = Added
-        , original = paramItem }
-      compat = case _paramRequired paramItem of
-        Just False -> Compatible
-        -- Assume absent optional parameter is OK
-        _ -> Incompatible "Added parameter. Client may not know about it"
-    field @"parameters" <>= final a
-  follow_ $ M.toList common <&> \ (key, (oldParam, newParam)) ->
-    (key, paramsCompatible oldParam newParam)
+      oldParams = env ^. field @"parameters" . field @"old"
+      newParams = env ^. field @"parameters" . field @"new"
+      common = M.intersectionWith (,) oldParams newParams
+      removed = M.difference oldParams newParams
+      added = M.difference newParams oldParams
+    for_ (M.toList removed) $ \(key, paramItem) -> do
+      let
+        a = Final
+          { compat = Compatible
+          -- Assume removed parameters will be ignored by server
+          , diffOp = Removed
+          , original = paramItem }
+      field @"parameters" <>= final a
+    for_ (M.toList added) $ \(key, paramItem) -> do
+      let
+        a = Final
+          { compat
+          , diffOp = Added
+          , original = paramItem }
+        compat = case _paramRequired paramItem of
+          Just False -> Compatible
+          -- Assume absent optional parameter is OK
+          _ -> Incompatible "Added parameter. Client may not know about it"
+      field @"parameters" <>= final a
+    follow_ $ M.toList common <&> \ (key, (oldParam, newParam)) ->
+      (key, paramsCompatible oldParam newParam)
 
 paramsCompatible :: Param -> Param -> TreeM ParamTree ()
 paramsCompatible = error "FIXME: paramsCompatible not implemented"

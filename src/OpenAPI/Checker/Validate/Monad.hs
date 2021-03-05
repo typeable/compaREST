@@ -37,8 +37,8 @@ instance (Monoid a) => Monoid (OldNew a) where
   mempty = genericMempty
 
 data Env = Env
-  { servers    :: OldNew (Map ServerKey [Server])
-  , parameters :: OldNew (Map ParamKey [Param])
+  { servers    :: OldNew (Map ServerKey Server)
+  , parameters :: OldNew (Map ParamKey Param)
   } deriving (Eq, Generic)
 
 instance Semigroup Env where
@@ -65,6 +65,9 @@ getParamKey p = ParamKey
   , paramIn = _paramIn p
   }
 
+fromParams :: [Param] -> Map ParamKey Param
+fromParams ps = M.fromList $ ps <&> \p -> (getParamKey p, p)
+
 -- | Still not sure what identifies the server
 newtype ServerKey = ServerKey Text
   deriving (Eq, Ord, Show, Generic)
@@ -72,8 +75,8 @@ newtype ServerKey = ServerKey Text
 getServerKey :: Server -> ServerKey
 getServerKey s = ServerKey $ _serverUrl s
 
-fromServers :: [Server] -> Map ServerKey [Server]
-fromServers ss = M.fromListWith (++) $ ss <&> \s -> (getServerKey s, [s])
+fromServers :: [Server] -> Map ServerKey Server
+fromServers ss = M.fromList $ ss <&> \s -> (getServerKey s, s)
 
 data Diff n
   = DiffChanged (Changed n)
