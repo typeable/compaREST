@@ -87,6 +87,7 @@ library
   exposed-modules:  OpenAPI.Checker.Aux
                   , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
+                  , OpenAPI.Checker.Subtree
                   , OpenAPI.Checker.Trace
                   , OpenAPI.Checker.TracePrefixTree
                   , OpenAPI.Checker.Validate
