@@ -42,6 +42,7 @@ common common-options
                      , transformers
                      , yaml
                      , attoparsec
+                     , optparse-applicative
 
   default-extensions: ConstraintKinds
                     , DataKinds
@@ -87,6 +88,7 @@ library
                   , OpenAPI.Checker.Validate
                   , OpenAPI.Checker.Validate.Dereference
                   , OpenAPI.Checker.Validate.Monad
+                  , OpenAPI.Checker.Options
 
 executable openapi-diff
   import:              common-options
