@@ -4,14 +4,20 @@ module OpenAPI.Checker.TracePrefixTree
   , singleton
   , fromList
   , null
+  , foldWith
+  , toList
+  , filter
   ) where
 
-import Prelude hiding (null)
+import qualified GHC.Exts as T
+import Data.Foldable hiding (null, toList)
 import Data.Kind
 import qualified Data.Map as M
+import Data.Monoid
 import qualified Data.Set as S
 import qualified Data.TypeRepMap as T
 import OpenAPI.Checker.Trace
+import Prelude hiding (null, filter)
 
 -- | A list of @AnItem r f@, but optimized into a prefix tree.
 data TracePrefixTree (f :: k -> Type) (r :: k) = TracePrefixTree
@@ -62,3 +68,28 @@ fromList = foldMap singleton
 null :: TracePrefixTree f r -> Bool
 null (TracePrefixTree AnEmptySet s) = T.size s == 0
 null _ = False
+
+foldWith
+  :: forall f m r. Monoid m
+  => (forall a. Ord (f a) => Trace r a -> f a -> m) -> TracePrefixTree f r -> m
+foldWith k = goTPT Root
+  where
+    goTPT :: forall a. Trace r a -> TracePrefixTree f a -> m
+    goTPT xs t = goASet xs (rootItems t) <> goTRM xs (snocItems t)
+    goASet :: forall a. Trace r a -> ASet (f a) -> m
+    goASet _ AnEmptySet = mempty
+    goASet xs (ASet rs) = foldMap (k xs) rs
+    goTRM :: forall a. Trace r a -> T.TypeRepMap (AStep f a) -> m
+    goTRM xs s = foldMap (\(T.WrapTypeable f) -> goAStep xs f) $ T.toList s
+    goAStep :: forall a b. Trace r a -> AStep f a b -> m
+    goAStep xs (AStep m)
+      = M.foldrWithKey (\x t -> (goTPT (Snoc xs x) t <>)) mempty m
+
+toList :: TracePrefixTree f r -> [AnItem f r]
+toList t = appEndo (foldWith (\xs f -> Endo (AnItem xs f:)) t) []
+
+-- | Select a subtree by prefix
+filter :: Trace r a -> TracePrefixTree f r -> TracePrefixTree f a
+filter Root t = t
+filter (Snoc xs x) t = foldMap (\(AStep m) -> fold $ M.lookup x m)
+  $ T.lookup $ snocItems $ filter xs t
