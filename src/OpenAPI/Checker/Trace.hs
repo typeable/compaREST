@@ -14,7 +14,8 @@ module OpenAPI.Checker.Trace
 
 import Control.Lens
 import Data.Kind
-import Data.Typeable
+import Data.Type.Equality
+import Type.Reflection
 
 class (Typeable a, Typeable b, Ord (Step a b))
   => Steppable (a :: k) (b :: k) where
@@ -28,6 +29,35 @@ data Trace (a :: k) (b :: k) where
   Root :: Trace a a
   Snoc :: Steppable b c => Trace a b -> !(Step b c) -> Trace a c
 infixl 5 `Snoc`
+
+typeRepRHS :: Typeable b => Trace a b -> TypeRep b
+typeRepRHS _ = typeRep
+
+typeRepLHS :: Typeable b => Trace a b -> TypeRep a
+typeRepLHS Root = typeRep
+typeRepLHS (Snoc xs _) = typeRepLHS xs
+
+instance TestEquality (Trace a) where
+  testEquality Root Root = Just Refl
+  testEquality Root (Snoc ys _) = testEquality (typeRepLHS ys) typeRep
+  testEquality (Snoc xs _) Root = testEquality typeRep (typeRepLHS xs)
+  testEquality (Snoc _ _) (Snoc _ _) = testEquality typeRep typeRep
+
+instance Eq (Trace a b) where
+  Root == Root = True
+  Snoc xs x == Snoc ys y
+    | Just Refl <- testEquality (typeRepRHS xs) (typeRepRHS ys)
+    = xs == ys && x == y
+  _ == _ = False
+
+instance Ord (Trace a b) where
+  compare Root Root = EQ
+  compare Root (Snoc _ _) = LT
+  compare (Snoc _ _) Root = GT
+  compare (Snoc xs x) (Snoc ys y)
+    = case testEquality (typeRepRHS xs) (typeRepRHS ys) of
+      Just Refl -> compare xs ys <> compare x y
+      Nothing -> compare (someTypeRep xs) (someTypeRep ys)
 
 catTrace :: Trace a b -> Trace b c -> Trace a c
 catTrace xs Root = xs
@@ -49,5 +79,23 @@ _DiffTrace = dimap (\(DiffTrace f) -> f Root)
 data AnItem (f :: k -> Type) (r :: k) where
   AnItem :: Ord (f a) => Trace r a -> !(f a) -> AnItem f r
   -- the Ord is yuck but we need it and it should be fine in monomorphic cases
+
+instance Eq (AnItem f r) where
+  AnItem xs fx == AnItem ys fy
+    | Just Refl <- testEquality xs ys
+    = xs == ys && fx == fy
+  _ == _ = False
+
+instance Typeable r => Ord (AnItem f r) where
+  compare (AnItem xs fx) (AnItem ys fy)
+    = case testEquality xs ys of
+      Just Refl -> compare xs ys <> compare fx fy
+      Nothing -> case xs of
+        Root     -> case ys of
+          Root     -> compare (someTypeRep xs) (someTypeRep ys)
+          Snoc _ _ -> compare (someTypeRep xs) (someTypeRep ys)
+        Snoc _ _ -> case ys of
+          Root     -> compare (someTypeRep xs) (someTypeRep ys)
+          Snoc _ _ -> compare (someTypeRep xs) (someTypeRep ys)
 
 -- type APath = AnItem Proxy

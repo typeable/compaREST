@@ -1,3 +1,4 @@
+{-# LANGUAGE QuantifiedConstraints #-}
 module OpenAPI.Checker.TracePrefixTree
   ( TracePrefixTree
   , empty
@@ -18,12 +19,43 @@ import qualified Data.Set as S
 import qualified Data.TypeRepMap as T
 import OpenAPI.Checker.Trace
 import Prelude hiding (null, filter)
+import Type.Reflection
+import Data.Type.Equality
 
 -- | A list of @AnItem r f@, but optimized into a prefix tree.
 data TracePrefixTree (f :: k -> Type) (r :: k) = TracePrefixTree
     { rootItems :: !(ASet (f r))
     , snocItems :: !(T.TypeRepMap (AStep f r))
     }
+
+deriving instance Eq (TracePrefixTree f a)
+
+-- Kind of orphan. Treat the map as an infinite tuple of @Maybe (f a)@'s, where
+-- the components are ordered by the @SomeTypeRep@ of the @a@.
+compareTRM
+  :: (forall a. Typeable a => Ord (f a))
+  => T.TypeRepMap f -> T.TypeRepMap f -> Ordering
+compareTRM s1 s2
+  = foldMap (\k -> compareMaybe compareW (M.lookup k m1) (M.lookup k m2)) mKeys
+  where
+    (m1, m2) = (toMap s1, toMap s2)
+    mKeys = S.toAscList $ M.keysSet m1 `S.union` M.keysSet m2
+    compareMaybe _   Nothing  Nothing  = EQ
+    compareMaybe _   Nothing  (Just _) = LT
+    compareMaybe _   (Just _) Nothing  = GT
+    compareMaybe cmp (Just x) (Just y) = cmp x y
+    compareW
+      :: (forall a. Typeable a => Ord (f a))
+      => T.WrapTypeable f -> T.WrapTypeable f -> Ordering
+    compareW (T.WrapTypeable (x :: f a)) (T.WrapTypeable (y :: f b))
+      | Just Refl <- testEquality (typeRep @a) (typeRep @b) = compare x y
+      | otherwise = EQ -- unreachable
+    toMap s = M.fromList
+      [(someTypeRep x, w) | w@(T.WrapTypeable x) <- T.toList s]
+
+instance Ord (TracePrefixTree f a) where
+  compare (TracePrefixTree r1 s1) (TracePrefixTree r2 s2)
+    = compare r1 r2 <> compareTRM s1 s2
 
 data ASet (a :: Type) where
   AnEmptySet :: ASet a
@@ -34,6 +66,9 @@ instance Semigroup (ASet a) where
   s <> AnEmptySet = s
   ASet s1 <> ASet s2 = ASet $ S.union s1 s2
 
+deriving instance Eq (ASet a)
+deriving instance Ord (ASet a)
+
 -- type traceprefixset = traceprefixtree proxy
 
 instance Monoid (ASet a) where
@@ -42,6 +77,9 @@ instance Monoid (ASet a) where
 data AStep (f :: k -> Type) (r :: k) (a :: k) where
   AStep
     :: Steppable r a => !(M.Map (Step r a) (TracePrefixTree f a)) -> AStep f r a
+
+deriving instance Eq (AStep f r a)
+deriving instance Ord (AStep f r a)
 
 singleton :: AnItem f r -> TracePrefixTree f r
 singleton (AnItem ys v) = go ys $ TracePrefixTree (ASet $ S.singleton v) T.empty
