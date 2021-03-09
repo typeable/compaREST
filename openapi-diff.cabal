@@ -43,6 +43,8 @@ common common-options
                      , yaml
                      , attoparsec
                      , optparse-applicative
+                     , generic-data
+                     , generic-lens
 
   default-extensions: ConstraintKinds
                     , DataKinds

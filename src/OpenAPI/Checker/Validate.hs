@@ -79,8 +79,10 @@ operationsCompatible
   -> Operation
   -> TreeM OperationTree ()
 operationsCompatible old new = do
-  oldParams <- traverse dereferenceParam $ _operationParameters old
-  newParams <- traverse dereferenceParam $ _operationParameters new
+  -- There seems to be some weirdness with an Error instance being required for some reason.
+  -- Since it doesn't work anyways, this should be fine for now.
+  oldParams <- maybe undefined pure $ traverse (dereferenceParam undefined) $ _operationParameters old
+  newParams <- maybe undefined pure $ traverse (dereferenceParam undefined) $ _operationParameters new
   let
     newPMap = M.fromList $ newParams <&> \p -> (getParamKey p, p)
     checkParam pkey oldP = case M.lookup pkey newPMap of
