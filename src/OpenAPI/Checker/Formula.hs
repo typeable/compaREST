@@ -14,12 +14,19 @@ import qualified OpenAPI.Checker.TracePrefixTree as T
 
 type VarRef = Int
 
+-- | The type @FormulaF f r ()@ describes (modulo contents of errors) boolean
+-- formulas involving variables, conjunctions, and disjunctions. These
+-- operations (and the generated algebra) are monotonous. This ensures that
+-- there always exist fixpoints, i.e. that @x = f x@ has at least one solution.
 data FormulaF (f :: k -> Type) (r :: k) (a :: Type) where
   Result :: a -> FormulaF f r a
   Errors :: !(T.TracePrefixTree f r) -> FormulaF f r a
+    -- ^ invariant: never empty
   Apply :: FormulaF f r (b -> c) -> FormulaF f r b -> (c -> a) -> FormulaF f r a
+    -- ^ invariant: LHS and RHS are never 'Result' nor 'Errors'
   SelectFirst :: NE.NonEmpty (FormulaF f r b)
     -> !(AnItem f r) -> (b -> a) -> FormulaF f r a
+    -- ^ invariant: the list doesn't contain any 'Result's or 'Errors'.
   Variable :: !VarRef -> FormulaF f r a
 
 anError :: AnItem f r -> FormulaF f r a
@@ -39,17 +46,16 @@ instance Applicative (FormulaF f r) where
   Errors e1 <*> Errors e2 = Errors (e1 <> e2)
   f <*> x = Apply f x id
 
-anyOf :: NE.NonEmpty (FormulaF f r a) -> AnItem f r -> FormulaF f r a
+anyOf :: [FormulaF f r a] -> AnItem f r -> FormulaF f r a
 anyOf fs allE = case foldMap check fs of
-  (First (Just x), _, _) -> Result x
-  (First Nothing, (x:xs), _) -> SelectFirst (x NE.:| xs) allE id
-  (First Nothing, [], All True) -> Errors $ T.singleton allE
-  (First Nothing, [], All False) -> error "unreachable"
+  (First (Just x), _) -> Result x
+  (First Nothing, (x:xs)) -> SelectFirst (x NE.:| xs) allE id
+  (First Nothing, []) -> Errors $ T.singleton allE
   where
-    check (Result x) = (First (Just x), mempty, mempty)
-    check (Errors _) = (mempty, mempty, All True)
-    check (SelectFirst xs _ h) = (mempty, NE.toList (fmap (fmap h) xs), mempty)
-    check x = (mempty, [x], mempty)
+    check (Result x) = (First (Just x), mempty)
+    check (Errors _) = (mempty, mempty)
+    check (SelectFirst xs _ h) = (mempty, NE.toList (fmap (fmap h) xs))
+    check x = (mempty, [x])
 
 calculate :: FormulaF f r a -> Either (T.TracePrefixTree f r) a
 calculate (Result x) = Right x
