@@ -1,14 +1,10 @@
 module OpenAPI.Checker.Validate where
 
-import           Control.Monad
 import           Control.Monad.Reader
 import           Data.Functor
 import           Data.HashMap.Strict.InsOrd           as InsMap
-import           Data.HashSet.InsOrd                  as InsSet
 import           Data.Map.Strict                      as M
 import           Data.OpenApi
-import           Data.OpenApi.Internal
-import           Data.Traversable
 import           OpenAPI.Checker.Aux
 import           OpenAPI.Checker.Report
 import           OpenAPI.Checker.Validate.Dereference

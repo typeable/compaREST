@@ -45,6 +45,10 @@ common common-options
                      , optparse-applicative
                      , generic-data
                      , generic-lens
+                     , scientific
+                     , unordered-containers
+                     , vector
+                     , http-media
 
   default-extensions: ConstraintKinds
                     , DataKinds
@@ -91,6 +95,7 @@ library
                   , OpenAPI.Checker.Validate.Dereference
                   , OpenAPI.Checker.Validate.Monad
                   , OpenAPI.Checker.Options
+                  , OpenAPI.Orphans
 
 executable openapi-diff
   import:              common-options
