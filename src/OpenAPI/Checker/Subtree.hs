@@ -8,15 +8,17 @@ module OpenAPI.Checker.Subtree
   , local'
   , issueAtTrace
   , issueAt
+  , memo
   ) where
 
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.State
+import Data.Functor.Compose
 import Data.Kind
 import Data.OpenApi
 import Data.Text
-import Data.Functor.Compose
+import Data.Typeable
 import OpenAPI.Checker.Formula
 import OpenAPI.Checker.Memo
 import OpenAPI.Checker.Trace
@@ -43,18 +45,20 @@ data TracedEnv t = TracedEnv
 newtype CompatM t a = CompatM
   { unCompatM ::
     ReaderT (ProdCons (TracedEnv t))
-      (StateT MemoState Identity) a
+      (StateT (MemoState VarRef) Identity) a
   } deriving newtype
     ( Functor, Applicative, Monad
     , MonadReader (ProdCons (TracedEnv t))
-    , MonadState MemoState
+    , MonadState (MemoState VarRef)
     )
 
 type CompatFormula t = Compose (CompatM t) (FormulaF CheckIssue OpenApi)
 
-class (Ord t, Ord (CheckIssue t)) => Subtree (t :: Type) where
+class (Typeable t, Ord t, Ord (CheckIssue t)) => Subtree (t :: Type) where
   type family CheckEnv t :: Type
   data family CheckIssue t :: Type
+  -- | If we ever followed a reference, reroute the path through "components"
+  normalizeTrace :: Trace OpenApi t -> Trace OpenApi t
   checkCompatibility :: ProdCons t -> CompatFormula t ()
 
 runCompatFormula
@@ -62,7 +66,7 @@ runCompatFormula
   -> Compose (CompatM t) (FormulaF f r) a
   -> Either (T.TracePrefixTree f r) a
 runCompatFormula env (Compose f)
-  = calculate . runIdentity . runMemo . (`runReaderT` env) . unCompatM $ f
+  = calculate . runIdentity . runMemo 0 . (`runReaderT` env) . unCompatM $ f
 
 localM
   :: ProdCons (Trace a b)
@@ -93,3 +97,8 @@ issueAt
 issueAt f issue = Compose $ do
   xs <- asks $ getTrace . f
   pure $ anError $ AnItem xs issue
+
+memo :: (Subtree t, Typeable a) => CompatFormula t a -> CompatFormula t a
+memo (Compose f) = Compose $ do
+  pxs <- asks (normalizeTrace . getTrace <$>)
+  memoWithKnot unknot f pxs

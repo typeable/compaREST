@@ -1,5 +1,6 @@
 module OpenAPI.Checker.Formula
   ( FormulaF
+  , VarRef
   , anyOf
   , anError
   , calculate

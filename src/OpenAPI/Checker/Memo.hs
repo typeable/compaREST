@@ -1,70 +1,125 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 -- | Utilities for effectfully memoizing other, more effectful functions.
 module OpenAPI.Checker.Memo
-  ( Progress(..)
-  , MonadMemo
+  ( MonadMemo
   , MemoState
   , runMemo
-  , tryMemo
-  , tryMemoWithTag
+  , modifyMemoNonce
+  , KnotTier(..)
+  , unknot
+  , memoWithKnot
+  , memoTaggedWithKnot
   ) where
 
 import Control.Monad.State
+import Data.Dynamic
 import qualified Data.Map as M
 import Data.Tagged
+import Data.Void
 import qualified Data.TypeRepMap as T
 import Type.Reflection
 
--- | A computation has either 'Finished', or it is 'InProgress'.
-data Progress a = Finished a | InProgress
-  deriving (Eq, Ord, Show)
+data Progress a = Finished a | Started | TyingKnot Dynamic
 
 data MemoMap a where
   MemoMap :: !(M.Map k (Progress v)) -> MemoMap (k, v)
 
-newtype MemoState = MemoState (T.TypeRepMap MemoMap)
+data MemoState s = MemoState s (T.TypeRepMap MemoMap)
 
 -- | An effectful memoization monad.
-type MonadMemo m = MonadState MemoState m
+type MonadMemo s m = MonadState (MemoState s) m
 
 memoStateLookup
-  :: forall k v. (Typeable k, Typeable v, Ord k)
-  => k -> MemoState -> Maybe (Progress v)
-memoStateLookup k (MemoState t) = case T.lookup @(k, v) t of
+  :: forall k v s. (Typeable k, Typeable v, Ord k)
+  => k -> MemoState s -> Maybe (Progress v)
+memoStateLookup k (MemoState _ t) = case T.lookup @(k, v) t of
   Just (MemoMap m) -> M.lookup k m
   Nothing -> Nothing
 
 memoStateInsert
-  :: forall k v. (Typeable k, Typeable v, Ord k)
-  => k -> Progress v -> MemoState -> MemoState
-memoStateInsert k x (MemoState t) = MemoState $ T.insert (MemoMap m'') t
+  :: forall k v s. (Typeable k, Typeable v, Ord k)
+  => k -> Progress v -> MemoState s -> MemoState s
+memoStateInsert k x (MemoState s t) = MemoState s $ T.insert (MemoMap m'') t
   where
     m'' = M.insert k x m'
     m' = case T.lookup @(k, v) t of
       Just (MemoMap m) -> m
       Nothing -> M.empty
 
--- | Run a memoized computation.
-runMemo :: Monad m => StateT MemoState m a -> m a
-runMemo = (`evalStateT` MemoState T.empty)
+modifyMemoNonce :: MonadMemo s m => (s -> s) -> m s
+modifyMemoNonce f = do
+  MemoState s t <- get
+  put $ MemoState (f s) t
+  pure s
 
--- | Try to call a function whilst memoizing its result. If we are already
--- inside an evaluation of some function with these arguments, this returns
--- @InProgress@. Beware of different functions that have the same type.
-tryMemo
-  :: forall k v m. (Typeable k, Typeable v, Ord k, MonadMemo m)
-  => (k -> m v) -> k -> m (Progress v)
-tryMemo f k = memoStateLookup k <$> get >>= \case
-  Just x -> pure x
+-- | Run a memoized computation.
+runMemo :: Monad m => s -> StateT (MemoState s) m a -> m a
+runMemo s = (`evalStateT` MemoState s T.empty)
+
+-- | A description of how to effectfully tie knots in type @v@, using the @m@
+-- monad, and by sharing some @d@ data among the recursive instances.
+data KnotTier v d m = KnotTier
+  { onKnotFound :: m d -- ^ Create some data that will be connected to this knot
+  , onKnotUsed :: d -> m v -- ^ This is what the knot will look like as a value
+    -- to the inner computations
+  , tieKnot :: d -> v -> m v -- ^ Once we're done and we're outside, tie the
+    -- knot using the datum
+  }
+
+unknot :: KnotTier v Void m
+unknot = KnotTier
+  { onKnotFound = error "Recursion detected"
+  , onKnotUsed = absurd
+  , tieKnot = absurd
+  }
+
+-- | Run a potentially recursive computation. The provided key will be used to
+-- refer to the result of this computation. If during the computation, another
+-- attempt to run the computation with the same key is made, we run a
+-- tying-the-knot procedure.
+--
+-- If another attempt to run the computation with the same key is made
+-- *after we're done*, we will return the memoized value.
+memoWithKnot
+  :: forall k v d m s.
+    (Typeable k, Typeable v, Typeable d, Ord k, MonadMemo s m)
+  => KnotTier v d m
+  -> m v -- ^ the computation to memoize
+  -> k -- ^ key for memoization
+  -> m v
+memoWithKnot tier f k = memoStateLookup @k @v k <$> get >>= \case
+  Just (Finished v) -> pure v
+  Just Started -> do
+    d <- onKnotFound tier
+    modify $ memoStateInsert @k @v k (TyingKnot $ toDyn d)
+    onKnotUsed tier d
+  Just (TyingKnot dyn) -> case fromDynamic dyn of
+    Just d -> onKnotUsed tier d
+    Nothing -> error $ "Type mismatch when examining the knot of "
+      <> show (typeRep @(k -> v)) <> ": expected " <> show (typeRep @d)
+      <> ", got " <> show (dynTypeRep dyn)
   Nothing -> do
-    modify $ memoStateInsert k (InProgress @v)
-    result <- Finished <$> f k
-    modify $ memoStateInsert k result
-    pure result
+    modify $ memoStateInsert @k @v k Started
+    v <- f
+    v' <- memoStateLookup @k @v k <$> get >>= \case
+      Just Started -> pure v
+      Just (TyingKnot dyn) -> case fromDynamic dyn of
+        Just d -> tieKnot tier d v
+        Nothing -> error $ "Type mismatch when tying the knot of "
+          <> show (typeRep @(k -> v)) <> ": expected " <> show (typeRep @d)
+          <> ", got " <> show (dynTypeRep dyn)
+      Just (Finished _) -> error $ "Unexpected Finished when memoizing "
+          <> show (typeRep @(k -> v))
+      Nothing -> error $ "No key found when memoizing "
+          <> show (typeRep @(k -> v))
+    modify $ memoStateInsert @k @v k (Finished v')
+    pure v'
 
 -- | Disambiguate memoized computations with an arbitrary tag.
-tryMemoWithTag
-  :: forall t k v m. (Typeable t, Typeable k, Typeable v, Ord k, MonadMemo m)
-  => (k -> m v) -> k -> m (Progress v)
-tryMemoWithTag f k = withTypeable (typeRepKind $ typeRep @t) $
-  tryMemo (f . unTagged) (Tagged @t k)
+memoTaggedWithKnot
+  :: forall t k v d m s.
+    ( Typeable t, Typeable k, Typeable v, Typeable d
+    , Ord k, MonadMemo s m )
+  => KnotTier v d m -> m v -> k -> m v
+memoTaggedWithKnot tier f k = withTypeable (typeRepKind $ typeRep @t) $
+  memoWithKnot tier f (Tagged @t k)
