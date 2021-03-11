@@ -16,7 +16,9 @@ runChecker = do
             putStrLn $ "Failed to parse: " ++ path
             fail e
           Right s -> uniqRefs (_openApiComponents s) s
-  (_, a) <- parseSchema (clientFile opts)
-  (_, b) <- parseSchema (serverFile opts)
-  let report = reportCompat a b
+  (aComponents, a) <- parseSchema (clientFile opts)
+  (bComponents, b) <- parseSchema (serverFile opts)
+  let -- Contains components from both schemas
+      allComponents = aComponents <> bComponents
+      report = reportCompat a b
   printReport report
