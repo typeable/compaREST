@@ -43,8 +43,11 @@ common common-options
                      , yaml
                      , attoparsec
                      , optparse-applicative
+                     , typerep-map
+                     , tagged
 
-  default-extensions: ConstraintKinds
+  default-extensions: BangPatterns
+                    , ConstraintKinds
                     , DataKinds
                     , DeriveAnyClass
                     , DeriveFoldable
@@ -83,8 +86,12 @@ library
   import:              common-options
   hs-source-dirs:      src
   exposed-modules:  OpenAPI.Checker.Aux
+                  , OpenAPI.Checker.Memo
                   , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
+                  , OpenAPI.Checker.Subtree
+                  , OpenAPI.Checker.Trace
+                  , OpenAPI.Checker.TracePrefixTree
                   , OpenAPI.Checker.Validate
                   , OpenAPI.Checker.Validate.Dereference
                   , OpenAPI.Checker.Validate.Monad
