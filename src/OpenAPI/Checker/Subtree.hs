@@ -2,27 +2,22 @@ module OpenAPI.Checker.Subtree
   ( APIStep(..)
   , Subtree(..)
   , CompatM(..)
-  , runCompatM
+  , CompatFormula
+  , runCompatFormula
+  , localM
   , local'
-  , warnIssue
-  , throwIssue
-  , warnIssueAt
-  , throwIssueAt
-  , throwWarnings
-  , warnIssues
+  , issueAtTrace
+  , issueAt
   ) where
 
-import Control.Monad.Error.Class
 import Control.Monad.Identity
-import Control.Monad.Reader.Class
-import Control.Monad.Trans.Except (ExceptT, runExceptT)
-import Control.Monad.Trans.Reader (ReaderT(..))
-import Control.Monad.Trans.State (StateT)
-import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT)
-import Control.Monad.Writer.Class
+import Control.Monad.Reader
+import Control.Monad.State
 import Data.Kind
 import Data.OpenApi
 import Data.Text
+import Data.Functor.Compose
+import OpenAPI.Checker.Formula
 import OpenAPI.Checker.Memo
 import OpenAPI.Checker.Trace
 import qualified OpenAPI.Checker.TracePrefixTree as T
@@ -48,64 +43,53 @@ data TracedEnv t = TracedEnv
 newtype CompatM t a = CompatM
   { unCompatM ::
     ReaderT (ProdCons (TracedEnv t))
-      (ExceptT (T.TracePrefixTree CheckIssue OpenApi)
-        (WriterT (T.TracePrefixTree CheckIssue OpenApi)
-          (StateT MemoState Identity))) a
+      (StateT MemoState Identity) a
   } deriving newtype
     ( Functor, Applicative, Monad
     , MonadReader (ProdCons (TracedEnv t))
-    , MonadError (T.TracePrefixTree CheckIssue OpenApi)
-    , MonadWriter (T.TracePrefixTree CheckIssue OpenApi)
+    , MonadState MemoState
     )
+
+type CompatFormula t = Compose (CompatM t) (FormulaF CheckIssue OpenApi)
 
 class (Ord t, Ord (CheckIssue t)) => Subtree (t :: Type) where
   type family CheckEnv t :: Type
   data family CheckIssue t :: Type
-  checkCompatibility :: ProdCons t -> CompatM t a
+  checkCompatibility :: ProdCons t -> CompatFormula t ()
 
-runCompatM :: ProdCons (TracedEnv t) -> CompatM t a ->
-  ( Either (T.TracePrefixTree CheckIssue OpenApi) a -- unrecovarable errors
-  , T.TracePrefixTree CheckIssue OpenApi ) -- warnings
-runCompatM env = runIdentity . runMemo . runWriterT
-  . runExceptT . (`runReaderT` env) . unCompatM
+runCompatFormula
+  :: ProdCons (TracedEnv t)
+  -> Compose (CompatM t) (FormulaF f r) a
+  -> Either (T.TracePrefixTree f r) a
+runCompatFormula env (Compose f)
+  = calculate . runIdentity . runMemo . (`runReaderT` env) . unCompatM $ f
 
-local'
+localM
   :: ProdCons (Trace a b)
   -> (ProdCons (CheckEnv a) -> ProdCons (CheckEnv b))
   -> CompatM b x
   -> CompatM a x
-local' xs wrapEnv (CompatM k) = CompatM $ ReaderT $ \env ->
+localM xs wrapEnv (CompatM k) = CompatM $ ReaderT $ \env ->
   runReaderT k $ TracedEnv
     <$> (catTrace <$> (getTrace <$> env) <*> xs)
     <*> wrapEnv (getEnv <$> env)
 
-warnIssue :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatM t ()
-warnIssue xs issue = tell $ T.singleton $ AnItem xs issue
+local'
+  :: ProdCons (Trace a b)
+  -> (ProdCons (CheckEnv a) -> ProdCons (CheckEnv b))
+  -> Compose (CompatM b) (FormulaF f r) x
+  -> Compose (CompatM a) (FormulaF f r) x
+local' xs wrapEnv (Compose h) = Compose (localM xs wrapEnv h)
 
-throwIssue :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatM t a
-throwIssue xs issue = throwError $ T.singleton $ AnItem xs issue
+issueAtTrace
+  :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula t a
+issueAtTrace xs issue = Compose $ pure $ anError $ AnItem xs issue
 
-warnIssueAt
+issueAt
   :: Subtree t
   => (forall x. ProdCons x -> x)
   -> CheckIssue t
-  -> CompatM t ()
-warnIssueAt f issue = do
+  -> CompatFormula t a
+issueAt f issue = Compose $ do
   xs <- asks $ getTrace . f
-  warnIssue xs issue
-
-throwIssueAt
-  :: Subtree t
-  => (forall x. ProdCons x -> x)
-  -> CheckIssue t
-  -> CompatM t a
-throwIssueAt f issue = do
-  xs <- asks $ getTrace . f
-  throwIssue xs issue
-
-throwWarnings :: CompatM t a -> CompatM t a
-throwWarnings k = listen k >>= \case
-  (x, issues) -> if T.null issues then pure x else throwError issues
-
-warnIssues :: CompatM t a -> CompatM t (Maybe a)
-warnIssues k = catchError (Just <$> k) (\issues -> Nothing <$ tell issues)
+  pure $ anError $ AnItem xs issue
