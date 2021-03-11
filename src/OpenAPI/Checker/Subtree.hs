@@ -1,7 +1,8 @@
 module OpenAPI.Checker.Subtree
   ( APIStep(..)
-  , CompatibilityMonad
   , Subtree(..)
+  , CompatM(..)
+  , runCompatM
   , local'
   , warnIssue
   , throwIssue
@@ -12,24 +13,23 @@ module OpenAPI.Checker.Subtree
   ) where
 
 import Control.Monad.Error.Class
+import Control.Monad.Identity
 import Control.Monad.Reader.Class
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Reader hiding (ask, asks)
+import Control.Monad.Trans.Except (ExceptT, runExceptT)
+import Control.Monad.Trans.Reader (ReaderT(..))
+import Control.Monad.Trans.State (StateT)
+import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT)
 import Control.Monad.Writer.Class
 import Data.Kind
 import Data.OpenApi
 import Data.Text
+import OpenAPI.Checker.Memo
 import OpenAPI.Checker.Trace
 import qualified OpenAPI.Checker.TracePrefixTree as T
 
 class (Subtree a, Subtree b, Steppable a b)
   => APIStep (a :: Type) (b :: Type) where
   describeStep :: Step a b -> Text
-
-type CompatibilityMonad m =
-  ( MonadWriter (T.TracePrefixTree CheckIssue OpenApi) m
-  , MonadError (T.TracePrefixTree CheckIssue OpenApi) m
-  )
 
 data ProdCons a = ProdCons
   { producer :: a
@@ -45,56 +45,67 @@ data TracedEnv t = TracedEnv
   , getEnv :: CheckEnv t
   }
 
-class Ord (CheckIssue t) => Subtree (t :: Type) where
+newtype CompatM t a = CompatM
+  { unCompatM ::
+    ReaderT (ProdCons (TracedEnv t))
+      (ExceptT (T.TracePrefixTree CheckIssue OpenApi)
+        (WriterT (T.TracePrefixTree CheckIssue OpenApi)
+          (StateT MemoState Identity))) a
+  } deriving newtype
+    ( Functor, Applicative, Monad
+    , MonadReader (ProdCons (TracedEnv t))
+    , MonadError (T.TracePrefixTree CheckIssue OpenApi)
+    , MonadWriter (T.TracePrefixTree CheckIssue OpenApi)
+    )
+
+class (Ord t, Ord (CheckIssue t)) => Subtree (t :: Type) where
   type family CheckEnv t :: Type
   data family CheckIssue t :: Type
-  checkCompatibility
-    :: CompatibilityMonad m
-    => ProdCons t -> ReaderT (ProdCons (TracedEnv t)) m ()
+  checkCompatibility :: ProdCons t -> CompatM t a
+
+runCompatM :: ProdCons (TracedEnv t) -> CompatM t a ->
+  ( Either (T.TracePrefixTree CheckIssue OpenApi) a -- unrecovarable errors
+  , T.TracePrefixTree CheckIssue OpenApi ) -- warnings
+runCompatM env = runIdentity . runMemo . runWriterT
+  . runExceptT . (`runReaderT` env) . unCompatM
 
 local'
-  :: Monad m
-  => ProdCons (Trace a b)
+  :: ProdCons (Trace a b)
   -> (ProdCons (CheckEnv a) -> ProdCons (CheckEnv b))
-  -> ReaderT (ProdCons (TracedEnv b)) m x
-  -> ReaderT (ProdCons (TracedEnv a)) m x
-local' xs wrapEnv k = do
-  env <- ask
-  lift $ runReaderT k $ TracedEnv
+  -> CompatM b x
+  -> CompatM a x
+local' xs wrapEnv (CompatM k) = CompatM $ ReaderT $ \env ->
+  runReaderT k $ TracedEnv
     <$> (catTrace <$> (getTrace <$> env) <*> xs)
     <*> wrapEnv (getEnv <$> env)
 
-warnIssue
-  :: (Subtree t, CompatibilityMonad m)
-  => Trace OpenApi t -> CheckIssue t -> m ()
+warnIssue :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatM t ()
 warnIssue xs issue = tell $ T.singleton $ AnItem xs issue
 
-throwIssue
-  :: (Subtree t, CompatibilityMonad m)
-  => Trace OpenApi t -> CheckIssue t -> m a
+throwIssue :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatM t a
 throwIssue xs issue = throwError $ T.singleton $ AnItem xs issue
 
 warnIssueAt
-  :: (Subtree t, CompatibilityMonad m)
+  :: Subtree t
   => (forall x. ProdCons x -> x)
   -> CheckIssue t
-  -> ReaderT (ProdCons (TracedEnv t)) m ()
+  -> CompatM t ()
 warnIssueAt f issue = do
   xs <- asks $ getTrace . f
   warnIssue xs issue
 
 throwIssueAt
-  :: (Subtree t, CompatibilityMonad m)
+  :: Subtree t
   => (forall x. ProdCons x -> x)
   -> CheckIssue t
-  -> ReaderT (ProdCons (TracedEnv t)) m a
+  -> CompatM t a
 throwIssueAt f issue = do
   xs <- asks $ getTrace . f
   throwIssue xs issue
 
-throwWarnings :: CompatibilityMonad m => m a -> m a
+throwWarnings :: CompatM t a -> CompatM t a
 throwWarnings k = listen k >>= \case
   (x, issues) -> if T.null issues then pure x else throwError issues
 
-warnIssues :: CompatibilityMonad m => m a -> m (Maybe a)
+warnIssues :: CompatM t a -> CompatM t (Maybe a)
 warnIssues k = catchError (Just <$> k) (\issues -> Nothing <$ tell issues)
