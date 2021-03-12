@@ -6,6 +6,7 @@ module OpenAPI.Checker.Subtree
   , runCompatFormula
   , localM
   , local'
+  , anyOfM
   , issueAtTrace
   , issueAt
   , memo
@@ -90,7 +91,24 @@ issueAt f issue = Compose $ do
   xs <- asks f
   pure $ anError $ AnItem xs issue
 
-memo :: (Subtree t, Typeable a) => CompatFormula t a -> CompatFormula t a
+anyOfM
+  :: Ord (f t)
+  => Trace r t -> f t
+  -> [Compose (CompatM t) (FormulaF f r) a]
+  -> Compose (CompatM t) (FormulaF f r) a
+anyOfM xs issue fs
+  = Compose $ (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
+
+fixpointKnot
+  :: MonadState (MemoState VarRef) m
+  => KnotTier (FormulaF f r ()) VarRef m
+fixpointKnot = KnotTier
+  { onKnotFound = modifyMemoNonce succ
+  , onKnotUsed = \i -> pure $ variable i
+  , tieKnot = \i x -> pure $ maxFixpoint i x
+  }
+
+memo :: Subtree t => CompatFormula t () -> CompatFormula t ()
 memo (Compose f) = Compose $ do
   pxs <- asks (fmap normalizeTrace)
-  memoWithKnot unknot f pxs
+  memoWithKnot fixpointKnot f pxs
