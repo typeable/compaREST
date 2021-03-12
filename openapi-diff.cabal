@@ -97,6 +97,7 @@ library
                   , OpenAPI.Checker.Validate.Dereference
                   , OpenAPI.Checker.Validate.Monad
                   , OpenAPI.Checker.Options
+                  , Data.HList
 
 executable openapi-diff
   import:              common-options

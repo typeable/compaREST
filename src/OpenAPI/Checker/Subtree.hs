@@ -16,6 +16,7 @@ import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Functor.Compose
+import Data.HList
 import Data.Kind
 import Data.OpenApi
 import Data.Text
@@ -38,32 +39,27 @@ instance Applicative ProdCons where
   pure x = ProdCons x x
   ProdCons fp fc <*> ProdCons xp xc = ProdCons (fp xp) (fc xc)
 
-data TracedEnv t = TracedEnv
-  { getTrace :: Trace OpenApi t
-  , getEnv :: CheckEnv t
-  }
-
 newtype CompatM t a = CompatM
   { unCompatM ::
-    ReaderT (ProdCons (TracedEnv t))
+    ReaderT (ProdCons (Trace OpenApi t))
       (StateT (MemoState VarRef) Identity) a
   } deriving newtype
     ( Functor, Applicative, Monad
-    , MonadReader (ProdCons (TracedEnv t))
+    , MonadReader (ProdCons (Trace OpenApi t))
     , MonadState (MemoState VarRef)
     )
 
 type CompatFormula t = Compose (CompatM t) (FormulaF CheckIssue OpenApi)
 
 class (Typeable t, Ord t, Ord (CheckIssue t)) => Subtree (t :: Type) where
-  type family CheckEnv t :: Type
+  type family CheckEnv t :: [Type]
   data family CheckIssue t :: Type
   -- | If we ever followed a reference, reroute the path through "components"
   normalizeTrace :: Trace OpenApi t -> Trace OpenApi t
-  checkCompatibility :: ProdCons t -> CompatFormula t ()
+  checkCompatibility :: HasAll (CheckEnv t) xs => HList xs -> ProdCons t -> CompatFormula t ()
 
 runCompatFormula
-  :: ProdCons (TracedEnv t)
+  :: ProdCons (Trace OpenApi t)
   -> Compose (CompatM t) (FormulaF f r) a
   -> Either (T.TracePrefixTree f r) a
 runCompatFormula env (Compose f)
@@ -71,20 +67,16 @@ runCompatFormula env (Compose f)
 
 localM
   :: ProdCons (Trace a b)
-  -> (ProdCons (CheckEnv a) -> ProdCons (CheckEnv b))
   -> CompatM b x
   -> CompatM a x
-localM xs wrapEnv (CompatM k) = CompatM $ ReaderT $ \env ->
-  runReaderT k $ TracedEnv
-    <$> (catTrace <$> (getTrace <$> env) <*> xs)
-    <*> wrapEnv (getEnv <$> env)
+localM xs (CompatM k) = 
+  CompatM $ ReaderT $ \env -> runReaderT k (catTrace <$> env <*> xs)
 
 local'
   :: ProdCons (Trace a b)
-  -> (ProdCons (CheckEnv a) -> ProdCons (CheckEnv b))
   -> Compose (CompatM b) (FormulaF f r) x
   -> Compose (CompatM a) (FormulaF f r) x
-local' xs wrapEnv (Compose h) = Compose (localM xs wrapEnv h)
+local' xs (Compose h) = Compose (localM xs h)
 
 issueAtTrace
   :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula t a
@@ -96,7 +88,7 @@ issueAt
   -> CheckIssue t
   -> CompatFormula t a
 issueAt f issue = Compose $ do
-  xs <- asks $ getTrace . f
+  xs <- asks f
   pure $ anError $ AnItem xs issue
 
 anyOfM
@@ -118,5 +110,5 @@ fixpointKnot = KnotTier
 
 memo :: Subtree t => CompatFormula t () -> CompatFormula t ()
 memo (Compose f) = Compose $ do
-  pxs <- asks (normalizeTrace . getTrace <$>)
+  pxs <- asks (fmap normalizeTrace)
   memoWithKnot fixpointKnot f pxs
