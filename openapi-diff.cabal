@@ -86,6 +86,7 @@ library
   import:              common-options
   hs-source-dirs:      src
   exposed-modules:  OpenAPI.Checker.Aux
+                  , OpenAPI.Checker.Formula
                   , OpenAPI.Checker.Memo
                   , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run

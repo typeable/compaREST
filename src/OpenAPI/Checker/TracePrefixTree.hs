@@ -24,9 +24,9 @@ import Data.Type.Equality
 
 -- | A list of @AnItem r f@, but optimized into a prefix tree.
 data TracePrefixTree (f :: k -> Type) (r :: k) = TracePrefixTree
-    { rootItems :: !(ASet (f r))
-    , snocItems :: !(T.TypeRepMap (AStep f r))
-    }
+  { rootItems :: !(ASet (f r))
+  , snocItems :: !(T.TypeRepMap (AStep f r))
+  }
 
 deriving instance Eq (TracePrefixTree f a)
 
