@@ -15,6 +15,7 @@ import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Functor.Compose
+import Data.HList
 import Data.Kind
 import Data.OpenApi
 import Data.Text
@@ -50,11 +51,11 @@ newtype CompatM t a = CompatM
 type CompatFormula t = Compose (CompatM t) (FormulaF CheckIssue OpenApi)
 
 class (Typeable t, Ord t, Ord (CheckIssue t)) => Subtree (t :: Type) where
-  type family CheckEnv t :: Type
+  type family CheckEnv t :: [Type]
   data family CheckIssue t :: Type
   -- | If we ever followed a reference, reroute the path through "components"
   normalizeTrace :: Trace OpenApi t -> Trace OpenApi t
-  checkCompatibility :: CheckEnv t -> ProdCons t -> CompatFormula t ()
+  checkCompatibility :: HasAll (CheckEnv t) xs => HList xs -> ProdCons t -> CompatFormula t ()
 
 runCompatFormula
   :: ProdCons (Trace OpenApi t)
