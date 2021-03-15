@@ -3,6 +3,7 @@ module Data.HList
     HasAll,
     getH,
     HList (..),
+    singletonH,
   )
 where
 
@@ -37,3 +38,6 @@ instance
   Has' x '[] 'False
   where
   getH HNil = undefined
+
+singletonH :: a -> HList '[a]
+singletonH a = a `HCons` HNil

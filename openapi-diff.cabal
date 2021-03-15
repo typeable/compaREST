@@ -45,6 +45,7 @@ common common-options
                      , optparse-applicative
                      , typerep-map
                      , tagged
+                     , generic-data
 
   default-extensions: BangPatterns
                     , ConstraintKinds
@@ -81,6 +82,8 @@ common common-options
                     , TypeOperators
                     , UndecidableInstances
                     , ViewPatterns
+                    , ApplicativeDo
+                    , EmptyDataDeriving
 
 library
   import:              common-options
@@ -97,7 +100,11 @@ library
                   , OpenAPI.Checker.Validate.Dereference
                   , OpenAPI.Checker.Validate.Monad
                   , OpenAPI.Checker.Options
+                  , OpenAPI.Checker.Validate.PathFragment
                   , Data.HList
+                  , OpenAPI.Checker.Orphans
+                  , OpenAPI.Checker.Validate.OpenApi
+                  , OpenAPI.Checker.Validate.PathItem
 
 executable openapi-diff
   import:              common-options

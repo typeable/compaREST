@@ -42,7 +42,7 @@ mkApply f x h = Apply f x h
 mkSelectFirst :: [SomeFormulaF b] -> AnItem f r -> (b -> a) -> FormulaF f r a
 mkSelectFirst fs allE h = case foldMap check fs of
   (First (Just x), _) -> Result (h x)
-  (First Nothing, (x:xs)) -> SelectFirst (x NE.:| xs) allE h
+  (First Nothing, x:xs) -> SelectFirst (x NE.:| xs) allE h
   (First Nothing, []) -> Errors $ T.singleton allE
   where
     check (SomeFormulaF (Result x)) = (First (Just x), mempty)
