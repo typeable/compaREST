@@ -51,28 +51,6 @@ zipAllWith f (x : xs) (y : ys) = (f x y :) <$> zipAllWith f xs ys
 zipAllWith _ (_ : _) [] = Nothing
 zipAllWith _ [] (_ : _) = Nothing
 
-instance Steppable PathFragment PathItem where
-  data Step PathFragment PathItem = PathFragmentParentStep
-    deriving (Eq, Ord)
-
-instance Steppable OpenApi PathItem where
-  data Step OpenApi PathItem = PathStep FilePath
-    deriving (Eq, Ord)
-
-instance Steppable PathItem PathFragment where
-  data Step PathItem PathFragment
-    = -- | The index of the path item
-      PathFragmentStep Int
-    deriving (Eq, Ord)
-
-instance Steppable PathItem (Referenced Param) where
-  data Step PathItem (Referenced Param) = PathItemParametersStep
-    deriving (Eq, Ord)
-
-instance Steppable Operation (Referenced Param) where
-  data Step Operation (Referenced Param) = OperationParametersStep
-    deriving (Eq, Ord)
-
 processOpenApi ::
   OpenApi ->
   [ ( Step OpenApi PathItem,
@@ -111,6 +89,28 @@ processOpenApi o = do
             processedPathItemTrace = _pathItemTrace pathItem
           }
     )
+
+instance Steppable OpenApi PathItem where
+  data Step OpenApi PathItem = PathStep FilePath
+    deriving (Eq, Ord)
+
+instance Steppable PathItem PathFragment where
+  data Step PathItem PathFragment
+    = -- | The index of the path item
+      PathFragmentStep Int
+    deriving (Eq, Ord)
+
+instance Steppable PathFragment PathItem where
+  data Step PathFragment PathItem = PathFragmentParentStep
+    deriving (Eq, Ord)
+
+instance Steppable PathItem (Referenced Param) where
+  data Step PathItem (Referenced Param) = PathItemParametersStep
+    deriving (Eq, Ord)
+
+instance Steppable Operation (Referenced Param) where
+  data Step Operation (Referenced Param) = OperationParametersStep
+    deriving (Eq, Ord)
 
 data ProcessedPathItem a = ProcessedPathItem
   { processedPathItemGet :: a,
