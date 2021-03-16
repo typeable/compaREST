@@ -1,9 +1,9 @@
 module OpenAPI.Checker.Validate.PathFragment
-  ( PathParamRefs,
-    TracedReferences,
-    getPathParamRefs,
-    parsePath,
-    PathFragment (..),
+  ( PathParamRefs
+  , TracedReferences
+  , getPathParamRefs
+  , parsePath
+  , PathFragment (..)
   )
 where
 
@@ -22,11 +22,11 @@ import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Param ()
 
-getPathParamRefs ::
-  Has (Definitions Param) xs =>
-  HList xs ->
-  [Referenced Param] ->
-  Map Reference (Traced (Referenced Param) Param)
+getPathParamRefs
+  :: Has (Definitions Param) xs
+  => HList xs
+  -> [Referenced Param]
+  -> Map Reference (Traced (Referenced Param) Param)
 getPathParamRefs (getH -> defs) xs =
   M.fromList $ do
     x <- xs
@@ -41,8 +41,8 @@ parsePath = fmap partition . T.splitOn "/" . T.pack
   where
     partition :: Text -> PathFragment
     partition t
-      | Just ('{', rest) <- T.uncons t,
-        Just (ref, '}') <- T.unsnoc rest =
+      | Just ('{', rest) <- T.uncons t
+        , Just (ref, '}') <- T.unsnoc rest =
         DynamicPath $ Reference ref
     partition t = StaticPath t
 
@@ -85,57 +85,57 @@ dePathFragment (getH @PathParamRefs -> params) = \case
   (StaticPath s) ->
     Traced (step StaticPathParam) $
       Param
-        { _paramName = "",
-          _paramDescription = Nothing,
-          _paramRequired = Just True,
-          _paramDeprecated = Nothing,
-          _paramIn = ParamPath,
-          _paramAllowEmptyValue = Just False,
-          _paramAllowReserved = Just False,
-          _paramSchema = Just $ Inline $ staticStringSchema s,
-          _paramStyle = Nothing,
-          _paramExplode = Nothing,
-          _paramExample = Nothing,
-          _paramExamples = mempty
+        { _paramName = ""
+        , _paramDescription = Nothing
+        , _paramRequired = Just True
+        , _paramDeprecated = Nothing
+        , _paramIn = ParamPath
+        , _paramAllowEmptyValue = Just False
+        , _paramAllowReserved = Just False
+        , _paramSchema = Just $ Inline $ staticStringSchema s
+        , _paramStyle = Nothing
+        , _paramExplode = Nothing
+        , _paramExample = Nothing
+        , _paramExamples = mempty
         }
   (DynamicPath ref) -> M.lookup ref params & fromMaybe (error $ show ref <> " not found.")
 
 staticStringSchema :: Text -> Schema
 staticStringSchema t =
   Schema
-    { _schemaTitle = Nothing,
-      _schemaDescription = Nothing,
-      _schemaRequired = [],
-      _schemaNullable = Just False,
-      _schemaAllOf = Nothing,
-      _schemaOneOf = Nothing,
-      _schemaNot = Nothing,
-      _schemaAnyOf = Nothing,
-      _schemaProperties = mempty,
-      _schemaAdditionalProperties = Nothing,
-      _schemaDiscriminator = Nothing,
-      _schemaReadOnly = Nothing,
-      _schemaWriteOnly = Nothing,
-      _schemaXml = Nothing,
-      _schemaExternalDocs = Nothing,
-      _schemaExample = Nothing,
-      _schemaDeprecated = Nothing,
-      _schemaMaxProperties = Nothing,
-      _schemaMinProperties = Nothing,
-      _schemaDefault = Nothing,
-      _schemaType = Just OpenApiString,
-      _schemaFormat = Nothing,
-      _schemaItems = Nothing,
-      _schemaMaximum = Nothing,
-      _schemaExclusiveMaximum = Nothing,
-      _schemaMinimum = Nothing,
-      _schemaExclusiveMinimum = Nothing,
-      _schemaMaxLength = Nothing,
-      _schemaMinLength = Nothing,
-      _schemaPattern = Nothing,
-      _schemaMaxItems = Nothing,
-      _schemaMinItems = Nothing,
-      _schemaUniqueItems = Nothing,
-      _schemaEnum = Just [A.String t],
-      _schemaMultipleOf = Nothing
+    { _schemaTitle = Nothing
+    , _schemaDescription = Nothing
+    , _schemaRequired = []
+    , _schemaNullable = Just False
+    , _schemaAllOf = Nothing
+    , _schemaOneOf = Nothing
+    , _schemaNot = Nothing
+    , _schemaAnyOf = Nothing
+    , _schemaProperties = mempty
+    , _schemaAdditionalProperties = Nothing
+    , _schemaDiscriminator = Nothing
+    , _schemaReadOnly = Nothing
+    , _schemaWriteOnly = Nothing
+    , _schemaXml = Nothing
+    , _schemaExternalDocs = Nothing
+    , _schemaExample = Nothing
+    , _schemaDeprecated = Nothing
+    , _schemaMaxProperties = Nothing
+    , _schemaMinProperties = Nothing
+    , _schemaDefault = Nothing
+    , _schemaType = Just OpenApiString
+    , _schemaFormat = Nothing
+    , _schemaItems = Nothing
+    , _schemaMaximum = Nothing
+    , _schemaExclusiveMaximum = Nothing
+    , _schemaMinimum = Nothing
+    , _schemaExclusiveMinimum = Nothing
+    , _schemaMaxLength = Nothing
+    , _schemaMinLength = Nothing
+    , _schemaPattern = Nothing
+    , _schemaMaxItems = Nothing
+    , _schemaMinItems = Nothing
+    , _schemaUniqueItems = Nothing
+    , _schemaEnum = Just [A.String t]
+    , _schemaMultipleOf = Nothing
     }

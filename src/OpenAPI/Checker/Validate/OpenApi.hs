@@ -62,13 +62,13 @@ zipAllWith f (x : xs) (y : ys) = (f x y :) <$> zipAllWith f xs ys
 zipAllWith _ (_ : _) [] = Nothing
 zipAllWith _ [] (_ : _) = Nothing
 
-processOpenApi ::
-  OpenApi ->
-  [ ( Step OpenApi PathItem,
-      [PathFragment],
-      ProcessedPathItem (Maybe (TracedReferences PathItem Param, Operation))
-    )
-  ]
+processOpenApi
+  :: OpenApi
+  -> [ ( Step OpenApi PathItem
+       , [PathFragment]
+       , ProcessedPathItem (Maybe (TracedReferences PathItem Param, Operation))
+       )
+     ]
 processOpenApi o = do
   let cs = _openApiComponents o
   (pathS, pathItem) <- IOHM.toList . _openApiPaths $ o
@@ -85,19 +85,19 @@ processOpenApi o = do
               operationParams <> commonPathParams
          in (pathParams, op)
   pure
-    ( PathStep pathS,
-      path,
-      fmap . processOperation
+    ( PathStep pathS
+    , path
+    , fmap . processOperation
         <$> stepProcessedPathItem
         <*> ProcessedPathItem
-          { processedPathItemGet = _pathItemGet pathItem,
-            processedPathItemPut = _pathItemPut pathItem,
-            processedPathItemPost = _pathItemPost pathItem,
-            processedPathItemDelete = _pathItemDelete pathItem,
-            processedPathItemOptions = _pathItemOptions pathItem,
-            processedPathItemHead = _pathItemHead pathItem,
-            processedPathItemPatch = _pathItemPatch pathItem,
-            processedPathItemTrace = _pathItemTrace pathItem
+          { processedPathItemGet = _pathItemGet pathItem
+          , processedPathItemPut = _pathItemPut pathItem
+          , processedPathItemPost = _pathItemPost pathItem
+          , processedPathItemDelete = _pathItemDelete pathItem
+          , processedPathItemOptions = _pathItemOptions pathItem
+          , processedPathItemHead = _pathItemHead pathItem
+          , processedPathItemPatch = _pathItemPatch pathItem
+          , processedPathItemTrace = _pathItemTrace pathItem
           }
     )
 
@@ -124,14 +124,14 @@ instance Steppable Operation (Referenced Param) where
     deriving (Eq, Ord)
 
 data ProcessedPathItem a = ProcessedPathItem
-  { processedPathItemGet :: a,
-    processedPathItemPut :: a,
-    processedPathItemPost :: a,
-    processedPathItemDelete :: a,
-    processedPathItemOptions :: a,
-    processedPathItemHead :: a,
-    processedPathItemPatch :: a,
-    processedPathItemTrace :: a
+  { processedPathItemGet :: a
+  , processedPathItemPut :: a
+  , processedPathItemPost :: a
+  , processedPathItemDelete :: a
+  , processedPathItemOptions :: a
+  , processedPathItemHead :: a
+  , processedPathItemPatch :: a
+  , processedPathItemTrace :: a
   }
   deriving stock (Functor, Generic1)
   deriving (Applicative, Foldable) via Generically1 ProcessedPathItem
@@ -141,25 +141,25 @@ newtype ProcessedPathItemGetter = ProcessedPathItemGetter (forall a. ProcessedPa
 processedPathItemGetters :: ProcessedPathItem ProcessedPathItemGetter
 processedPathItemGetters =
   ProcessedPathItem
-    { processedPathItemGet = ProcessedPathItemGetter processedPathItemGet,
-      processedPathItemPut = ProcessedPathItemGetter processedPathItemPut,
-      processedPathItemPost = ProcessedPathItemGetter processedPathItemPost,
-      processedPathItemDelete = ProcessedPathItemGetter processedPathItemDelete,
-      processedPathItemOptions = ProcessedPathItemGetter processedPathItemOptions,
-      processedPathItemHead = ProcessedPathItemGetter processedPathItemHead,
-      processedPathItemPatch = ProcessedPathItemGetter processedPathItemPatch,
-      processedPathItemTrace = ProcessedPathItemGetter processedPathItemTrace
+    { processedPathItemGet = ProcessedPathItemGetter processedPathItemGet
+    , processedPathItemPut = ProcessedPathItemGetter processedPathItemPut
+    , processedPathItemPost = ProcessedPathItemGetter processedPathItemPost
+    , processedPathItemDelete = ProcessedPathItemGetter processedPathItemDelete
+    , processedPathItemOptions = ProcessedPathItemGetter processedPathItemOptions
+    , processedPathItemHead = ProcessedPathItemGetter processedPathItemHead
+    , processedPathItemPatch = ProcessedPathItemGetter processedPathItemPatch
+    , processedPathItemTrace = ProcessedPathItemGetter processedPathItemTrace
     }
 
 stepProcessedPathItem :: ProcessedPathItem (Step PathItem Operation)
 stepProcessedPathItem =
   ProcessedPathItem
-    { processedPathItemGet = GetStep,
-      processedPathItemPut = PutStep,
-      processedPathItemPost = PostStep,
-      processedPathItemDelete = DeleteStep,
-      processedPathItemOptions = OptionsStep,
-      processedPathItemHead = HeadStep,
-      processedPathItemPatch = PatchStep,
-      processedPathItemTrace = TraceStep
+    { processedPathItemGet = GetStep
+    , processedPathItemPut = PutStep
+    , processedPathItemPost = PostStep
+    , processedPathItemDelete = DeleteStep
+    , processedPathItemOptions = OptionsStep
+    , processedPathItemHead = HeadStep
+    , processedPathItemPatch = PatchStep
+    , processedPathItemTrace = TraceStep
     }

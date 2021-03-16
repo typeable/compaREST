@@ -2,22 +2,22 @@
 -- collection of datatypes that "contain" eachother in some form of tree
 -- structure.
 module OpenAPI.Checker.Trace
-  ( Steppable (..),
-    Trace (..),
-    catTrace,
-    DiffTrace (..),
-    catDiffTrace,
-    _DiffTrace,
-    AnItem (..),
-    step,
-    Traced (..),
-    mapTraced,
-    retrace,
-    deTraced,
+  ( Steppable (..)
+  , Trace (..)
+  , catTrace
+  , DiffTrace (..)
+  , catDiffTrace
+  , _DiffTrace
+  , AnItem (..)
+  , step
+  , Traced (..)
+  , mapTraced
+  , retrace
+  , deTraced
 
     -- * Reexports
-    (>>>),
-    (<<<),
+  , (>>>)
+  , (<<<)
   )
 where
 

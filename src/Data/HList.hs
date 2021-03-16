@@ -1,9 +1,9 @@
 module Data.HList
-  ( Has,
-    HasAll,
-    getH,
-    HList (..),
-    singletonH,
+  ( Has
+  , HasAll
+  , getH
+  , HList (..)
+  , singletonH
   )
 where
 
@@ -34,8 +34,8 @@ instance (Has' x xs t, HeadEq x (y : xs) ~ 'False) => Has' x (y ': xs) 'False wh
   getH (HCons _ xs) = getH xs
 
 instance
-  TypeError ( 'ShowType x ':<>: 'Text " is not a part of the list.") =>
-  Has' x '[] 'False
+  TypeError ('ShowType x ':<>: 'Text " is not a part of the list.")
+  => Has' x '[] 'False
   where
   getH HNil = undefined
 
