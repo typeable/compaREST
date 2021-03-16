@@ -8,6 +8,7 @@ module OpenAPI.Checker.Subtree
     localM,
     localTrace,
     anyOfM,
+    anyOfF,
     issueAtTrace,
     issueAt,
     memo,
@@ -111,6 +112,16 @@ anyOfM ::
   Compose (CompatM t) (FormulaF f r) a
 anyOfM xs issue fs =
   Compose $ (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
+
+anyOfF ::
+  Subtree t =>
+  (forall x. ProdCons x -> x) ->
+  CheckIssue t ->
+  [CompatFormula t a] ->
+  CompatFormula t a
+anyOfF f issue fs = Compose $ do
+  xs <- asks f
+  (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
 
 fixpointKnot ::
   MonadState (MemoState VarRef) m =>
