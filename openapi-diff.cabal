@@ -31,23 +31,24 @@ common common-options
   default-language:    Haskell2010
   build-depends:       base >= 4.12.0.0 && < 4.15
                      , aeson
-                     , deriving-aeson
+                     , attoparsec
                      , containers
+                     , deriving-aeson
+                     , generic-data
                      , generic-monoid
                      , insert-ordered-containers
                      , lens
                      , mtl
                      , openapi3
+                     , optparse-applicative
+                     , tagged
                      , text
                      , transformers
-                     , yaml
-                     , attoparsec
-                     , optparse-applicative
                      , typerep-map
-                     , tagged
-                     , generic-data
+                     , yaml
 
-  default-extensions: BangPatterns
+  default-extensions: ApplicativeDo
+                    , BangPatterns
                     , ConstraintKinds
                     , DataKinds
                     , DeriveAnyClass
@@ -58,6 +59,7 @@ common common-options
                     , DerivingStrategies
                     , DerivingVia
                     , DuplicateRecordFields
+                    , EmptyDataDeriving
                     , FlexibleContexts
                     , FlexibleInstances
                     , FunctionalDependencies
@@ -82,15 +84,16 @@ common common-options
                     , TypeOperators
                     , UndecidableInstances
                     , ViewPatterns
-                    , ApplicativeDo
-                    , EmptyDataDeriving
 
 library
   import:              common-options
   hs-source-dirs:      src
   exposed-modules:  OpenAPI.Checker.Aux
+                  , Data.HList
                   , OpenAPI.Checker.Formula
                   , OpenAPI.Checker.Memo
+                  , OpenAPI.Checker.Options
+                  , OpenAPI.Checker.Orphans
                   , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Subtree
@@ -99,12 +102,9 @@ library
                   , OpenAPI.Checker.Validate
                   , OpenAPI.Checker.Validate.Dereference
                   , OpenAPI.Checker.Validate.Monad
-                  , OpenAPI.Checker.Options
-                  , OpenAPI.Checker.Validate.PathFragment
-                  , Data.HList
-                  , OpenAPI.Checker.Orphans
                   , OpenAPI.Checker.Validate.OpenApi
                   , OpenAPI.Checker.Validate.Operation
+                  , OpenAPI.Checker.Validate.PathFragment
 
 executable openapi-diff
   import:              common-options
