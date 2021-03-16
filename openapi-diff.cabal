@@ -94,6 +94,7 @@ library
                   , OpenAPI.Checker.Memo
                   , OpenAPI.Checker.Options
                   , OpenAPI.Checker.Orphans
+                  , OpenAPI.Checker.References
                   , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Subtree
@@ -104,6 +105,7 @@ library
                   , OpenAPI.Checker.Validate.Monad
                   , OpenAPI.Checker.Validate.OpenApi
                   , OpenAPI.Checker.Validate.Operation
+                  , OpenAPI.Checker.Validate.Param
                   , OpenAPI.Checker.Validate.PathFragment
 
 executable openapi-diff
