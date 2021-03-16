@@ -26,20 +26,31 @@ instance Subtree OpenApi where
     let ProdCons {producer = p, consumer = c} = processOpenApi <$> prodCons
     sequenceA_ @[] @_ @() $ do
       (pSPath, pPath, pPathItem) <- p
+      -- look at every endpoint in the producer ...
       (ProcessedPathItemGetter getter, (pParams, pOperation)) <-
         toList (fmap . (,) <$> processedPathItemGetters <*> pPathItem) >>= maybeToList
       let pPathFragmentParams = retrace (step PathFragmentParentStep >>>) <$> pParams
       pure $ do
         anyOfF producer NoPathsMatched $ do
           (cSPath, cPath, cPathItem) <- c
+          -- ... and try to match it with every endpoint in the consumer.
+          --
+          -- This is required because the meaning of path fragments can change on
+          -- a per-method basis even within the same 'PathItem'
+          --
+          -- Here we only need to look for the method that the current producer
+          -- endpoint is using.
           (cParams, cOperation) <- maybeToList $ getter cPathItem
           let cPathFragmentParams = retrace (step PathFragmentParentStep >>>) <$> cParams
+          -- make sure the paths are the same length
           pathFragments <- maybeToList $ zipAllWith ProdCons pPath cPath
           pure . localTrace (step <$> ProdCons pSPath cSPath) $ do
+            -- make sure every path fragment is compatible
             sequenceA_ $ do
               (i, pair) <- zip [0 ..] pathFragments
               pure . localTrace (pure . step $ PathFragmentStep i) $
                 checkCompatibility (singletonH $ ProdCons pPathFragmentParams cPathFragmentParams) pair
+            -- make sure the operation is compatible.
             localTrace (pure . step $ getter stepProcessedPathItem) $
               checkCompatibility HNil $ ProdCons pOperation cOperation
             pure ()
