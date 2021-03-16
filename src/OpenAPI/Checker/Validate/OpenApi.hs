@@ -152,15 +152,3 @@ stepProcessedPathItem =
       processedPathItemPatch = PatchStep,
       processedPathItemTrace = TraceStep
     }
-
-impliesOrElse ::
-  Subtree t =>
-  (forall x. ProdCons x -> x) ->
-  CheckIssue t ->
-  (a -> b -> CompatFormula t ()) ->
-  Maybe a ->
-  Maybe b ->
-  CompatFormula t ()
-impliesOrElse f issue _ (Just _) Nothing = issueAt f issue
-impliesOrElse _ _ act (Just a) (Just b) = act a b
-impliesOrElse _ _ _ Nothing _ = pure ()

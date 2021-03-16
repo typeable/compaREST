@@ -104,7 +104,7 @@ library
                   , Data.HList
                   , OpenAPI.Checker.Orphans
                   , OpenAPI.Checker.Validate.OpenApi
-                  , OpenAPI.Checker.Validate.PathItem
+                  , OpenAPI.Checker.Validate.Operation
 
 executable openapi-diff
   import:              common-options

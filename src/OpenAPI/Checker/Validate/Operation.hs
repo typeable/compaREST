@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module OpenAPI.Checker.Validate.Operation (Step (..)) where
 
 import Data.OpenApi
@@ -9,6 +11,7 @@ instance Subtree Operation where
   data CheckIssue Operation
     deriving (Eq, Ord)
   normalizeTrace = undefined
+  checkCompatibility = undefined
 
 instance Steppable PathItem Operation where
   data Step PathItem Operation
