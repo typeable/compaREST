@@ -8,7 +8,7 @@ module OpenAPI.Checker.Subtree
   , localM
   , localTrace
   , anyOfM
-  , anyOfF
+  , anyOfAt
   , issueAtTrace
   , issueAt
   , memo
@@ -113,13 +113,13 @@ anyOfM
 anyOfM xs issue fs =
   Compose $ (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
 
-anyOfF
+anyOfAt
   :: Subtree t
   => (forall x. ProdCons x -> x)
   -> CheckIssue t
   -> [CompatFormula t a]
   -> CompatFormula t a
-anyOfF f issue fs = Compose $ do
+anyOfAt f issue fs = Compose $ do
   xs <- asks f
   (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
 

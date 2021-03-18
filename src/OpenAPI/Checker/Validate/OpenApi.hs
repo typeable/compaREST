@@ -31,7 +31,7 @@ instance Subtree OpenApi where
         toList (fmap . (,) <$> processedPathItemGetters <*> pPathItem) >>= maybeToList
       let pPathFragmentParams = retrace (step PathFragmentParentStep >>>) <$> pParams
       pure $ do
-        anyOfF producer NoPathsMatched $ do
+        anyOfAt producer NoPathsMatched $ do
           (cSPath, cPath, cPathItem) <- c
           -- ... and try to match it with every endpoint in the consumer.
           --
@@ -66,7 +66,7 @@ processOpenApi
   :: OpenApi
   -> [ ( Step OpenApi PathItem
        , [PathFragment]
-       , ProcessedPathItem (Maybe (TracedReferences PathItem Param, Operation))
+       , ForeachOperation (Maybe (TracedReferences PathItem Param, Operation))
        )
      ]
 processOpenApi o = do
@@ -89,7 +89,7 @@ processOpenApi o = do
     , path
     , fmap . processOperation
         <$> stepProcessedPathItem
-        <*> ProcessedPathItem
+        <*> ForeachOperation
           { processedPathItemGet = _pathItemGet pathItem
           , processedPathItemPut = _pathItemPut pathItem
           , processedPathItemPost = _pathItemPost pathItem
@@ -123,7 +123,7 @@ instance Steppable Operation (Referenced Param) where
   data Step Operation (Referenced Param) = OperationParametersStep
     deriving (Eq, Ord)
 
-data ProcessedPathItem a = ProcessedPathItem
+data ForeachOperation a = ForeachOperation
   { processedPathItemGet :: a
   , processedPathItemPut :: a
   , processedPathItemPost :: a
@@ -134,13 +134,13 @@ data ProcessedPathItem a = ProcessedPathItem
   , processedPathItemTrace :: a
   }
   deriving stock (Functor, Generic1)
-  deriving (Applicative, Foldable) via Generically1 ProcessedPathItem
+  deriving (Applicative, Foldable) via Generically1 ForeachOperation
 
-newtype ProcessedPathItemGetter = ProcessedPathItemGetter (forall a. ProcessedPathItem a -> a)
+newtype ProcessedPathItemGetter = ProcessedPathItemGetter (forall a. ForeachOperation a -> a)
 
-processedPathItemGetters :: ProcessedPathItem ProcessedPathItemGetter
+processedPathItemGetters :: ForeachOperation ProcessedPathItemGetter
 processedPathItemGetters =
-  ProcessedPathItem
+  ForeachOperation
     { processedPathItemGet = ProcessedPathItemGetter processedPathItemGet
     , processedPathItemPut = ProcessedPathItemGetter processedPathItemPut
     , processedPathItemPost = ProcessedPathItemGetter processedPathItemPost
@@ -151,9 +151,9 @@ processedPathItemGetters =
     , processedPathItemTrace = ProcessedPathItemGetter processedPathItemTrace
     }
 
-stepProcessedPathItem :: ProcessedPathItem (Step PathItem Operation)
+stepProcessedPathItem :: ForeachOperation (Step PathItem Operation)
 stepProcessedPathItem =
-  ProcessedPathItem
+  ForeachOperation
     { processedPathItemGet = GetStep
     , processedPathItemPut = PutStep
     , processedPathItemPost = PostStep

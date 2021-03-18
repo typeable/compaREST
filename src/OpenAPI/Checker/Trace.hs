@@ -121,15 +121,15 @@ instance Typeable r => Ord (AnItem f r) where
           Root -> compare (someTypeRep xs) (someTypeRep ys)
           Snoc _ _ -> compare (someTypeRep xs) (someTypeRep ys)
 
-data Traced root a = Traced {getTrace :: Trace root a, getTraced :: a}
+data Traced r a = Traced {getTrace :: Trace r a, getTraced :: a}
 
-mapTraced :: (Trace root a -> Trace root b) -> (a -> b) -> Traced root a -> Traced root b
+mapTraced :: (Trace r a -> Trace r b) -> (a -> b) -> Traced r a -> Traced r b
 mapTraced f g (Traced t a) = Traced (f t) (g a)
 
-retrace :: (Trace root a -> Trace raat a) -> Traced root a -> Traced raat a
+retrace :: (Trace r a -> Trace r' a) -> Traced r a -> Traced r' a
 retrace f (Traced t a) = Traced (f t) a
 
-deTraced :: Traced root a -> (Trace root a, a)
+deTraced :: Traced r a -> (Trace r a, a)
 deTraced (Traced a b) = (a, b)
 
 -- type APath = AnItem Proxy
