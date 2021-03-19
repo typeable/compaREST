@@ -1,9 +1,14 @@
 module OpenAPI.Checker.Run (runChecker) where
 
+import Control.Category
 import Data.Aeson
+import qualified Data.ByteString.Char8 as BSC
+import Data.HList
+import qualified Data.Yaml as Yaml
 import OpenAPI.Checker.Options
-import OpenAPI.Checker.Report
-import OpenAPI.Checker.Validate
+import OpenAPI.Checker.Subtree
+import OpenAPI.Checker.Validate.OpenApi ()
+import Prelude hiding (id, (.))
 
 runChecker :: IO ()
 runChecker = do
@@ -16,5 +21,5 @@ runChecker = do
           Right s -> pure s
   a <- parseSchema (clientFile opts)
   b <- parseSchema (serverFile opts)
-  let report = reportCompat a b
-  printReport report
+  let report = runCompatFormula (pure id) $ checkCompatibility HNil (ProdCons a b)
+  BSC.putStrLn $ Yaml.encode report

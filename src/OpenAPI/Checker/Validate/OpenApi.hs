@@ -20,7 +20,7 @@ import OpenAPI.Checker.Validate.PathFragment
 instance Subtree OpenApi where
   type CheckEnv OpenApi = '[]
   data CheckIssue OpenApi = NoPathsMatched | WrongNumberOfFragments
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
   normalizeTrace = undefined
   checkCompatibility _ prodCons = do
     let ProdCons {producer = p, consumer = c} = processOpenApi <$> prodCons
@@ -106,25 +106,25 @@ processOpenApi o = do
 
 instance Steppable OpenApi PathItem where
   data Step OpenApi PathItem = PathStep FilePath
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 instance Steppable PathItem PathFragment where
   data Step PathItem PathFragment
     = -- | The index of the path item
       PathFragmentStep Int
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 instance Steppable PathFragment PathItem where
   data Step PathFragment PathItem = PathFragmentParentStep
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 instance Steppable PathItem (Referenced Param) where
   data Step PathItem (Referenced Param) = PathItemParametersStep
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 instance Steppable Operation (Referenced Param) where
   data Step Operation (Referenced Param) = OperationParametersStep
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 data ForeachOperation a = ForeachOperation
   { processedPathItemGet :: a

@@ -53,14 +53,14 @@ data PathFragment
 
 instance Steppable PathFragment Param where
   data Step PathFragment Param = StaticPathParam
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 type PathParamRefs = TracedReferences PathFragment Param
 
 instance Subtree PathFragment where
   type CheckEnv PathFragment = '[ProdCons PathParamRefs]
   data CheckIssue PathFragment = PathFragmentsDontMatch Text Text
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
   normalizeTrace = undefined
 

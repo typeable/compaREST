@@ -46,6 +46,9 @@ common common-options
                      , transformers
                      , typerep-map
                      , yaml
+                     , unordered-containers
+                     , vector
+                     , bytestring
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -84,6 +87,7 @@ common common-options
                     , TypeOperators
                     , UndecidableInstances
                     , ViewPatterns
+                    , QuantifiedConstraints
 
 library
   import:              common-options
@@ -123,9 +127,8 @@ test-suite openapi-diff-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:
-    Spec.Golden.Report
     Spec.Golden.Extra
-    Spec.Golden.ReportTree
+    Spec.Golden.TraceTree
   build-depends:
     , openapi-diff
     , tasty-golden

@@ -4,6 +4,7 @@ module OpenAPI.Checker.Subtree
   , CompatM (..)
   , CompatFormula
   , ProdCons (..)
+  , HasUnsupportedFeature (..)
   , runCompatFormula
   , localM
   , localTrace
@@ -18,9 +19,11 @@ where
 import Control.Monad.Identity
 import Control.Monad.Reader
 import Control.Monad.State
+import Data.Aeson
 import Data.Functor.Compose
 import Data.HList
 import Data.Kind
+import Data.Monoid
 import Data.OpenApi
 import Data.Text
 import Data.Typeable
@@ -60,16 +63,60 @@ newtype CompatM t a = CompatM
     , MonadState (MemoState VarRef)
     )
 
-type CompatFormula t = Compose (CompatM t) (FormulaF CheckIssue OpenApi)
+type CompatFormula t = Compose (CompatM t) (FormulaF SomeCheckIssue OpenApi)
 
-class (Typeable t, Ord (CheckIssue t)) => Subtree (t :: Type) where
+class (Typeable t, Ord (CheckIssue t), Show (CheckIssue t)) => Subtree (t :: Type) where
   type CheckEnv t :: [Type]
   data CheckIssue t :: Type
+
+  issueIsUnsupported :: CheckIssue t -> Bool
+  issueIsUnsupported = const False
 
   -- | If we ever followed a reference, reroute the path through "components"
   normalizeTrace :: Trace OpenApi t -> Trace OpenApi t
 
   checkCompatibility :: HasAll (CheckEnv t) xs => HList xs -> ProdCons t -> CompatFormula t ()
+
+class HasUnsupportedFeature x where
+  hasUnsupportedFeature :: x -> Bool
+
+instance HasUnsupportedFeature () where
+  hasUnsupportedFeature () = False
+
+instance
+  (HasUnsupportedFeature a, HasUnsupportedFeature b)
+  => HasUnsupportedFeature (Either a b)
+  where
+  hasUnsupportedFeature (Left x) = hasUnsupportedFeature x
+  hasUnsupportedFeature (Right x) = hasUnsupportedFeature x
+
+instance Subtree t => HasUnsupportedFeature (CheckIssue t) where
+  hasUnsupportedFeature = issueIsUnsupported
+
+instance
+  (forall x. HasUnsupportedFeature (f x))
+  => HasUnsupportedFeature (T.TracePrefixTree f r)
+  where
+  hasUnsupportedFeature =
+    getAny . T.foldWith (\_ fa -> Any $ hasUnsupportedFeature fa)
+
+data SomeCheckIssue t where
+  SomeCheckIssue :: Subtree t => CheckIssue t -> SomeCheckIssue t
+
+instance Eq (SomeCheckIssue t) where
+  (SomeCheckIssue x) == (SomeCheckIssue y) = x == y
+
+instance Ord (SomeCheckIssue t) where
+  (SomeCheckIssue x) `compare` (SomeCheckIssue y) = x `compare` y
+
+instance Subtree t => ToJSON (CheckIssue t) where
+  toJSON = toJSON . show
+
+instance HasUnsupportedFeature (SomeCheckIssue t) where
+  hasUnsupportedFeature (SomeCheckIssue i) = hasUnsupportedFeature i
+
+instance ToJSON (SomeCheckIssue t) where
+  toJSON (SomeCheckIssue i) = toJSON i
 
 runCompatFormula
   :: ProdCons (Trace OpenApi t)
@@ -93,7 +140,7 @@ localTrace xs (Compose h) = Compose (localM xs h)
 
 issueAtTrace
   :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula t a
-issueAtTrace xs issue = Compose $ pure $ anError $ AnItem xs issue
+issueAtTrace xs issue = Compose $ pure $ anError $ AnItem xs $ SomeCheckIssue issue
 
 issueAt
   :: Subtree t
@@ -102,7 +149,7 @@ issueAt
   -> CompatFormula t a
 issueAt f issue = Compose $ do
   xs <- asks f
-  pure $ anError $ AnItem xs issue
+  pure $ anError $ AnItem xs $ SomeCheckIssue issue
 
 anyOfM
   :: Ord (f t)
@@ -121,7 +168,7 @@ anyOfAt
   -> CompatFormula t a
 anyOfAt f issue fs = Compose $ do
   xs <- asks f
-  (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
+  (`eitherOf` AnItem xs (SomeCheckIssue issue)) <$> sequenceA (getCompose <$> fs)
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m

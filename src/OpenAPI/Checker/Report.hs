@@ -1,36 +1,30 @@
 module OpenAPI.Checker.Report where
 
-import           Data.Aeson
-import           Data.Aeson.Types
-import qualified Data.Attoparsec.Text           as A
-import           Data.Functor
-import           Data.Map.Strict                as M
-import           Data.Maybe
-import           Data.Monoid.Generic
-import           Data.OpenApi.Internal
-import           Data.Text                      (Text)
-import           Deriving.Aeson.Stock
-import           OpenAPI.Checker.Validate.Monad
-import           Prelude                        as P
+import Data.Aeson
+import Data.Aeson.Types
+import qualified Data.Attoparsec.Text as A
+import Data.Functor
+import Data.Map.Strict as M
+import Data.Maybe
+import Data.Monoid.Generic
+import Data.OpenApi.Internal
+import Data.Text (Text)
+import Deriving.Aeson.Stock
+import OpenAPI.Checker.Subtree
+import OpenAPI.Checker.Validate.Monad
+import Prelude as P
 
 printReport :: Report -> IO ()
 printReport = error "FIXME: printReport not implemented"
 
-class HasUnsupportedFeature x where
-  hasUnsupportedFeature :: x -> Bool
-
 data Report = Report
   { status :: Status
-  , tree   :: ReportTree
+  , tree :: ReportTree
   }
   deriving stock (Eq, Ord, Show, Generic)
   deriving (ToJSON, FromJSON) via Snake Report
 
-instance HasUnsupportedFeature Report 
-
-instance HasUnsupportedFeature x => HasUnsupportedFeature (Either e x) where
-  hasUnsupportedFeature (Left _) = False
-  hasUnsupportedFeature (Right x) = hasUnsupportedFeature x
+instance HasUnsupportedFeature Report
 
 data Status = Success | Fail Text
   deriving stock (Eq, Ord, Show, Generic)
@@ -45,11 +39,11 @@ newtype ReportTree = ReportTree
   deriving newtype (Eq, Ord, Semigroup, Monoid)
   deriving (ToJSON, FromJSON) via Snake ReportTree
 
-instance HasUnsupportedFeature ReportTree 
+instance HasUnsupportedFeature ReportTree
 
 data PathItemTree = PathItemTree
   { operations :: Map OperationName (Errorable OperationTree)
-  , server     :: Maybe (Errorable ServerTree)
+  , server :: Maybe (Errorable ServerTree)
   }
   deriving stock (Eq, Ord, Show, Generic)
   deriving (ToJSON, FromJSON) via Snake PathItemTree
@@ -66,7 +60,14 @@ instance Nested PathItemTree where
   nest key p = ReportTree $ M.singleton key p
 
 data OperationName
-  = Get | Put | Post | Delete | Options | Head | Patch | Trace
+  = Get
+  | Put
+  | Post
+  | Delete
+  | Options
+  | Head
+  | Patch
+  | Trace
   deriving (Eq, Ord, Show, Generic)
   deriving (ToJSON, FromJSON) via Snake OperationName
   deriving anyclass (ToJSONKey, FromJSONKey)
@@ -92,6 +93,7 @@ data ParamTree = ParamTree
 
 instance Semigroup ParamTree where
   (<>) = error "Not implemented"
+
 instance Monoid ParamTree where
   mappend = (<>)
   mempty = error "Not implemented"
@@ -104,7 +106,7 @@ instance Nested ParamTree where
 deriving instance Ord ParamLocation
 
 data ParamKey = ParamKey
-  { name    :: Text
+  { name :: Text
   , paramIn :: ParamLocation
   }
   deriving stock (Eq, Ord, Show, Generic)
@@ -112,7 +114,8 @@ data ParamKey = ParamKey
   deriving anyclass (ToJSONKey, FromJSONKey)
 
 getParamKey :: Param -> ParamKey
-getParamKey p = ParamKey
-  { name = _paramName p
-  , paramIn = _paramIn p
-  }
+getParamKey p =
+  ParamKey
+    { name = _paramName p
+    , paramIn = _paramIn p
+    }

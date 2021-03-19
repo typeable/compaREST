@@ -12,4 +12,4 @@ instance Typeable a => Steppable (Referenced a) a where
   data Step (Referenced a) a
     = InlineStep
     | ReferencedStep Reference
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)

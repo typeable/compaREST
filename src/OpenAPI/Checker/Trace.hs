@@ -28,7 +28,7 @@ import Type.Reflection
 import Prelude hiding ((.))
 
 class
-  (Typeable a, Typeable b, Ord (Step a b)) =>
+  (Typeable a, Typeable b, Ord (Step a b), Show (Step a b)) =>
   Steppable (a :: k) (b :: k)
   where
   -- | How to get from an @a@ node to a @b@ node
