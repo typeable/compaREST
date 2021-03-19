@@ -92,21 +92,16 @@ common common-options
 library
   import:              common-options
   hs-source-dirs:      src
-  exposed-modules:  OpenAPI.Checker.Aux
-                  , Data.HList
+  exposed-modules:  Data.HList
                   , OpenAPI.Checker.Formula
                   , OpenAPI.Checker.Memo
                   , OpenAPI.Checker.Options
                   , OpenAPI.Checker.Orphans
                   , OpenAPI.Checker.References
-                  , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Subtree
                   , OpenAPI.Checker.Trace
                   , OpenAPI.Checker.TracePrefixTree
-                  , OpenAPI.Checker.Validate
-                  , OpenAPI.Checker.Validate.Dereference
-                  , OpenAPI.Checker.Validate.Monad
                   , OpenAPI.Checker.Validate.OpenApi
                   , OpenAPI.Checker.Validate.Operation
                   , OpenAPI.Checker.Validate.Param
