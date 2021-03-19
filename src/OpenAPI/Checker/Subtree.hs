@@ -83,7 +83,7 @@ localM
   -> CompatM b x
   -> CompatM a x
 localM xs (CompatM k) =
-  CompatM $ ReaderT $ \env -> runReaderT k (catTrace <$> env <*> xs)
+  CompatM $ ReaderT $ \env -> runReaderT k ((>>>) <$> env <*> xs)
 
 localTrace
   :: ProdCons (Trace a b)

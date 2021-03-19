@@ -4,7 +4,6 @@
 module OpenAPI.Checker.Trace
   ( Steppable (..)
   , Trace (..)
-  , catTrace
   , DiffTrace (..)
   , catDiffTrace
   , _DiffTrace
@@ -49,7 +48,8 @@ step s = Root `Snoc` s
 
 instance Category Trace where
   id = Root
-  (.) = flip catTrace
+  Root . xs = xs
+  (Snoc ys y) . xs = Snoc (ys . xs) y
 
 typeRepRHS :: Typeable b => Trace a b -> TypeRep b
 typeRepRHS _ = typeRep
@@ -80,12 +80,6 @@ instance Ord (Trace a b) where
       Just Refl -> compare xs ys <> compare x y
       Nothing -> compare (someTypeRep xs) (someTypeRep ys)
 
-catTrace :: Trace a b -> Trace b c -> Trace a c
-catTrace xs Root = xs
-catTrace xs (Snoc ys y) = Snoc (catTrace xs ys) y
-
-infixl 5 `catTrace`
-
 -- | Like a differece list, but indexed.
 newtype DiffTrace (a :: k) (b :: k)
   = DiffTrace (forall c. Trace c a -> Trace c b)
@@ -95,7 +89,7 @@ catDiffTrace (DiffTrace f) (DiffTrace g) = DiffTrace (g . f)
 
 _DiffTrace :: Iso (DiffTrace a b) (DiffTrace c d) (Trace a b) (Trace c d)
 _DiffTrace = dimap (\(DiffTrace f) -> f Root) $
-  fmap $ \xs -> DiffTrace (`catTrace` xs)
+  fmap $ \xs -> DiffTrace (>>> xs)
 
 -- | An item related to some path relative to the root @r@.
 data AnItem (f :: k -> Type) (r :: k) where
