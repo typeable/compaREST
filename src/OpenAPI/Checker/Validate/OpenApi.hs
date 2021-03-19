@@ -24,7 +24,7 @@ instance Subtree OpenApi where
   normalizeTrace = undefined
   checkCompatibility _ prodCons = do
     let ProdCons {producer = p, consumer = c} = processOpenApi <$> prodCons
-    sequenceA_ @[] @_ @()
+    sequenceA_
       [ anyOfAt
         producer
         NoPathsMatched
@@ -76,14 +76,14 @@ processOpenApi o = do
   let cs = _openApiComponents o
   (pathS, pathItem) <- IOHM.toList . _openApiPaths $ o
   let path = parsePath pathS
-      componentParamsEnv = singletonH $ _componentsParameters cs
+      componentParams = _componentsParameters cs
       commonPathParams =
         retrace (step PathItemParametersStep >>>)
-          <$> getPathParamRefs componentParamsEnv (_pathItemParameters pathItem)
+          <$> getPathParamRefs componentParams (_pathItemParameters pathItem)
       processOperation (s :: Step PathItem Operation) op =
         let operationParams =
               retrace (Root `Snoc` s `Snoc` OperationParametersStep >>>)
-                <$> getPathParamRefs componentParamsEnv (_operationParameters op)
+                <$> getPathParamRefs componentParams (_operationParameters op)
             pathParams =
               operationParams <> commonPathParams
          in (pathParams, op)

@@ -11,6 +11,7 @@ import Control.Lens
 import Control.Monad.Reader
 import qualified Data.Aeson as A
 import Data.HList
+import qualified Data.List.NonEmpty as NE
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.Maybe
@@ -23,11 +24,10 @@ import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Param ()
 
 getPathParamRefs
-  :: Has (Definitions Param) xs
-  => HList xs
+  :: Definitions Param
   -> [Referenced Param]
   -> Map Reference (Traced (Referenced Param) Param)
-getPathParamRefs (getH -> defs) xs =
+getPathParamRefs defs xs =
   M.fromList $ do
     x <- xs
     let (Traced t param) = dereferenceTraced defs x
@@ -77,8 +77,9 @@ instance Subtree PathFragment where
               <*> prodCons
     localTrace t $ checkCompatibility env param
 
+-- | A clearer name for 'NE.unzip' that can be used without qualifying it.
 fsplit :: Functor f => f (a, b) -> (f a, f b)
-fsplit xs = (fst <$> xs, snd <$> xs)
+fsplit = NE.unzip
 
 dePathFragment :: Has PathParamRefs xs => HList xs -> PathFragment -> Traced PathFragment Param
 dePathFragment (getH @PathParamRefs -> params) = \case
