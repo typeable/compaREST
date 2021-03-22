@@ -63,7 +63,7 @@ newtype CompatM t a = CompatM
     , MonadState (MemoState VarRef)
     )
 
-type CompatFormula t = Compose (CompatM t) (FormulaF SomeCheckIssue OpenApi)
+type CompatFormula t = Compose (CompatM t) (FormulaF SubtreeCheckIssue OpenApi)
 
 class (Typeable t, Ord (CheckIssue t), Show (CheckIssue t)) => Subtree (t :: Type) where
   type CheckEnv t :: [Type]
@@ -100,21 +100,21 @@ instance
   hasUnsupportedFeature =
     getAny . T.foldWith (\_ fa -> Any $ hasUnsupportedFeature fa)
 
-data SomeCheckIssue t where
-  SomeCheckIssue :: Subtree t => CheckIssue t -> SomeCheckIssue t
+data SubtreeCheckIssue t where
+  SubtreeCheckIssue :: Subtree t => CheckIssue t -> SubtreeCheckIssue t
 
-deriving stock instance Eq (SomeCheckIssue t)
+deriving stock instance Eq (SubtreeCheckIssue t)
 
-deriving stock instance Ord (SomeCheckIssue t)
+deriving stock instance Ord (SubtreeCheckIssue t)
 
 instance Subtree t => ToJSON (CheckIssue t) where
   toJSON = toJSON . show
 
-instance HasUnsupportedFeature (SomeCheckIssue t) where
-  hasUnsupportedFeature (SomeCheckIssue i) = hasUnsupportedFeature i
+instance HasUnsupportedFeature (SubtreeCheckIssue t) where
+  hasUnsupportedFeature (SubtreeCheckIssue i) = hasUnsupportedFeature i
 
-instance ToJSON (SomeCheckIssue t) where
-  toJSON (SomeCheckIssue i) = toJSON i
+instance ToJSON (SubtreeCheckIssue t) where
+  toJSON (SubtreeCheckIssue i) = toJSON i
 
 runCompatFormula
   :: ProdCons (Trace OpenApi t)
@@ -138,7 +138,7 @@ localTrace xs (Compose h) = Compose (localM xs h)
 
 issueAtTrace
   :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula t a
-issueAtTrace xs issue = Compose $ pure $ anError $ AnItem xs $ SomeCheckIssue issue
+issueAtTrace xs issue = Compose $ pure $ anError $ AnItem xs $ SubtreeCheckIssue issue
 
 issueAt
   :: Subtree t
@@ -147,7 +147,7 @@ issueAt
   -> CompatFormula t a
 issueAt f issue = Compose $ do
   xs <- asks f
-  pure $ anError $ AnItem xs $ SomeCheckIssue issue
+  pure $ anError $ AnItem xs $ SubtreeCheckIssue issue
 
 anyOfM
   :: Ord (f t)
@@ -166,7 +166,7 @@ anyOfAt
   -> CompatFormula t a
 anyOfAt f issue fs = Compose $ do
   xs <- asks f
-  (`eitherOf` AnItem xs (SomeCheckIssue issue)) <$> sequenceA (getCompose <$> fs)
+  (`eitherOf` AnItem xs (SubtreeCheckIssue issue)) <$> sequenceA (getCompose <$> fs)
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m
