@@ -103,11 +103,9 @@ instance
 data SomeCheckIssue t where
   SomeCheckIssue :: Subtree t => CheckIssue t -> SomeCheckIssue t
 
-instance Eq (SomeCheckIssue t) where
-  (SomeCheckIssue x) == (SomeCheckIssue y) = x == y
+deriving stock instance Eq (SomeCheckIssue t)
 
-instance Ord (SomeCheckIssue t) where
-  (SomeCheckIssue x) `compare` (SomeCheckIssue y) = x `compare` y
+deriving stock instance Ord (SomeCheckIssue t)
 
 instance Subtree t => ToJSON (CheckIssue t) where
   toJSON = toJSON . show
