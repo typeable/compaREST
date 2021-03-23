@@ -106,6 +106,10 @@ library
                   , OpenAPI.Checker.Validate.Operation
                   , OpenAPI.Checker.Validate.Param
                   , OpenAPI.Checker.Validate.PathFragment
+                  , OpenAPI.Checker.Validate.RequestBody
+                  , OpenAPI.Checker.Validate.Responses
+                  , OpenAPI.Checker.Validate.ProcessedPathItem
+                  , OpenAPI.Checker.Validate.Server
 
 executable openapi-diff
   import:              common-options
