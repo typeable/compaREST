@@ -46,6 +46,9 @@ common common-options
                      , transformers
                      , typerep-map
                      , yaml
+                     , unordered-containers
+                     , vector
+                     , bytestring
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -84,25 +87,21 @@ common common-options
                     , TypeOperators
                     , UndecidableInstances
                     , ViewPatterns
+                    , QuantifiedConstraints
 
 library
   import:              common-options
   hs-source-dirs:      src
-  exposed-modules:  OpenAPI.Checker.Aux
-                  , Data.HList
+  exposed-modules:  Data.HList
                   , OpenAPI.Checker.Formula
                   , OpenAPI.Checker.Memo
                   , OpenAPI.Checker.Options
                   , OpenAPI.Checker.Orphans
                   , OpenAPI.Checker.References
-                  , OpenAPI.Checker.Report
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Subtree
                   , OpenAPI.Checker.Trace
                   , OpenAPI.Checker.TracePrefixTree
-                  , OpenAPI.Checker.Validate
-                  , OpenAPI.Checker.Validate.Dereference
-                  , OpenAPI.Checker.Validate.Monad
                   , OpenAPI.Checker.Validate.OpenApi
                   , OpenAPI.Checker.Validate.Operation
                   , OpenAPI.Checker.Validate.Param
@@ -123,9 +122,8 @@ test-suite openapi-diff-test
   hs-source-dirs:      test
   main-is:             Spec.hs
   other-modules:
-    Spec.Golden.Report
     Spec.Golden.Extra
-    Spec.Golden.ReportTree
+    Spec.Golden.TraceTree
   build-depends:
     , openapi-diff
     , tasty-golden

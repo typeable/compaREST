@@ -9,7 +9,7 @@ import OpenAPI.Checker.Trace
 instance Subtree Operation where
   type CheckEnv Operation = '[]
   data CheckIssue Operation
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
   normalizeTrace = undefined
   checkCompatibility = undefined
 
@@ -23,4 +23,4 @@ instance Steppable PathItem Operation where
     | HeadStep
     | PatchStep
     | TraceStep
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)

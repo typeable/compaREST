@@ -1,7 +1,6 @@
 module Main (main) where
 
-import qualified Spec.Golden.Report
-import qualified Spec.Golden.ReportTree
+import qualified Spec.Golden.TraceTree
 import Test.Tasty
 
 main :: IO ()
@@ -9,11 +8,9 @@ main = defaultMain =<< tests
 
 tests :: IO TestTree
 tests = do
-  goldenReport <- Spec.Golden.Report.tests
-  goldenReportTree <- Spec.Golden.ReportTree.tests
+  goldenReportTree <- Spec.Golden.TraceTree.tests
   return $
     testGroup
       "Golden tests"
-      [ goldenReport,
-        goldenReportTree
+      [ goldenReportTree
       ]

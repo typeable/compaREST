@@ -8,6 +8,6 @@ import OpenAPI.Checker.Subtree
 instance Subtree Param where
   type CheckEnv Param = '[]
   data CheckIssue Param
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
   normalizeTrace = undefined
   checkCompatibility = undefined
