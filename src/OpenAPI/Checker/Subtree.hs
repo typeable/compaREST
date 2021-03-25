@@ -1,16 +1,19 @@
 module OpenAPI.Checker.Subtree
-  ( APIStep(..)
-  , Subtree(..)
-  , CompatM(..)
+  ( APIStep (..)
+  , Subtree (..)
+  , CompatM (..)
   , CompatFormula
+  , ProdCons (..)
   , runCompatFormula
   , localM
-  , local'
+  , localTrace
   , anyOfM
+  , anyOfAt
   , issueAtTrace
   , issueAt
   , memo
-  ) where
+  )
+where
 
 import Control.Monad.Identity
 import Control.Monad.Reader
@@ -26,57 +29,67 @@ import OpenAPI.Checker.Memo
 import OpenAPI.Checker.Trace
 import qualified OpenAPI.Checker.TracePrefixTree as T
 
-class (Subtree a, Subtree b, Steppable a b)
-  => APIStep (a :: Type) (b :: Type) where
+class
+  (Subtree a, Subtree b, Steppable a b) =>
+  APIStep (a :: Type) (b :: Type)
+  where
   describeStep :: Step a b -> Text
 
 data ProdCons a = ProdCons
   { producer :: a
   , consumer :: a
-  } deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  }
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance Applicative ProdCons where
   pure x = ProdCons x x
   ProdCons fp fc <*> ProdCons xp xc = ProdCons (fp xp) (fc xc)
 
 newtype CompatM t a = CompatM
-  { unCompatM ::
-    ReaderT (ProdCons (Trace OpenApi t))
-      (StateT (MemoState VarRef) Identity) a
-  } deriving newtype
-    ( Functor, Applicative, Monad
+  { unCompatM
+    :: ReaderT
+           (ProdCons (Trace OpenApi t))
+           (StateT (MemoState VarRef) Identity)
+           a
+  }
+  deriving newtype
+    ( Functor
+    , Applicative
+    , Monad
     , MonadReader (ProdCons (Trace OpenApi t))
     , MonadState (MemoState VarRef)
     )
 
 type CompatFormula t = Compose (CompatM t) (FormulaF CheckIssue OpenApi)
 
-class (Typeable t, Ord t, Ord (CheckIssue t)) => Subtree (t :: Type) where
-  type family CheckEnv t :: [Type]
-  data family CheckIssue t :: Type
+class (Typeable t, Ord (CheckIssue t)) => Subtree (t :: Type) where
+  type CheckEnv t :: [Type]
+  data CheckIssue t :: Type
+
   -- | If we ever followed a reference, reroute the path through "components"
   normalizeTrace :: Trace OpenApi t -> Trace OpenApi t
+
   checkCompatibility :: HasAll (CheckEnv t) xs => HList xs -> ProdCons t -> CompatFormula t ()
 
 runCompatFormula
   :: ProdCons (Trace OpenApi t)
   -> Compose (CompatM t) (FormulaF f r) a
   -> Either (T.TracePrefixTree f r) a
-runCompatFormula env (Compose f)
-  = calculate . runIdentity . runMemo 0 . (`runReaderT` env) . unCompatM $ f
+runCompatFormula env (Compose f) =
+  calculate . runIdentity . runMemo 0 . (`runReaderT` env) . unCompatM $ f
 
 localM
   :: ProdCons (Trace a b)
   -> CompatM b x
   -> CompatM a x
-localM xs (CompatM k) = 
-  CompatM $ ReaderT $ \env -> runReaderT k (catTrace <$> env <*> xs)
+localM xs (CompatM k) =
+  CompatM $ ReaderT $ \env -> runReaderT k ((>>>) <$> env <*> xs)
 
-local'
+localTrace
   :: ProdCons (Trace a b)
   -> Compose (CompatM b) (FormulaF f r) x
   -> Compose (CompatM a) (FormulaF f r) x
-local' xs (Compose h) = Compose (localM xs h)
+localTrace xs (Compose h) = Compose (localM xs h)
 
 issueAtTrace
   :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula t a
@@ -93,20 +106,32 @@ issueAt f issue = Compose $ do
 
 anyOfM
   :: Ord (f t)
-  => Trace r t -> f t
+  => Trace r t
+  -> f t
   -> [Compose (CompatM t) (FormulaF f r) a]
   -> Compose (CompatM t) (FormulaF f r) a
-anyOfM xs issue fs
-  = Compose $ (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
+anyOfM xs issue fs =
+  Compose $ (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
+
+anyOfAt
+  :: Subtree t
+  => (forall x. ProdCons x -> x)
+  -> CheckIssue t
+  -> [CompatFormula t a]
+  -> CompatFormula t a
+anyOfAt f issue fs = Compose $ do
+  xs <- asks f
+  (`eitherOf` AnItem xs issue) <$> sequenceA (getCompose <$> fs)
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m
   => KnotTier (FormulaF f r ()) VarRef m
-fixpointKnot = KnotTier
-  { onKnotFound = modifyMemoNonce succ
-  , onKnotUsed = \i -> pure $ variable i
-  , tieKnot = \i x -> pure $ maxFixpoint i x
-  }
+fixpointKnot =
+  KnotTier
+    { onKnotFound = modifyMemoNonce succ
+    , onKnotUsed = \i -> pure $ variable i
+    , tieKnot = \i x -> pure $ maxFixpoint i x
+    }
 
 memo :: Subtree t => CompatFormula t () -> CompatFormula t ()
 memo (Compose f) = Compose $ do
