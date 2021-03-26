@@ -6,6 +6,7 @@ module OpenAPI.Checker.Subtree
   , ProdCons (..)
   , HasUnsupportedFeature (..)
   , checkProdCons
+  , SubtreeCheckIssue (..)
   , runCompatFormula
   , localM
   , localTrace

@@ -116,6 +116,11 @@ instance Typeable r => Ord (AnItem f r) where
           Snoc _ _ -> compare (someTypeRep xs) (someTypeRep ys)
 
 data Traced r a = Traced {getTrace :: Trace r a, getTraced :: a}
+  deriving Eq
+
+-- | Reverse lexicographical order, so that getTraced is a monotonous function
+instance Ord a => Ord (Traced r a) where
+  compare (Traced t1 a1) (Traced t2 a2) = compare a1 a2 <> compare t1 t2
 
 mapTraced :: (Trace r a -> Trace r b) -> (a -> b) -> Traced r a -> Traced r b
 mapTraced f g (Traced t a) = Traced (f t) (g a)

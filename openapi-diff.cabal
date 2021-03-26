@@ -49,6 +49,8 @@ common common-options
                      , unordered-containers
                      , vector
                      , bytestring
+                     , scientific
+                     , lattices
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -111,6 +113,7 @@ library
                   , OpenAPI.Checker.Validate.ProcessedPathItem
                   , OpenAPI.Checker.Validate.Server
                   , OpenAPI.Checker.Validate.SecurityRequirement
+                  , OpenAPI.Checker.Validate.Schema
 
 executable openapi-diff
   import:              common-options
