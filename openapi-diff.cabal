@@ -110,6 +110,7 @@ library
                   , OpenAPI.Checker.Validate.Responses
                   , OpenAPI.Checker.Validate.ProcessedPathItem
                   , OpenAPI.Checker.Validate.Server
+                  , OpenAPI.Checker.Validate.SecurityRequirement
 
 executable openapi-diff
   import:              common-options
