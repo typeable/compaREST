@@ -14,6 +14,8 @@ data HList (xs :: [Type]) where
   HNil :: HList '[]
   HCons :: x -> HList xs -> HList (x ': xs)
 
+infixr 5 `HCons`
+
 type family HasAll xs ys :: Constraint where
   HasAll '[] _ = ()
   HasAll (x ': xs) ys = (Has x ys, HasAll xs ys)
