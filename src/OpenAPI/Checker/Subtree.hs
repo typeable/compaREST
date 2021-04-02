@@ -5,9 +5,11 @@ module OpenAPI.Checker.Subtree
   , CompatFormula
   , ProdCons (..)
   , HasUnsupportedFeature (..)
+  , checkProdCons
   , runCompatFormula
   , localM
   , localTrace
+  , localStep
   , anyOfM
   , anyOfAt
   , issueAtTrace
@@ -77,6 +79,10 @@ class (Typeable t, Ord (CheckIssue t), Show (CheckIssue t)) => Subtree (t :: Typ
 
   checkCompatibility :: HasAll (CheckEnv t) xs => HList xs -> ProdCons t -> CompatFormula t ()
 
+checkProdCons :: (Subtree t, HasAll (CheckEnv t) env) => HList env -> ProdCons (Traced r t) -> CompatFormula r ()
+checkProdCons env (ProdCons (Traced p x) (Traced c y)) =
+  localTrace (ProdCons p c) $ checkCompatibility env $ ProdCons x y
+
 class HasUnsupportedFeature x where
   hasUnsupportedFeature :: x -> Bool
 
@@ -135,6 +141,13 @@ localTrace
   -> Compose (CompatM b) (FormulaF f r) x
   -> Compose (CompatM a) (FormulaF f r) x
 localTrace xs (Compose h) = Compose (localM xs h)
+
+localStep
+  :: Steppable a b
+  => Step a b
+  -> Compose (CompatM b) (FormulaF f r) x
+  -> Compose (CompatM a) (FormulaF f r) x
+localStep xs (Compose h) = Compose (localM (pure $ step xs) h)
 
 issueAtTrace
   :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula t a
