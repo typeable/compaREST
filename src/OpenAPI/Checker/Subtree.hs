@@ -74,8 +74,12 @@ class (Typeable t, Ord (CheckIssue t), Show (CheckIssue t)) => Subtree (t :: Typ
 
   -- | If we ever followed a reference, reroute the path through "components"
   normalizeTrace :: Trace OpenApi t -> Trace OpenApi t
+  normalizeTrace = id
+
 
   checkCompatibility :: HasAll (CheckEnv t) xs => HList xs -> ProdCons t -> CompatFormula t ()
+
+{-# WARNING normalizeTrace "It must be refactored. Does nothing for now" #-}
 
 class HasUnsupportedFeature x where
   hasUnsupportedFeature :: x -> Bool

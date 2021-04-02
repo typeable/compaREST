@@ -21,7 +21,6 @@ instance Subtree OpenApi where
   type CheckEnv OpenApi = '[]
   data CheckIssue OpenApi = NoPathsMatched | WrongNumberOfFragments
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility _ prodCons = do
     let ProdCons {producer = p, consumer = c} = processOpenApi <$> prodCons
     sequenceA_
