@@ -32,10 +32,12 @@ common common-options
   build-depends:       base >= 4.12.0.0 && < 4.15
                      , aeson
                      , attoparsec
+                     , bytestring
                      , containers
                      , deriving-aeson
                      , generic-data
                      , generic-monoid
+                     , http-media
                      , insert-ordered-containers
                      , lens
                      , mtl
@@ -45,10 +47,9 @@ common common-options
                      , text
                      , transformers
                      , typerep-map
-                     , yaml
                      , unordered-containers
                      , vector
-                     , bytestring
+                     , yaml
 
   default-extensions: ApplicativeDo
                     , BangPatterns

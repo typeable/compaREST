@@ -3,6 +3,7 @@
 module OpenAPI.Checker.Validate.Param () where
 
 import Data.OpenApi
+import Data.Maybe
 import OpenAPI.Checker.Subtree
 
 instance Subtree Param where
@@ -17,8 +18,8 @@ instance Subtree Param where
   checkCompatibility _ (ProdCons p c) = case ( _paramIn p, _paramIn c) of
     (ParamQuery, ParamQuery) ->
       namesCompatible $
-        if (maybe False $ _paramAllowEmptyValue p)
-           && not (maybe False $ _paramAllowEmptyValue c)
+        if (fromMaybe False $ _paramAllowEmptyValue p)
+           && not (fromMaybe False $ _paramAllowEmptyValue c)
         then issueAt producer ParamOptionalityIncompatible
         else pure ()
     (a, b) | a == b -> namesCompatible $ pure ()
