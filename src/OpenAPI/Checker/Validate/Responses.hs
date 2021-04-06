@@ -10,5 +10,4 @@ instance Subtree Responses where
   type CheckEnv Responses = '[]
   data CheckIssue Responses
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility = undefined

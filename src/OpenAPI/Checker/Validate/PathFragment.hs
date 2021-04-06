@@ -62,8 +62,6 @@ instance Subtree PathFragment where
   data CheckIssue PathFragment = PathFragmentsDontMatch Text Text
     deriving (Eq, Ord, Show)
 
-  normalizeTrace = undefined
-
   -- This case isn't strictly needed. It is here for optimization.
   checkCompatibility _ ProdCons {producer = (StaticPath x), consumer = (StaticPath y)} =
     if x == y
