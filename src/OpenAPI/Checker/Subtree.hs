@@ -78,7 +78,6 @@ class (Typeable t, Ord (CheckIssue t), Show (CheckIssue t)) => Subtree (t :: Typ
   normalizeTrace :: Trace OpenApi t -> Trace OpenApi t
   normalizeTrace = id
 
-
   checkCompatibility :: HasAll (CheckEnv t) xs => HList xs -> ProdCons t -> CompatFormula t ()
 
 {-# WARNING normalizeTrace "It must be refactored. Does nothing for now" #-}

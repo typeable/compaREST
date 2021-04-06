@@ -39,7 +39,6 @@ instance Subtree ProcessedPathItems where
        ]
   data CheckIssue ProcessedPathItems = NoPathsMatched | WrongNumberOfFragments
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility env prodCons = do
     let ProdCons {producer = p, consumer = c} =
           (\paramDefs -> fmap (processPathItem paramDefs) . unProcessedPathItems)

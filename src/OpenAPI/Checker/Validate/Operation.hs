@@ -30,7 +30,6 @@ instance Subtree Operation where
     | SecurityRequirementNotMet Int -- security indexs
     | ServerNotConsumed Int -- server index
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility env prodCons = do
     let ProdCons {producer = pNonPathParams, consumer = cNonPathParams} = do
           op <- _operationParameters <$> prodCons
