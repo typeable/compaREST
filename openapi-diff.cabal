@@ -76,6 +76,7 @@ common common-options
                     , NamedFieldPuns
                     , NumDecimals
                     , OverloadedStrings
+                    , PatternSynonyms
                     , PolyKinds
                     , QuasiQuotes
                     , RankNTypes
