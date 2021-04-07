@@ -5,6 +5,7 @@ module OpenAPI.Checker.Validate.Schema
   , foldType
   , forType_
   , TypedValue (..)
+  , untypeValue
   , Bound (..)
   , schemaToFormula
   , foldLattice
@@ -16,17 +17,23 @@ import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Writer
 import qualified Data.Aeson as A
+import Data.Coerce
 import qualified Data.Foldable as F
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.HList
+import Data.Int
 import Data.Kind
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
+import Data.Maybe
 import Data.OpenApi
 import Data.Ord
+import Data.Ratio
 import Data.Scientific
 import qualified Data.Set as S
 import Data.Text (Text)
+import qualified Data.Text as T hiding (singleton)
 import Data.Typeable
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.References
@@ -75,35 +82,72 @@ instance Ord a => Ord (Bound a) where
   Inclusive a `compare` Exclusive b = if a < b then LT else GT
   Inclusive a `compare` Inclusive b = compare a b
 
+data Property = Property
+  { propRequired :: Bool
+  , propFormula :: ForeachType (JsonFormula OpenApi)
+  , propRefSchema :: Traced OpenApi (Referenced Schema)
+  }
+  deriving stock (Eq, Ord, Show)
+
 -- | A primitive structural condition for the "top level" of a JSON value (of a specific type)
 data Condition :: JsonType -> Type where
   Exactly :: TypedValue t -> Condition t
   Maximum :: !(Bound Scientific) -> Condition 'Number
-  Minimum :: !(Down (Bound Scientific)) -> Condition 'Number
+  Minimum :: !(Down (Bound (Down Scientific))) -> Condition 'Number
+    -- ^ this has the right Ord
   MultipleOf :: !Scientific -> Condition 'Number
   NumberFormat :: !Format -> Condition 'Number
   MaxLength :: !Integer -> Condition 'String
   MinLength :: !Integer -> Condition 'String
   Pattern :: !Pattern -> Condition 'String
   StringFormat :: !Format -> Condition 'String
-  Items :: !(ForeachType (JsonFormula OpenApi)) -> Condition 'Array
+  Items
+    :: !(ForeachType (JsonFormula OpenApi))
+    -> !(Traced OpenApi (Referenced Schema))
+    -> Condition 'Array
   MaxItems :: !Integer -> Condition 'Array
   MinItems :: !Integer -> Condition 'Array
   UniqueItems :: Condition 'Array
   Properties
-    :: !(M.Map Text (Bool, ForeachType (JsonFormula OpenApi)))
-      -- ^ (required, schema)
+    :: !(M.Map Text Property)
     -> !(ForeachType (JsonFormula OpenApi))
-      -- ^ schema for additional properties
+      -- ^ formula for additional properties
+    -> !(Maybe (Traced OpenApi (Referenced Schema)))
+      -- ^ schema for additional properties, Nothing means bottom
     -> Condition 'Object
   MaxProperties :: !Integer -> Condition 'Object
   MinProperties :: !Integer -> Condition 'Object
 
 satisfiesTyped :: TypedValue t -> Condition t -> Bool
 satisfiesTyped e (Exactly e') = e == e'
-satisfiesTyped (TObject o) (Properties props additional)
-  = all (`HM.member` o) (M.keys (M.filter fst props))
-  && all (\(k, v) -> satisfies v $ maybe additional snd $ M.lookup k props) (HM.toList o)
+satisfiesTyped (TNumber n) (Maximum (Exclusive m)) = n < m
+satisfiesTyped (TNumber n) (Maximum (Inclusive m)) = n <= m
+satisfiesTyped (TNumber n) (Minimum (Down (Exclusive (Down m)))) = n > m
+satisfiesTyped (TNumber n) (Minimum (Down (Inclusive (Down m)))) = n >= m
+satisfiesTyped (TNumber n) (MultipleOf m) = denominator (toRational n / toRational m) == 1 -- TODO: could be better
+satisfiesTyped (TNumber n) (NumberFormat f) = checkNumberFormat f n
+satisfiesTyped (TString s) (MaxLength m) = fromIntegral (T.length s) <= m
+satisfiesTyped (TString s) (MinLength m) = fromIntegral (T.length s) >= m
+satisfiesTyped (TString s) (Pattern p) = undefined s p -- TODO: regex stuff
+satisfiesTyped (TString s) (StringFormat f) = undefined s f-- TODO: string format
+satisfiesTyped (TArray a) (Items f _) = all (`satisfies` f) a
+satisfiesTyped (TArray a) (MaxItems m) = fromIntegral (F.length a) <= m
+satisfiesTyped (TArray a) (MinItems m) = fromIntegral (F.length a) >= m
+satisfiesTyped (TArray a) UniqueItems = S.size (S.fromList $ F.toList a) == F.length a -- TODO: could be better
+satisfiesTyped (TObject o) (Properties props additional _)
+  = all (`HM.member` o) (M.keys (M.filter propRequired props))
+  && all (\(k, v) -> satisfies v $ maybe additional propFormula $ M.lookup k props) (HM.toList o)
+satisfiesTyped (TObject o) (MaxProperties m) = fromIntegral (HM.size o) <= m
+satisfiesTyped (TObject o) (MinProperties m) = fromIntegral (HM.size o) >= m
+
+checkNumberFormat :: Format -> Scientific -> Bool
+checkNumberFormat "int32" (toRational -> n) = denominator n == 1
+  && n >= toRational (minBound :: Int32) && n <= toRational (maxBound :: Int32)
+checkNumberFormat "int64" (toRational -> n) = denominator n == 1
+  && n >= toRational (minBound :: Int64) && n <= toRational (maxBound :: Int64)
+checkNumberFormat "float" _n = True
+checkNumberFormat "double" _n = True
+checkNumberFormat f _n = error $ "Invalid number format: " <> T.unpack f
 
 deriving stock instance Eq (Condition t)
 deriving stock instance Ord (Condition t)
@@ -405,8 +449,8 @@ processSchema (Traced t Schema{..}) = do
       Just n -> top
         { forNumber = singletonFormula (t `Snoc` MinimumFields) $ Minimum $ Down $
           case _schemaExclusiveMinimum of
-            Just True -> Exclusive n
-            _ -> Inclusive n }
+            Just True -> Exclusive $ Down n
+            _ -> Inclusive $ Down n }
 
     multipleOfClause = case _schemaMultipleOf of
       Nothing -> top
@@ -440,8 +484,9 @@ processSchema (Traced t Schema{..}) = do
   itemsClause <- case _schemaItems of
     Nothing -> pure top
     Just (OpenApiItemsObject rs) -> do
-      f <- processRefSchema (Traced (t `Snoc` ItemsStep) rs)
-      pure top { forArray = singletonFormula (t `Snoc` ItemsField) $ Items f }
+      let trs = Traced (t `Snoc` ItemsStep) rs
+      f <- processRefSchema trs
+      pure top { forArray = singletonFormula (t `Snoc` ItemsField) $ Items f trs }
     Just (OpenApiItemsArray _) -> top <$ warn t (NotSupported "array in items is not supported")
 
   let
@@ -460,17 +505,22 @@ processSchema (Traced t Schema{..}) = do
         { forArray = singletonFormula (t `Snoc` UniqueItemsField) UniqueItems }
       _ -> top
 
-  additionalProps <- case _schemaAdditionalProperties of
-    Just (AdditionalPropertiesSchema rs) -> processRefSchema
-      (Traced (t `Snoc` AdditionalPropertiesStep) rs)
-    Just (AdditionalPropertiesAllowed False) -> pure bottom
-    _ -> pure top
+  (addProps, addPropSchema) <- case _schemaAdditionalProperties of
+    Just (AdditionalPropertiesSchema rs) -> do
+      let trs = Traced (t `Snoc` AdditionalPropertiesStep) rs
+      (,Just trs) <$> processRefSchema trs
+    Just (AdditionalPropertiesAllowed False) -> pure (bottom, Nothing)
+    _ -> pure (top, Just $ Traced (t `Snoc` AdditionalPropertiesStep) $ Inline mempty)
   propList <- forM (S.toList . S.fromList $ IOHM.keys _schemaProperties <> _schemaRequired) $ \k -> do
-    f <- case IOHM.lookup k _schemaProperties of
-      Just rs -> processRefSchema
-        (Traced (t `Snoc` PropertiesStep k) rs)
-      Nothing -> pure $ additionalProps
-    pure (k, (k `elem` _schemaRequired, f))
+    (f, sch) <- case IOHM.lookup k _schemaProperties of
+      Just rs -> do
+        let trs = Traced (t `Snoc` PropertiesStep k) rs
+        (,trs) <$> processRefSchema trs
+      Nothing -> pure (addProps, fromMaybe (Traced (t `Snoc` AdditionalPropertiesStep) $ Inline mempty) addPropSchema)
+      -- The mempty here is incorrect, but if addPropSchema was Nothing, then
+      -- addProps is bottom, and k is in _schemaRequired. We handle this situation
+      -- below and short-circuit the entire Properties condition to bottom
+    pure (k, Property (k `elem` _schemaRequired) f sch)
   let
     allBottom f = getAll $ foldType $ \ty -> case ty f of
       BottomFormula -> All True
@@ -478,16 +528,16 @@ processSchema (Traced t Schema{..}) = do
     allTop f = getAll $ foldType $ \ty -> case ty f of
       TopFormula -> All True
       _ -> All False
-    -- remove optional fields with trivial schemata
-    propMap = M.filter (\(req, f) -> not req && allTop f) $ M.fromList propList
+    -- remove optional fields whose schemata match that of additional props
+    propMap = M.filter (\p -> propRequired p || not (propFormula p /= addProps)) $ M.fromList propList
     propertiesClause
-      | any (\(req, f) -> req && allBottom f) propMap
+      | any (\p -> propRequired p && allBottom (propFormula p)) propMap
       = bottom -- if any required field has unsatisfiable schema
-      | M.null propMap, _ <- additionalProps
+      | M.null propMap, allTop addProps
       = top -- if all fields are optional and have trivial schemata
       | otherwise
       = top
-        { forObject = singletonFormula (t `Snoc` PropertiesFields) $ Properties propMap additionalProps }
+        { forObject = singletonFormula (t `Snoc` PropertiesFields) $ Properties propMap addProps addPropSchema }
 
     maxPropertiesClause = case _schemaMaxProperties of
       Nothing -> top
@@ -521,10 +571,12 @@ schemaToFormula
 schemaToFormula defs rs = runWriter . (`runReaderT` defs) $ processSchema rs
 
 checkFormulas
-  :: Trace OpenApi Schema
+  :: HasAll (CheckEnv Schema) xs
+  => HList xs
+  -> Trace OpenApi Schema
   -> ProdCons (ForeachType (JsonFormula OpenApi), T.TracePrefixTree SubtreeCheckIssue OpenApi)
   -> CompatFormula Schema ()
-checkFormulas tr (ProdCons (fp, ep) (fc, ec)) =
+checkFormulas env tr (ProdCons (fp, ep) (fc, ec)) =
   case T.toList ep ++ T.toList ec of
     issues@(_:_) -> F.for_ issues $ \(AnItem t (SubtreeCheckIssue e)) -> issueAtTrace t e
     [] -> do
@@ -559,43 +611,121 @@ checkFormulas tr (ProdCons (fp, ep) (fc, ec)) =
         case (ty fp, ty fc) of
           (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
-            F.for_ cs $ checkImplication ps -- avoid disjuntion if there's only one conjunct
+            F.for_ cs $ checkImplication env ps -- avoid disjuntion if there's only one conjunct
           (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
             anyOfM tr (SubtreeCheckIssue $ NoMatchingCondition $ SomeCondition . getTraced <$> ps)
-              [F.for_ cs $ checkImplication ps | Conjunct cs <- S.toList css]
+              [F.for_ cs $ checkImplication env ps | Conjunct cs <- S.toList css]
 
 checkContradiction :: [Traced OpenApi (Condition t)] -> CompatFormula s ()
 checkContradiction = undefined -- TODO
 
 checkImplication
-  :: Typeable t
-  => [Traced OpenApi (Condition t)]
+  :: (HasAll (CheckEnv Schema) xs, Typeable t)
+  => HList xs
+  -> [Traced OpenApi (Condition t)]
   -> Traced OpenApi (Condition t)
   -> CompatFormula s ()
-checkImplication prods cons = case findExactly prods of
+checkImplication env prods (Traced t cons) = case findExactly prods of
   Just e
     | all (satisfiesTyped e) (getTraced <$> prods) ->
-      if satisfiesTyped e (getTraced cons) then pure ()
-        else issueAtTrace (getTrace cons) (EnumDoesntSatisfy e)
+      if satisfiesTyped e cons then pure ()
+        else issueAtTrace t (EnumDoesntSatisfy e)
     | otherwise -> pure () -- vacuously true
-  Nothing -> case getTraced cons of
+  Nothing -> case cons of
     -- the above code didn't catch it, so there's no Exactly condition on the lhs
-    Exactly e -> issueAtTrace (getTrace cons) (NoMatchingEnum e)
+    Exactly e -> issueAtTrace t (NoMatchingEnum e)
+    Maximum m -> case findRelevant min (\case Maximum m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' <= m then pure ()
+        else issueAtTrace t (MatchingMaximumWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMaximum m)
+    Minimum m -> case findRelevant max (\case Minimum m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' >= m then pure ()
+        else issueAtTrace t (MatchingMinimumWeak (coerce m) (coerce m'))
+      Nothing -> issueAtTrace t (NoMatchingMinimum (coerce m))
+    MultipleOf m -> case findRelevant lcmScientific (\case MultipleOf m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if lcmScientific m m' == m' then pure ()
+        else issueAtTrace t (MatchingMultipleOfWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMultipleOf m)
+    NumberFormat f -> if any (\case NumberFormat f' -> f == f'; _ -> False) $ getTraced <$> prods
+      then pure () else issueAtTrace t (NoMatchingFormat f)
+    MaxLength m -> case findRelevant min (\case MaxLength m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' <= m then pure ()
+        else issueAtTrace t (MatchingMaxLengthWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMaxLength m)
+    MinLength m -> case findRelevant max (\case MinLength m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' >= m then pure ()
+        else issueAtTrace t (MatchingMinLengthWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMinLength m)
+    Pattern p -> if any (\case Pattern p' -> p == p'; _ -> False) $ getTraced <$> prods
+      then pure () else issueAtTrace t (NoMatchingPattern p)
+    StringFormat f -> if any (\case StringFormat f' -> f == f'; _ -> False) $ getTraced <$> prods
+      then pure () else issueAtTrace t (NoMatchingFormat f)
+    Items _ (Traced t' cons') -> case findRelevant (<>) (\case Items _ rs -> Just (rs NE.:| []); _ -> Nothing) prods of
+      Just (rs NE.:| []) -> localTrace' (ProdCons (getTrace rs) t') $ checkCompatibility env $ ProdCons (getTraced rs) cons'
+      Just rs -> do
+        let sch = Inline mempty { _schemaAllOf = Just . NE.toList $ getTraced <$> rs }
+        localTrace' (pure t' {- TODO: what? -}) $ checkCompatibility env $ ProdCons sch cons'
+      Nothing -> issueAtTrace t NoMatchingItems
+    MaxItems m -> case findRelevant min (\case MaxItems m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' <= m then pure ()
+        else issueAtTrace t (MatchingMaxItemsWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMaxItems m)
+    MinItems m -> case findRelevant max (\case MinItems m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' >= m then pure ()
+        else issueAtTrace t (MatchingMinItemsWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMinItems m)
+    UniqueItems -> if any ((== UniqueItems) . getTraced) prods then pure ()
+      else issueAtTrace t NoMatchingUniqueItems
+    MaxProperties m -> case findRelevant min (\case MaxProperties m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' <= m then pure ()
+        else issueAtTrace t (MatchingMaxPropertiesWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMaxProperties m)
+    MinProperties m -> case findRelevant max (\case MinProperties m' -> Just m'; _ -> Nothing) prods of
+      Just m' -> if m' >= m then pure ()
+        else issueAtTrace t (MatchingMinPropertiesWeak m m')
+      Nothing -> issueAtTrace t (NoMatchingMinProperties m)
   where
     findExactly (Traced _ (Exactly x):_) = Just x
     findExactly (_:xs) = findExactly xs
     findExactly [] = Nothing
+    findRelevant combine extract
+      = fmap (foldr1 combine) . NE.nonEmpty . mapMaybe (extract . getTraced)
+    lcmScientific (toRational -> a) (toRational -> b)
+      = fromRational $ lcm (numerator a) (numerator b) % gcd (denominator a) (denominator b)
 
 instance Typeable t => Subtree (Condition t) where
   data CheckIssue (Condition t)
     = EnumDoesntSatisfy (TypedValue t)
     | NoMatchingEnum (TypedValue t)
+    | NoMatchingMaximum (Bound Scientific)
+    | MatchingMaximumWeak (Bound Scientific) (Bound Scientific)
+    | NoMatchingMinimum (Bound Scientific)
+    | MatchingMinimumWeak (Bound Scientific) (Bound Scientific)
+    | NoMatchingMultipleOf Scientific
+    | MatchingMultipleOfWeak Scientific Scientific
+    | NoMatchingFormat Format
+    | NoMatchingMaxLength Integer
+    | MatchingMaxLengthWeak Integer Integer
+    | NoMatchingMinLength Integer
+    | MatchingMinLengthWeak Integer Integer
+    | NoMatchingPattern Pattern
+    | NoMatchingItems
+    | NoMatchingMaxItems Integer
+    | MatchingMaxItemsWeak Integer Integer
+    | NoMatchingMinItems Integer
+    | MatchingMinItemsWeak Integer Integer
+    | NoMatchingUniqueItems
+    | NoMatchingProperties
+    | NoMatchingMaxProperties Integer
+    | MatchingMaxPropertiesWeak Integer Integer
+    | NoMatchingMinProperties Integer
+    | MatchingMinPropertiesWeak Integer Integer
     deriving stock (Eq, Ord, Show)
-  type CheckEnv (Condition t) = '[]
+  type CheckEnv (Condition t) = CheckEnv Schema
   normalizeTrace = undefined
-  checkCompatibility _env conds = withTrace $ \traces -> do
+  checkCompatibility env conds = withTrace $ \traces -> do
     case Traced <$> traces <*> conds of
-      ProdCons prod cons -> checkImplication [prod] cons
+      ProdCons prod cons -> checkImplication env [prod] cons
 
 instance Subtree Schema where
   data CheckIssue Schema
@@ -607,12 +737,12 @@ instance Subtree Schema where
   normalizeTrace = undefined
   checkCompatibility env schs = withTrace $ \traces -> do
     let defs = getH env
-    checkFormulas (producer traces) $ schemaToFormula defs <$> (Traced <$> traces <*> schs)
+    checkFormulas env (producer traces) $ schemaToFormula defs <$> (Traced <$> traces <*> schs)
 
 instance Subtree (Referenced Schema) where
   data CheckIssue (Referenced Schema)
     deriving stock (Eq, Ord, Show)
-  type CheckEnv (Referenced Schema) = '[Definitions Schema]
+  type CheckEnv (Referenced Schema) = CheckEnv Schema
   normalizeTrace = undefined
   checkCompatibility env refs = withTrace $ \traces -> do
     let
@@ -620,4 +750,4 @@ instance Subtree (Referenced Schema) where
       schs = dereference defs <$> refs
       schs' = retrace <$> traces <*> schs
     localTrace (getTrace <$> schs) $ do
-      checkFormulas (producer $ getTrace <$> schs') $ schemaToFormula defs <$> schs'
+      checkFormulas env (producer $ getTrace <$> schs') $ schemaToFormula defs <$> schs'

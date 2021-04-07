@@ -12,6 +12,7 @@ module OpenAPI.Checker.Subtree
   , localM
   , localTrace
   , localStep
+  , localTrace'
   , anyOfM
   , anyOfAt
   , issueAtTrace
@@ -157,6 +158,12 @@ localStep
   -> Compose (CompatM b) (FormulaF f r) x
   -> Compose (CompatM a) (FormulaF f r) x
 localStep xs (Compose h) = Compose (localM (pure $ step xs) h)
+
+localTrace'
+  :: ProdCons (Trace OpenApi b)
+  -> Compose (CompatM b) (FormulaF f r) x
+  -> Compose (CompatM a) (FormulaF f r) x
+localTrace' xs (Compose (CompatM k)) = Compose $ CompatM$ ReaderT $ \_ -> runReaderT k xs
 
 issueAtTrace
   :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula s a
