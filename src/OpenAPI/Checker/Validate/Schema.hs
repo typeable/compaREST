@@ -676,6 +676,30 @@ checkImplication env prods (Traced t cons) = case findExactly prods of
       Nothing -> issueAtTrace t (NoMatchingMinItems m)
     UniqueItems -> if any ((== UniqueItems) . getTraced) prods then pure ()
       else issueAtTrace t NoMatchingUniqueItems
+    Properties props _ madd -> case findRelevant (<>) (\case Properties props' _ madd' -> Just $ (props', madd') NE.:| []; _ -> Nothing) prods of
+      Just ((props', madd') NE.:| []) -> do
+        F.for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
+          let
+            go sch' sch = let schs = ProdCons sch' sch
+              in localTrace' (getTrace <$> schs) $ checkCompatibility env $ getTraced <$> schs
+          case (M.lookup k props', madd', M.lookup k props, madd) of
+            (Nothing, Nothing, _, _) -> pure () -- vacuously
+            (_, _, Nothing, Nothing) -> issueAtTrace t (UnexpectedProperty k)
+            (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
+            (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
+            (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
+            (Nothing, Just _, Nothing, Just _) -> pure ()
+          case (maybe False propRequired $ M.lookup k props', maybe False propRequired $ M.lookup k props) of
+            (False, True) -> issueAtTrace t (PropertyNowRequired k)
+            _ -> pure ()
+          pure ()
+        case (madd', madd) of
+          (Nothing, _) -> pure () -- vacuously
+          (_, Nothing) -> issueAtTrace t NoAdditionalProperties
+          (Just add', Just add) -> let schs = ProdCons add' add
+            in localTrace' (getTrace <$> schs) $ checkCompatibility env $ getTraced <$> schs
+        pure ()
+      Nothing -> issueAtTrace t NoMatchingProperties
     MaxProperties m -> case findRelevant min (\case MaxProperties m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' <= m then pure ()
         else issueAtTrace t (MatchingMaxPropertiesWeak m m')
@@ -716,6 +740,9 @@ instance Typeable t => Subtree (Condition t) where
     | MatchingMinItemsWeak Integer Integer
     | NoMatchingUniqueItems
     | NoMatchingProperties
+    | UnexpectedProperty Text
+    | PropertyNowRequired Text
+    | NoAdditionalProperties
     | NoMatchingMaxProperties Integer
     | MatchingMaxPropertiesWeak Integer Integer
     | NoMatchingMinProperties Integer
