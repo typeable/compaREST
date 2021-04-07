@@ -617,7 +617,7 @@ checkFormulas env tr (ProdCons (fp, ep) (fc, ec)) =
               [F.for_ cs $ checkImplication env ps | Conjunct cs <- S.toList css]
 
 checkContradiction :: [Traced OpenApi (Condition t)] -> CompatFormula s ()
-checkContradiction = undefined -- TODO
+checkContradiction _ = pure () -- TODO
 
 checkImplication
   :: (HasAll (CheckEnv Schema) xs, Typeable t)
@@ -760,11 +760,11 @@ instance Subtree Schema where
     | InvalidSchema Text
     | NoMatchingCondition [SomeCondition]
     deriving stock (Eq, Ord, Show)
-  type CheckEnv Schema = '[Definitions Schema]
+  type CheckEnv Schema = '[ProdCons (Definitions Schema)]
   normalizeTrace = undefined
   checkCompatibility env schs = withTrace $ \traces -> do
     let defs = getH env
-    checkFormulas env (producer traces) $ schemaToFormula defs <$> (Traced <$> traces <*> schs)
+    checkFormulas env (producer traces) $ schemaToFormula <$> defs <*> (Traced <$> traces <*> schs)
 
 instance Subtree (Referenced Schema) where
   data CheckIssue (Referenced Schema)
@@ -774,7 +774,7 @@ instance Subtree (Referenced Schema) where
   checkCompatibility env refs = withTrace $ \traces -> do
     let
       defs = getH env
-      schs = dereference defs <$> refs
+      schs = dereference <$> defs <*> refs
       schs' = retrace <$> traces <*> schs
     localTrace (getTrace <$> schs) $ do
-      checkFormulas env (producer $ getTrace <$> schs') $ schemaToFormula defs <$> schs'
+      checkFormulas env (producer $ getTrace <$> schs') $ schemaToFormula <$> defs <*> schs'
