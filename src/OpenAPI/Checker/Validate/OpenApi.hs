@@ -24,6 +24,7 @@ instance Subtree OpenApi where
         ((_componentsRequestBodies <$> cs)
            `HCons` (_componentsParameters <$> cs)
            `HCons` (_componentsSecuritySchemes <$> cs)
+           `HCons` (_componentsResponses <$> cs)
            `HCons` HNil)
         (processPathItems . IOHM.toList . _openApiPaths <$> prodCons)
 

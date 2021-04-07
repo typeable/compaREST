@@ -22,6 +22,7 @@ instance Subtree Operation where
       '[ ProdCons (Definitions Param)
        , ProdCons (Definitions RequestBody)
        , ProdCons (Definitions SecurityScheme)
+       , ProdCons (Definitions Response)
        ]
   data CheckIssue Operation
     = ParamNotMatched Text -- Param name
@@ -57,7 +58,7 @@ instance Subtree Operation where
       ProdCons Nothing (Just _) -> issueAt producer NoRequestBody
       ProdCons (Just _) Nothing -> issueAt consumer NoRequestBody
     localStep OperationResponsesStep $
-      checkCompatibility HNil $ _operationResponses <$> prodCons
+      checkCompatibility env $ _operationResponses <$> prodCons
     -- FIXME: https://github.com/typeable/openapi-diff/issues/27
     case IOHM.null . _operationCallbacks <$> prodCons of
       (ProdCons True True) -> pure ()

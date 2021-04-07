@@ -103,15 +103,16 @@ library
                   , OpenAPI.Checker.Subtree
                   , OpenAPI.Checker.Trace
                   , OpenAPI.Checker.TracePrefixTree
+                  , OpenAPI.Checker.Validate.MediaTypeObject
                   , OpenAPI.Checker.Validate.OpenApi
                   , OpenAPI.Checker.Validate.Operation
                   , OpenAPI.Checker.Validate.Param
                   , OpenAPI.Checker.Validate.PathFragment
+                  , OpenAPI.Checker.Validate.ProcessedPathItem
                   , OpenAPI.Checker.Validate.RequestBody
                   , OpenAPI.Checker.Validate.Responses
-                  , OpenAPI.Checker.Validate.ProcessedPathItem
-                  , OpenAPI.Checker.Validate.Server
                   , OpenAPI.Checker.Validate.SecurityRequirement
+                  , OpenAPI.Checker.Validate.Server
 
 executable openapi-diff
   import:              common-options
