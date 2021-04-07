@@ -18,9 +18,10 @@ instance Subtree MediaTypeObject where
     = MediaEncodingMissing
     | MediaEncodingIncompat
     deriving (Eq, Ord, Show)
-  checkCompatibility env (ProdCons p c) = sequenceA_
-    [ tryCheckEncoding
-    , checkSchema ]
+  checkCompatibility env (ProdCons p c) = do
+    tryCheckEncoding
+    checkSchema
+    pure ()
     where
       mediaType = getH @MediaType env
       tryCheckEncoding =

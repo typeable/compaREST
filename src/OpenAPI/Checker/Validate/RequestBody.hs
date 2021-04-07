@@ -34,8 +34,6 @@ instance Subtree RequestBody where
         Just prodMedia -> localStep (MediaTypeStep mediaType) $
           checkCompatibility (singletonH mediaType) (ProdCons prodMedia consMedia)
 
-
-
 instance Steppable RequestBody MediaTypeObject where
   data Step RequestBody MediaTypeObject = MediaTypeStep MediaType
     deriving (Eq, Ord, Show)

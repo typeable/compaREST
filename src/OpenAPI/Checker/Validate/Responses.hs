@@ -85,7 +85,6 @@ instance Subtree Header where
     error "Call the checkCompatibility for @Schema@"
     pure ()
 
-
 instance Steppable Response (Referenced Header) where
   data Step Response (Referenced Header) = ResponseHeader HeaderName
     deriving (Eq, Ord, Show)
