@@ -41,6 +41,8 @@ data Trace (a :: k) (b :: k) where
   Root :: Trace a a
   Snoc :: Steppable b c => Trace a b -> !(Step b c) -> Trace a c
 
+deriving stock instance Show (Trace a b)
+
 infixl 5 `Snoc`
 
 step :: Steppable a b => Step a b -> Trace a b
@@ -116,12 +118,17 @@ instance Typeable r => Ord (AnItem f r) where
           Snoc _ _ -> compare (someTypeRep xs) (someTypeRep ys)
 
 data Traced r a = Traced {getTrace :: Trace r a, getTraced :: a}
+  deriving (Eq, Show)
+
+-- | Reverse lexicographical order, so that getTraced is a monotonous function
+instance Ord a => Ord (Traced r a) where
+  compare (Traced t1 a1) (Traced t2 a2) = compare a1 a2 <> compare t1 t2
 
 mapTraced :: (Trace r a -> Trace r b) -> (a -> b) -> Traced r a -> Traced r b
 mapTraced f g (Traced t a) = Traced (f t) (g a)
 
-retrace :: (Trace r a -> Trace r' a) -> Traced r a -> Traced r' a
-retrace f (Traced t a) = Traced (f t) a
+retrace :: Trace s r -> Traced r a -> Traced s a
+retrace xs (Traced t a) = Traced (xs >>> t) a
 
 deTraced :: Traced r a -> (Trace r a, a)
 deTraced (Traced a b) = (a, b)

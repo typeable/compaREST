@@ -4,6 +4,7 @@ module OpenAPI.Checker.Formula
   , variable
   , eitherOf
   , anError
+  , errors
   , calculate
   , maxFixpoint
   ) where
@@ -56,6 +57,11 @@ data SomeFormulaF (a :: Type) where
 
 anError :: AnItem f r -> FormulaF f r a
 anError e = Errors $ T.singleton e
+
+errors :: T.TracePrefixTree f r -> FormulaF f r ()
+errors t
+  | T.null t = Result ()
+  | otherwise = Errors t
 
 variable :: VarRef -> FormulaF f r ()
 variable v = Variable v ()

@@ -6,10 +6,13 @@ module OpenAPI.Checker.Subtree
   , ProdCons (..)
   , HasUnsupportedFeature (..)
   , checkProdCons
+  , SubtreeCheckIssue (..)
   , runCompatFormula
+  , withTrace
   , localM
   , localTrace
   , localStep
+  , localTrace'
   , anyOfM
   , anyOfAt
   , issueAtTrace
@@ -129,6 +132,13 @@ runCompatFormula
 runCompatFormula env (Compose f) =
   calculate . runIdentity . runMemo 0 . (`runReaderT` env) . unCompatM $ f
 
+withTrace
+  :: (ProdCons (Trace OpenApi a) -> Compose (CompatM a) (FormulaF f r) x)
+  -> Compose (CompatM a) (FormulaF f r) x
+withTrace k = Compose $ do
+  xs <- ask
+  getCompose $ k xs
+
 localM
   :: ProdCons (Trace a b)
   -> CompatM b x
@@ -149,8 +159,14 @@ localStep
   -> Compose (CompatM a) (FormulaF f r) x
 localStep xs (Compose h) = Compose (localM (pure $ step xs) h)
 
+localTrace'
+  :: ProdCons (Trace OpenApi b)
+  -> Compose (CompatM b) (FormulaF f r) x
+  -> Compose (CompatM a) (FormulaF f r) x
+localTrace' xs (Compose (CompatM k)) = Compose $ CompatM$ ReaderT $ \_ -> runReaderT k xs
+
 issueAtTrace
-  :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula t a
+  :: Subtree t => Trace OpenApi t -> CheckIssue t -> CompatFormula s a
 issueAtTrace xs issue = Compose $ pure $ anError $ AnItem xs $ SubtreeCheckIssue issue
 
 issueAt
