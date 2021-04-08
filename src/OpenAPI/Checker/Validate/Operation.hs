@@ -24,6 +24,7 @@ instance Subtree Operation where
        , ProdCons (Definitions SecurityScheme)
        , ProdCons (Definitions Response)
        , ProdCons (Definitions Header)
+       , ProdCons (Definitions Schema)
        ]
   data CheckIssue Operation
     = ParamNotMatched Text -- Param name

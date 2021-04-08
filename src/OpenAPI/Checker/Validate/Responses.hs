@@ -15,11 +15,14 @@ import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.MediaTypeObject ()
+import OpenAPI.Checker.Validate.Schema ()
 
 instance Subtree Responses where
   type CheckEnv Responses =
     '[ ProdCons (Definitions Response)
-     , ProdCons (Definitions Header) ]
+     , ProdCons (Definitions Header)
+     , ProdCons (Definitions Schema)
+     ]
   data CheckIssue Responses = ResponseCodeNotFound HttpStatusCode
     deriving (Eq, Ord, Show)
   -- Here we are checking responses, so, the consumer and producer swap their
@@ -37,7 +40,10 @@ instance Subtree Responses where
     --  FIXME: Do we need to check "default" fields somehow here?
 
 instance Subtree Response where
-  type CheckEnv Response = '[ ProdCons (Definitions Header) ]
+  type CheckEnv Response =
+    '[ ProdCons (Definitions Header)
+     , ProdCons (Definitions Schema)
+     ]
   data CheckIssue Response
     = ResponseMediaTypeMissing MediaType
     | ResponseHeaderMissing HeaderName
@@ -68,22 +74,32 @@ instance Subtree Response where
               let headerRefs = dereference <$> headerDefs <*> ProdCons prodRef consRef
               localStep (ResponseHeader hname)
                 $ swapRoles
-                $ checkProdCons HNil $ swapProdCons headerRefs
+                $ checkProdCons env $ swapProdCons headerRefs
       headerDefs = getH @(ProdCons (Definitions Header)) env
 
 instance Subtree Header where
-  type CheckEnv Header = '[ ]
+  type CheckEnv Header = '[ProdCons (Definitions Schema)]
   data CheckIssue Header
     = RequiredHeaderMissing
     | NonEmptyHeaderRequired
+    | HeaderSchemaRequired
     deriving (Eq, Ord, Show)
-  checkCompatibility _ (ProdCons p c) = do
+  checkCompatibility env (ProdCons p c) = do
     if (fromMaybe False $ _headerRequired c) && not (fromMaybe False $ _headerRequired p)
       then issueAt producer RequiredHeaderMissing else pure ()
     if not (fromMaybe False $ _headerAllowEmptyValue c) && (fromMaybe False $ _headerAllowEmptyValue p)
       then issueAt producer NonEmptyHeaderRequired else pure ()
-    error "Call the checkCompatibility for @Schema@"
+    for_ (_headerSchema c) $ \consRef ->
+      case (_headerSchema p) of
+        Nothing -> issueAt producer HeaderSchemaRequired
+        Just prodRef -> do
+          localStep HeaderSchema
+            $ checkCompatibility env $ ProdCons prodRef consRef
     pure ()
+
+instance Steppable Header (Referenced Schema) where
+  data Step Header (Referenced Schema) = HeaderSchema
+    deriving (Eq, Ord, Show)
 
 instance Steppable Response (Referenced Header) where
   data Step Response (Referenced Header) = ResponseHeader HeaderName

@@ -38,6 +38,7 @@ instance Subtree ProcessedPathItems where
        , ProdCons (Definitions SecurityScheme)
        , ProdCons (Definitions Response)
        , ProdCons (Definitions Header)
+       , ProdCons (Definitions Schema)
        ]
   data CheckIssue ProcessedPathItems = NoPathsMatched | WrongNumberOfFragments
     deriving (Eq, Ord, Show)
