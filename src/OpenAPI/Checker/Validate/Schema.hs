@@ -529,7 +529,7 @@ processSchema (Traced t Schema{..}) = do
       TopFormula -> All True
       _ -> All False
     -- remove optional fields whose schemata match that of additional props
-    propMap = M.filter (\p -> propRequired p || not (propFormula p /= addProps)) $ M.fromList propList
+    propMap = M.filter (\p -> propRequired p || propFormula p /= addProps) $ M.fromList propList
     propertiesClause
       | any (\p -> propRequired p && allBottom (propFormula p)) propMap
       = bottom -- if any required field has unsatisfiable schema
