@@ -30,7 +30,7 @@ getPathParamRefs
 getPathParamRefs defs xs =
   M.fromList $ do
     x <- xs
-    let (Traced t param) = dereferenceTraced defs x
+    let (Traced t param) = dereference defs x
     guard (_paramIn param == ParamPath)
     return (Reference $ _paramName param, Traced t param)
 

@@ -31,7 +31,7 @@ instance Subtree Responses where
       case IOHM.lookup prodStatus $ _responsesResponses c of
         Nothing -> issueAt consumer $ ResponseCodeNotFound prodStatus
         Just consRef -> do
-          let tracedRefs = dereferenceTraced <$> defs <*> ProdCons prodRef consRef
+          let tracedRefs = dereference <$> defs <*> ProdCons prodRef consRef
           localStep (ResponseCodeStep prodStatus)
             $ checkProdCons env tracedRefs
     --  FIXME: Do we need to check "default" fields somehow here?
@@ -65,7 +65,7 @@ instance Subtree Response where
           case IOHM.lookup hname $ _responseHeaders c of
             Nothing -> issueAt consumer $ ResponseHeaderMissing hname
             Just consRef -> do
-              let headerRefs = dereferenceTraced <$> headerDefs <*> ProdCons prodRef consRef
+              let headerRefs = dereference <$> headerDefs <*> ProdCons prodRef consRef
               localStep (ResponseHeader hname)
                 $ swapRoles
                 $ checkProdCons HNil $ swapProdCons headerRefs

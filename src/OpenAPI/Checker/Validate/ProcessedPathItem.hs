@@ -70,7 +70,7 @@ instance Subtree ProcessedPathItems where
         -- Here we only need to look for the method that the current producer
         -- endpoint is using.
         (cParams, cOperation) <- maybeToList $ getter cPathItem
-        , let cPathFragmentParams = retrace (step PathFragmentParentStep >>>) <$> cParams
+        , let cPathFragmentParams = retrace (step PathFragmentParentStep) <$> cParams
         , -- make sure the paths are the same length
         pathFragments <- maybeToList $ zipAllWith ProdCons pPath cPath
         ]
@@ -78,7 +78,7 @@ instance Subtree ProcessedPathItems where
       , -- look at every endpoint in the producer ...
       (ProcessedPathItemGetter getter, (pParams, pOperation)) <-
         toList (fmap . (,) <$> processedPathItemGetters <*> pPathItem) >>= maybeToList
-      , let pPathFragmentParams = retrace (step PathFragmentParentStep >>>) <$> pParams
+      , let pPathFragmentParams = retrace (step PathFragmentParentStep) <$> pParams
       ]
 
 zipAllWith :: (a -> b -> c) -> [a] -> [b] -> Maybe [c]
@@ -97,11 +97,11 @@ processPathItem
 processPathItem componentParams ProcessedPathItem {path = pathS, item = pathItem} =
   let path = parsePath pathS
       commonPathParams =
-        retrace (step PathItemParametersStep >>>)
+        retrace (step PathItemParametersStep)
           <$> getPathParamRefs componentParams (_pathItemParameters pathItem)
       processOperation (s :: Step PathItem Operation) op =
         let operationParams =
-              retrace (Root `Snoc` s `Snoc` OperationParamsStep >>>)
+              retrace (Root `Snoc` s `Snoc` OperationParamsStep)
                 <$> getPathParamRefs componentParams (_operationParameters op)
             pathParams =
               operationParams <> commonPathParams

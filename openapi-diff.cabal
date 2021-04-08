@@ -39,10 +39,12 @@ common common-options
                      , generic-monoid
                      , http-media
                      , insert-ordered-containers
+                     , lattices
                      , lens
                      , mtl
                      , openapi3
                      , optparse-applicative
+                     , scientific
                      , tagged
                      , text
                      , transformers
@@ -75,6 +77,7 @@ common common-options
                     , NamedFieldPuns
                     , NumDecimals
                     , OverloadedStrings
+                    , PatternSynonyms
                     , PolyKinds
                     , QuasiQuotes
                     , RankNTypes
@@ -111,6 +114,7 @@ library
                   , OpenAPI.Checker.Validate.ProcessedPathItem
                   , OpenAPI.Checker.Validate.RequestBody
                   , OpenAPI.Checker.Validate.Responses
+                  , OpenAPI.Checker.Validate.Schema
                   , OpenAPI.Checker.Validate.SecurityRequirement
                   , OpenAPI.Checker.Validate.Server
 

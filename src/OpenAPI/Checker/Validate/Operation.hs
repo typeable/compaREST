@@ -38,17 +38,17 @@ instance Subtree Operation where
           defParams <- getH @(ProdCons (Definitions Param)) env
           pure $
             filter ((/= ParamPath) . _paramIn . getTraced)
-              . fmap (dereferenceTraced defParams)
+              . fmap (dereference defParams)
               $ op
         reqBody = do
           op <- _operationRequestBody <$> prodCons
           reqDefs <- getH @(ProdCons (Definitions RequestBody)) env
-          pure $ fmap (dereferenceTraced reqDefs) op
+          pure $ fmap (dereference reqDefs) op
     for_ pNonPathParams $ \p@(Traced _ param) ->
       anyOfAt
         producer
         (ParamNotMatched $ _paramName param)
-        [ checkProdCons HNil . fmap (retrace (step OperationParamsStep >>>)) $ ProdCons p c
+        [ checkProdCons HNil . fmap (retrace (step OperationParamsStep)) $ ProdCons p c
         | c <- cNonPathParams
         ]
     case reqBody of
