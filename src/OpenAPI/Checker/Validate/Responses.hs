@@ -5,6 +5,7 @@ module OpenAPI.Checker.Validate.Responses
   )
 where
 
+import Control.Monad
 import Data.Foldable
 import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
@@ -66,17 +67,22 @@ instance Subtree Response where
               $ swapRoles
               $ checkCompatibility @MediaTypeObject (mediaType `HCons` swapProdCons schemaRefs `HCons` HNil)
               $ ProdCons consMediaObject prodMediaObject
-      -- Each header expected by the producer must be provided by the
+      -- Each mandatory header expected by the producer must be provided by the
       -- consumer. Assume, that extra consumer headers are ignored.
       checkHeaders = do
-        for_ (IOHM.toList $ _responseHeaders p) $ \ (hname, prodRef) ->
+        for_ (IOHM.toList $ _responseHeaders p) $ \ (hname, prodRef) -> do
+          let
+            prodHeader = dereference (producer headerDefs) prodRef
+            prodReq = fromMaybe False $ _headerRequired $ getTraced prodHeader
           case IOHM.lookup hname $ _responseHeaders c of
-            Nothing -> issueAt consumer $ ResponseHeaderMissing hname
+            Nothing -> when prodReq
+              $ issueAt consumer $ ResponseHeaderMissing hname
             Just consRef -> do
-              let headerRefs = dereference <$> headerDefs <*> ProdCons prodRef consRef
+              let consHeader = dereference (consumer headerDefs) consRef
               localStep (ResponseHeader hname)
                 $ swapRoles
-                $ checkProdCons (singletonH $ swapProdCons schemaRefs) $ swapProdCons headerRefs
+                $ checkProdCons (singletonH $ swapProdCons schemaRefs)
+                $ ProdCons consHeader prodHeader -- Not a mistake, swapping roles
       headerDefs = getH @(ProdCons (Definitions Header)) env
       schemaRefs = getH @(ProdCons (Definitions Schema)) env
 
