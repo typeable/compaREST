@@ -15,9 +15,14 @@ runChecker = do
   opts <- execParser optionsParserInfo
   let parseSchema path =
         eitherDecodeFileStrict path >>= \case
-          Left e -> do
-            putStrLn $ "Failed to parse: " ++ path
-            fail e
+          Left jsonErr -> do
+            Yaml.decodeFileEither path >>= \case
+              Left yamlErr -> do
+                putStrLn "Could not parse as json or yaml"
+                putStrLn $ show jsonErr
+                putStrLn $ show yamlErr
+                fail "Exiting"
+              Right s -> pure s
           Right s -> pure s
   a <- parseSchema (clientFile opts)
   b <- parseSchema (serverFile opts)
