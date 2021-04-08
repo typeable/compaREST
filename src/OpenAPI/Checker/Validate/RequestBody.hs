@@ -20,7 +20,7 @@ instance Subtree RequestBody where
     '[ ProdCons (Definitions Schema) ]
   data CheckIssue RequestBody
     = RequestBodyRequired
-    | RequestMediaTypeNotFound
+    | RequestMediaTypeNotFound MediaType
     deriving (Eq, Ord, Show)
   checkCompatibility env (ProdCons p c) =
     if not (fromMaybe False $ _requestBodyRequired p)
@@ -29,10 +29,10 @@ instance Subtree RequestBody where
     else
       -- For each consumer we must find at least one compatible producer media
       -- type
-      for_ (IOHM.toList $ _requestBodyContent c) $ \(mediaType, consMedia) ->
-      case IOHM.lookup mediaType $ _requestBodyContent p of
-        Nothing -> issueAt producer RequestMediaTypeNotFound
-        Just prodMedia -> localStep (MediaTypeStep mediaType) $
+      for_ (IOHM.toList $ _requestBodyContent p) $ \(mediaType, prodMedia) ->
+      case IOHM.lookup mediaType $ _requestBodyContent c of
+        Nothing -> issueAt consumer (RequestMediaTypeNotFound mediaType)
+        Just consMedia -> localStep (MediaTypeStep mediaType) $
           checkCompatibility (HCons mediaType env) (ProdCons prodMedia consMedia)
 
 instance Steppable RequestBody MediaTypeObject where

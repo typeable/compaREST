@@ -10,7 +10,7 @@ import Data.Text (Text)
 import Network.HTTP.Media (MediaType, mainType, subType)
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
-import OpenAPI.Checker.Validate.Schema
+import OpenAPI.Checker.Validate.Schema ()
 
 instance Subtree MediaTypeObject where
   type CheckEnv MediaTypeObject =
@@ -34,10 +34,10 @@ instance Subtree MediaTypeObject where
              "x-www-form-urlencoded" == subType mediaType -> checkEncoding
            | otherwise -> pure ()
         where
-          checkEncoding = for_ (IOHM.toList $ _mediaTypeObjectEncoding c) $ \(paramName, consEncoding) ->
-            case IOHM.lookup paramName $ _mediaTypeObjectEncoding p of
-              Nothing -> issueAt producer MediaEncodingMissing
-              Just prodEncoding -> localStep (MediaTypeParamEncoding paramName)
+          checkEncoding = for_ (IOHM.toList $ _mediaTypeObjectEncoding p) $ \(paramName, prodEncoding) ->
+            case IOHM.lookup paramName $ _mediaTypeObjectEncoding c of
+              Nothing -> issueAt consumer MediaEncodingMissing
+              Just consEncoding -> localStep (MediaTypeParamEncoding paramName)
                 $ checkCompatibility HNil
                 $ ProdCons prodEncoding consEncoding
       checkSchema = for_ (_mediaTypeObjectSchema c) $ \consRef ->
