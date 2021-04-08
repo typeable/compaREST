@@ -32,25 +32,26 @@ common common-options
   build-depends:       base >= 4.12.0.0 && < 4.15
                      , aeson
                      , attoparsec
+                     , bytestring
                      , containers
                      , deriving-aeson
                      , generic-data
                      , generic-monoid
+                     , http-media
                      , insert-ordered-containers
+                     , lattices
                      , lens
                      , mtl
                      , openapi3
                      , optparse-applicative
+                     , scientific
                      , tagged
                      , text
                      , transformers
                      , typerep-map
-                     , yaml
                      , unordered-containers
                      , vector
-                     , bytestring
-                     , scientific
-                     , lattices
+                     , yaml
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -105,16 +106,17 @@ library
                   , OpenAPI.Checker.Subtree
                   , OpenAPI.Checker.Trace
                   , OpenAPI.Checker.TracePrefixTree
+                  , OpenAPI.Checker.Validate.MediaTypeObject
                   , OpenAPI.Checker.Validate.OpenApi
                   , OpenAPI.Checker.Validate.Operation
                   , OpenAPI.Checker.Validate.Param
                   , OpenAPI.Checker.Validate.PathFragment
+                  , OpenAPI.Checker.Validate.ProcessedPathItem
                   , OpenAPI.Checker.Validate.RequestBody
                   , OpenAPI.Checker.Validate.Responses
-                  , OpenAPI.Checker.Validate.ProcessedPathItem
-                  , OpenAPI.Checker.Validate.Server
-                  , OpenAPI.Checker.Validate.SecurityRequirement
                   , OpenAPI.Checker.Validate.Schema
+                  , OpenAPI.Checker.Validate.SecurityRequirement
+                  , OpenAPI.Checker.Validate.Server
 
 executable openapi-diff
   import:              common-options

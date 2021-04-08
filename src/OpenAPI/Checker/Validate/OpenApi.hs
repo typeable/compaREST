@@ -1,5 +1,5 @@
-{-# LANGUAGE PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=5 #-} -- Not compiles without
 
 module OpenAPI.Checker.Validate.OpenApi
   (
@@ -17,7 +17,6 @@ instance Subtree OpenApi where
   type CheckEnv OpenApi = '[]
   data CheckIssue OpenApi
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility _ prodCons = do
     let cs = _openApiComponents <$> prodCons
     localStep OpenApiPathsStep $
@@ -25,6 +24,9 @@ instance Subtree OpenApi where
         ((_componentsRequestBodies <$> cs)
            `HCons` (_componentsParameters <$> cs)
            `HCons` (_componentsSecuritySchemes <$> cs)
+           `HCons` (_componentsResponses <$> cs)
+           `HCons` (_componentsHeaders <$> cs)
+           `HCons` (_componentsSchemas <$> cs)
            `HCons` HNil)
         (processPathItems . IOHM.toList . _openApiPaths <$> prodCons)
 

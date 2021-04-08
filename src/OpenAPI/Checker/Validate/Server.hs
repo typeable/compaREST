@@ -12,5 +12,4 @@ instance Subtree Server where
   type CheckEnv Server = '[]
   data CheckIssue Server
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility = undefined

@@ -761,7 +761,6 @@ instance Subtree Schema where
     | NoMatchingCondition [SomeCondition]
     deriving stock (Eq, Ord, Show)
   type CheckEnv Schema = '[ProdCons (Definitions Schema)]
-  normalizeTrace = undefined
   checkCompatibility env schs = withTrace $ \traces -> do
     let defs = getH env
     checkFormulas env (producer traces) $ schemaToFormula <$> defs <*> (Traced <$> traces <*> schs)
@@ -770,7 +769,6 @@ instance Subtree (Referenced Schema) where
   data CheckIssue (Referenced Schema)
     deriving stock (Eq, Ord, Show)
   type CheckEnv (Referenced Schema) = CheckEnv Schema
-  normalizeTrace = undefined
   checkCompatibility env refs = withTrace $ \traces -> do
     let
       defs = getH env

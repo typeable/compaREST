@@ -15,5 +15,4 @@ instance Subtree SecurityRequirement where
        ]
   data CheckIssue SecurityRequirement
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility = undefined

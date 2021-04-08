@@ -22,6 +22,9 @@ instance Subtree Operation where
       '[ ProdCons (Definitions Param)
        , ProdCons (Definitions RequestBody)
        , ProdCons (Definitions SecurityScheme)
+       , ProdCons (Definitions Response)
+       , ProdCons (Definitions Header)
+       , ProdCons (Definitions Schema)
        ]
   data CheckIssue Operation
     = ParamNotMatched Text -- Param name
@@ -30,7 +33,6 @@ instance Subtree Operation where
     | SecurityRequirementNotMet Int -- security indexs
     | ServerNotConsumed Int -- server index
     deriving (Eq, Ord, Show)
-  normalizeTrace = undefined
   checkCompatibility env prodCons = do
     let ProdCons {producer = pNonPathParams, consumer = cNonPathParams} = do
           op <- _operationParameters <$> prodCons
@@ -54,11 +56,11 @@ instance Subtree Operation where
       ProdCons Nothing Nothing -> pure ()
       ProdCons (Just pBody) (Just cBody) ->
         localStep OperationRequestBodyStep $
-          checkProdCons HNil (ProdCons pBody cBody)
+          checkProdCons env (ProdCons pBody cBody)
       ProdCons Nothing (Just _) -> issueAt producer NoRequestBody
       ProdCons (Just _) Nothing -> issueAt consumer NoRequestBody
     localStep OperationResponsesStep $
-      checkCompatibility HNil $ _operationResponses <$> prodCons
+      checkCompatibility env $ _operationResponses <$> prodCons
     -- FIXME: https://github.com/typeable/openapi-diff/issues/27
     case IOHM.null . _operationCallbacks <$> prodCons of
       (ProdCons True True) -> pure ()
