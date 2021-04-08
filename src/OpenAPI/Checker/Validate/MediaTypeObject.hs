@@ -34,12 +34,16 @@ instance Subtree MediaTypeObject where
              "x-www-form-urlencoded" == subType mediaType -> checkEncoding
            | otherwise -> pure ()
         where
+          -- Each parameter encoded by the producer must be parsed by the
+          -- consumer
           checkEncoding = for_ (IOHM.toList $ _mediaTypeObjectEncoding p) $ \(paramName, prodEncoding) ->
             case IOHM.lookup paramName $ _mediaTypeObjectEncoding c of
               Nothing -> issueAt consumer MediaEncodingMissing
               Just consEncoding -> localStep (MediaTypeParamEncoding paramName)
                 $ checkCompatibility HNil
                 $ ProdCons prodEncoding consEncoding
+      -- If consumer requires schema then producer must produce compatible
+      -- request
       checkSchema = for_ (_mediaTypeObjectSchema c) $ \consRef ->
         case _mediaTypeObjectSchema p of
           Nothing -> issueAt producer MediaTypeSchemaRequired
