@@ -529,7 +529,7 @@ processSchema (Traced t Schema{..}) = do
       TopFormula -> All True
       _ -> All False
     -- remove optional fields whose schemata match that of additional props
-    propMap = M.filter (\p -> propRequired p || not (propFormula p /= addProps)) $ M.fromList propList
+    propMap = M.filter (\p -> propRequired p || propFormula p /= addProps) $ M.fromList propList
     propertiesClause
       | any (\p -> propRequired p && allBottom (propFormula p)) propMap
       = bottom -- if any required field has unsatisfiable schema
@@ -609,15 +609,18 @@ checkFormulas env tr (ProdCons (fp, ep) (fc, ec)) =
       -- shortcut of \/_j A[j] ⊂ ∅ hardly helps.
       forType_ $ \ty ->
         case (ty fp, ty fc) of
-          (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction ps
+          (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction tr ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
             F.for_ cs $ checkImplication env ps -- avoid disjuntion if there's only one conjunct
           (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
             anyOfM tr (SubtreeCheckIssue $ NoMatchingCondition $ SomeCondition . getTraced <$> ps)
               [F.for_ cs $ checkImplication env ps | Conjunct cs <- S.toList css]
 
-checkContradiction :: [Traced OpenApi (Condition t)] -> CompatFormula s ()
-checkContradiction _ = pure () -- TODO
+checkContradiction
+  :: Trace OpenApi Schema
+  -> [Traced OpenApi (Condition t)]
+  -> CompatFormula s ()
+checkContradiction tr _ = issueAtTrace tr NoContradiction -- TODO
 
 checkImplication
   :: (HasAll (CheckEnv Schema) xs, Typeable t)
@@ -759,6 +762,7 @@ instance Subtree Schema where
     = NotSupported Text
     | InvalidSchema Text
     | NoMatchingCondition [SomeCondition]
+    | NoContradiction
     deriving stock (Eq, Ord, Show)
   type CheckEnv Schema = '[ProdCons (Definitions Schema)]
   checkCompatibility env schs = withTrace $ \traces -> do

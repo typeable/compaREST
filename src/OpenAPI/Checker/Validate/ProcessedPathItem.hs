@@ -48,9 +48,7 @@ instance Subtree ProcessedPathItems where
             <$> getH @(ProdCons (Definitions Param)) env
             <*> prodCons
     sequenceA_
-      [ anyOfAt
-        producer
-        NoPathsMatched
+      [ anyOf'
         [ localTrace (step <$> ProdCons pSPath cSPath) $ do
           -- make sure every path fragment is compatible
           sequenceA_
@@ -81,6 +79,9 @@ instance Subtree ProcessedPathItems where
         toList (fmap . (,) <$> processedPathItemGetters <*> pPathItem) >>= maybeToList
       , let pPathFragmentParams = retrace (step PathFragmentParentStep) <$> pParams
       ]
+    where
+      anyOf' [x] = x -- preserve errors if there's only one choice
+      anyOf' xs = anyOfAt producer NoPathsMatched xs
 
 zipAllWith :: (a -> b -> c) -> [a] -> [b] -> Maybe [c]
 zipAllWith _ [] [] = Just []

@@ -64,7 +64,7 @@ instance Subtree Response where
             Nothing -> issueAt consumer $ ResponseMediaTypeMissing mediaType
             Just consMediaObject -> localStep (ResponseMediaObject mediaType)
               $ swapRoles
-              $ checkCompatibility @MediaTypeObject (HCons mediaType env)
+              $ checkCompatibility @MediaTypeObject (mediaType `HCons` swapProdCons schemaRefs `HCons` HNil)
               $ ProdCons consMediaObject prodMediaObject
       checkHeaders = do
         for_ (IOHM.toList $ _responseHeaders p) $ \ (hname, prodRef) ->
@@ -74,8 +74,9 @@ instance Subtree Response where
               let headerRefs = dereference <$> headerDefs <*> ProdCons prodRef consRef
               localStep (ResponseHeader hname)
                 $ swapRoles
-                $ checkProdCons env $ swapProdCons headerRefs
+                $ checkProdCons (singletonH $ swapProdCons schemaRefs) $ swapProdCons headerRefs
       headerDefs = getH @(ProdCons (Definitions Header)) env
+      schemaRefs = getH @(ProdCons (Definitions Schema)) env
 
 instance Subtree Header where
   type CheckEnv Header = '[ProdCons (Definitions Schema)]
