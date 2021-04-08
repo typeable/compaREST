@@ -64,7 +64,7 @@ instance Subtree Response where
             Nothing -> issueAt consumer $ ResponseMediaTypeMissing mediaType
             Just consMediaObject -> localStep (ResponseMediaObject mediaType)
               $ swapRoles
-              $ checkCompatibility @MediaTypeObject (singletonH mediaType)
+              $ checkCompatibility @MediaTypeObject (HCons mediaType env)
               $ ProdCons consMediaObject prodMediaObject
       checkHeaders = do
         for_ (IOHM.toList $ _responseHeaders p) $ \ (hname, prodRef) ->

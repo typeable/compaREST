@@ -56,7 +56,7 @@ instance Subtree Operation where
       ProdCons Nothing Nothing -> pure ()
       ProdCons (Just pBody) (Just cBody) ->
         localStep OperationRequestBodyStep $
-          checkProdCons HNil (ProdCons pBody cBody)
+          checkProdCons env (ProdCons pBody cBody)
       ProdCons Nothing (Just _) -> issueAt producer NoRequestBody
       ProdCons (Just _) Nothing -> issueAt consumer NoRequestBody
     localStep OperationResponsesStep $

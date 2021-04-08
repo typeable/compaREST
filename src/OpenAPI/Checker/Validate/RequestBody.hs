@@ -16,12 +16,13 @@ import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.MediaTypeObject ()
 
 instance Subtree RequestBody where
-  type CheckEnv RequestBody = '[]
+  type CheckEnv RequestBody =
+    '[ ProdCons (Definitions Schema) ]
   data CheckIssue RequestBody
     = RequestBodyRequired
     | RequestMediaTypeNotFound
     deriving (Eq, Ord, Show)
-  checkCompatibility _ (ProdCons p c) =
+  checkCompatibility env (ProdCons p c) =
     if not (fromMaybe False $ _requestBodyRequired p)
         && (fromMaybe False $ _requestBodyRequired c)
     then issueAt producer RequestBodyRequired
@@ -32,7 +33,7 @@ instance Subtree RequestBody where
       case IOHM.lookup mediaType $ _requestBodyContent p of
         Nothing -> issueAt producer RequestMediaTypeNotFound
         Just prodMedia -> localStep (MediaTypeStep mediaType) $
-          checkCompatibility (singletonH mediaType) (ProdCons prodMedia consMedia)
+          checkCompatibility (HCons mediaType env) (ProdCons prodMedia consMedia)
 
 instance Steppable RequestBody MediaTypeObject where
   data Step RequestBody MediaTypeObject = MediaTypeStep MediaType
