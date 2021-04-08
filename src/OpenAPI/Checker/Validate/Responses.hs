@@ -33,7 +33,7 @@ instance Subtree Responses where
     for_ (IOHM.toList $  _responsesResponses c) $ \(prodStatus, consRef) ->
       case IOHM.lookup prodStatus $ _responsesResponses p of
         Nothing -> issueAt producer $ ResponseCodeNotFound prodStatus
-        Just consRef -> do
+        Just prodRef -> do
           let tracedRefs = dereference <$> defs <*> ProdCons prodRef consRef
           localStep (ResponseCodeStep prodStatus)
             $ checkProdCons env tracedRefs
