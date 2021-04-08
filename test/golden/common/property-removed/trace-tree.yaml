@@ -1,0 +1,17 @@
+Left:
+  OpenApiPathsStep:
+    PathStep "/test":
+      PostStep:
+        OperationResponsesStep:
+          ResponseCodeStep 200:
+            InlineStep:
+              ResponseMediaObject application/json:
+                MediaTypeSchema:
+                  ReferencedStep (Reference {getReference = "Test"}):
+                    PropertiesFields: PropertyNowRequired "property2"
+        OperationRequestBodyStep:
+          InlineStep:
+            MediaTypeStep application/json:
+              MediaTypeSchema:
+                ReferencedStep (Reference {getReference = "Test"}):
+                  PropertiesFields: UnexpectedProperty "property2"

@@ -1,0 +1,10 @@
+Left:
+  OpenApiPathsStep:
+    PathStep "/test":
+      PostStep:
+        OperationRequestBodyStep:
+          InlineStep:
+            MediaTypeStep application/json:
+              MediaTypeSchema:
+                ReferencedStep (Reference {getReference = "Test"}):
+                  PropertiesFields: PropertyNowRequired "property2"
