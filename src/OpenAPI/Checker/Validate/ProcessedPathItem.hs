@@ -53,7 +53,9 @@ instance Subtree ProcessedPathItems where
           -- make sure every path fragment is compatible
           sequenceA_
             [ localTrace (pure . step $ PathFragmentStep i) $
-              checkCompatibility (singletonH $ ProdCons pPathFragmentParams cPathFragmentParams) pair
+              checkCompatibility
+              (HCons (ProdCons pPathFragmentParams cPathFragmentParams) env)
+              pair
             | (i, pair) <- zip [0 ..] pathFragments
             ]
           -- make sure the operation is compatible.

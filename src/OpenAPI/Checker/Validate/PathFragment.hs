@@ -58,7 +58,9 @@ instance Steppable PathFragment Param where
 type PathParamRefs = TracedReferences PathFragment Param
 
 instance Subtree PathFragment where
-  type CheckEnv PathFragment = '[ProdCons PathParamRefs]
+  type CheckEnv PathFragment =
+    '[ ProdCons PathParamRefs
+     , ProdCons (Definitions Schema)]
   data CheckIssue PathFragment = PathFragmentsDontMatch Text Text
     deriving (Eq, Ord, Show)
 

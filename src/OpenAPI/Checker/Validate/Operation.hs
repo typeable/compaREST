@@ -49,7 +49,7 @@ instance Subtree Operation where
       anyOfAt
         producer
         (ParamNotMatched $ _paramName param)
-        [ checkProdCons HNil . fmap (retrace (step OperationParamsStep)) $ ProdCons p c
+        [ checkProdCons env . fmap (retrace (step OperationParamsStep)) $ ProdCons p c
         | c <- cNonPathParams
         ]
     case reqBody of
