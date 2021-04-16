@@ -118,6 +118,7 @@ library
                   , OpenAPI.Checker.Validate.Schema
                   , OpenAPI.Checker.Validate.SecurityRequirement
                   , OpenAPI.Checker.Validate.Server
+                  , OpenAPI.Checker.Validate.Sums
 
 executable openapi-diff
   import:              common-options
