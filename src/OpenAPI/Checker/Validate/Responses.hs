@@ -28,7 +28,9 @@ instance Subtree Responses where
     deriving (Eq, Ord, Show)
   -- Here we are checking responses, so, the consumer and producer swap their
   -- roles. The consumer now generates the response and producer consumes
-  -- it. So, the logic is swapped.
+  -- it. So, the logic is swapped. Also responses are sum-like entities. We can
+  -- response with only one of given responses. In conclusion we must check if
+  -- each of the responses may be processed by the producer.
   checkCompatibility env (ProdCons p c) = do
     let defs = getH @(ProdCons (Definitions Response)) env
     for_ (IOHM.toList $  _responsesResponses c) $ \(prodStatus, consRef) ->

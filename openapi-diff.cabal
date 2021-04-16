@@ -112,6 +112,7 @@ library
                   , OpenAPI.Checker.Validate.Param
                   , OpenAPI.Checker.Validate.PathFragment
                   , OpenAPI.Checker.Validate.ProcessedPathItem
+                  , OpenAPI.Checker.Validate.Products
                   , OpenAPI.Checker.Validate.RequestBody
                   , OpenAPI.Checker.Validate.Responses
                   , OpenAPI.Checker.Validate.Schema
