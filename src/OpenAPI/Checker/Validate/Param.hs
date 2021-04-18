@@ -73,7 +73,9 @@ instance Subtree Param where
       (Just prodSchema, Just consSchema) -> localStep ParamSchema
         $ checkCompatibility env (ProdCons prodSchema consSchema)
       (Nothing, Nothing) -> pure ()
-      _ -> issueAt producer ParamSchemaMismatch
+      (Nothing, Just _consSchema) -> issueAt producer ParamSchemaMismatch
+      (Just _prodSchema, Nothing) -> pure ()
+      -- If consumer doesn't care then why we should?
     pure ()
 
 instance Steppable Param (Referenced Schema) where

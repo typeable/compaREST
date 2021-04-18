@@ -16,17 +16,24 @@ import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
 
-instance Subtree Operation where
-  type
-    CheckEnv Operation =
-      '[ ProdCons (Definitions Param)
-       , ProdCons (Definitions RequestBody)
-       , ProdCons (Definitions SecurityScheme)
-       , ProdCons (Definitions Response)
-       , ProdCons (Definitions Header)
-       , ProdCons (Definitions Schema)
-       ]
-  data CheckIssue Operation
+data PathOperation = PathOperation
+  { operation :: Operation
+  , pathFrags :: [PathFragment]
+  -- ^ Parsed path
+  , pathParams :: [Referenced Param]
+  -- ^ Params from the parent PathItem
+  }
+
+instance Subtree PathOperation where
+  type CheckEnv PathOperation =
+    '[ ProdCons (Definitions Param)
+     , ProdCons (Definitions RequestBody)
+     , ProdCons (Definitions SecurityScheme)
+     , ProdCons (Definitions Response)
+     , ProdCons (Definitions Header)
+     , ProdCons (Definitions Schema)
+     ]
+  data CheckIssue PathOperation
     = ParamNotMatched Text -- Param name
     | NoRequestBody
     | CallbacksNotSupported
@@ -34,61 +41,83 @@ instance Subtree Operation where
     | ServerNotConsumed Int -- server index
     deriving (Eq, Ord, Show)
   checkCompatibility env prodCons = do
-    let ProdCons {producer = pNonPathParams, consumer = cNonPathParams} = do
-          op <- _operationParameters <$> prodCons
-          defParams <- getH @(ProdCons (Definitions Param)) env
-          pure $
-            filter ((/= ParamPath) . _paramIn . getTraced)
-              . fmap (dereference defParams)
-              $ op
-        reqBody = do
-          op <- _operationRequestBody <$> prodCons
-          reqDefs <- getH @(ProdCons (Definitions RequestBody)) env
-          pure $ fmap (dereference reqDefs) op
-    for_ pNonPathParams $ \p@(Traced _ param) ->
-      anyOfAt
-        producer
-        (ParamNotMatched $ _paramName param)
-        [ checkProdCons env . fmap (retrace (step OperationParamsStep)) $ ProdCons p c
-        | c <- cNonPathParams
-        ]
-    case reqBody of
-      ProdCons Nothing Nothing -> pure ()
-      ProdCons (Just pBody) (Just cBody) ->
-        localStep OperationRequestBodyStep $
-          checkProdCons env (ProdCons pBody cBody)
-      ProdCons Nothing (Just _) -> issueAt producer NoRequestBody
-      ProdCons (Just _) Nothing -> issueAt consumer NoRequestBody
-    localStep OperationResponsesStep $
-      checkCompatibility env $ _operationResponses <$> prodCons
-    -- FIXME: https://github.com/typeable/openapi-diff/issues/27
-    case IOHM.null . _operationCallbacks <$> prodCons of
-      (ProdCons True True) -> pure ()
-      (ProdCons False _) -> issueAt producer CallbacksNotSupported
-      (ProdCons _ False) -> issueAt consumer CallbacksNotSupported
-    -- FIXME: https://github.com/typeable/openapi-diff/issues/28
-    sequenceA_
-      [ anyOfAt
-        producer
-        (SecurityRequirementNotMet i)
-        [ localStep OperationSecurityRequirementStep $
-          checkCompatibility env $ ProdCons prodSecurity consSecurity
-        | consSecurity <- _operationSecurity . consumer $ prodCons
-        ]
-      | (i, prodSecurity) <- zip [0 ..] . _operationSecurity . producer $ prodCons
-      ]
-    -- FIXME: https://github.com/typeable/openapi-diff/issues/29s
-    sequenceA_
-      [ anyOfAt
-        producer
-        (ServerNotConsumed i)
-        [ localStep OperationServerStep $
-          checkCompatibility env $ ProdCons pServer cServer
-        | cServer <- _operationServers . consumer $ prodCons
-        ]
-      | (i, pServer) <- zip [0 ..] . _operationServers . producer $ prodCons
-      ]
-    pure ()
+
+
+
+
+-- instance Subtree Operation where
+--   type
+--     CheckEnv Operation =
+--       '[ ProdCons (Definitions Param)
+--        , ProdCons (Definitions RequestBody)
+--        , ProdCons (Definitions SecurityScheme)
+--        , ProdCons (Definitions Response)
+--        , ProdCons (Definitions Header)
+--        , ProdCons (Definitions Schema)
+--        ]
+--   data CheckIssue Operation
+--     = ParamNotMatched Text -- Param name
+--     | NoRequestBody
+--     | CallbacksNotSupported
+--     | SecurityRequirementNotMet Int -- security indexs
+--     | ServerNotConsumed Int -- server index
+--     deriving (Eq, Ord, Show)
+--   checkCompatibility env prodCons = do
+--     let ProdCons {producer = pNonPathParams, consumer = cNonPathParams} = do
+--           op <- _operationParameters <$> prodCons
+--           defParams <- getH @(ProdCons (Definitions Param)) env
+--           pure $
+--             filter ((/= ParamPath) . _paramIn . getTraced)
+--               . fmap (dereference defParams)
+--               $ op
+--         reqBody = do
+--           op <- _operationRequestBody <$> prodCons
+--           reqDefs <- getH @(ProdCons (Definitions RequestBody)) env
+--           pure $ fmap (dereference reqDefs) op
+--     for_ pNonPathParams $ \p@(Traced _ param) ->
+--       anyOfAt
+--         producer
+--         (ParamNotMatched $ _paramName param)
+--         [ checkProdCons env . fmap (retrace (step OperationParamsStep)) $ ProdCons p c
+--         | c <- cNonPathParams
+--         ]
+--     case reqBody of
+--       ProdCons Nothing Nothing -> pure ()
+--       ProdCons (Just pBody) (Just cBody) ->
+--         localStep OperationRequestBodyStep $
+--           checkProdCons env (ProdCons pBody cBody)
+--       ProdCons Nothing (Just _) -> issueAt producer NoRequestBody
+--       ProdCons (Just _) Nothing -> issueAt consumer NoRequestBody
+--     localStep OperationResponsesStep $
+--       checkCompatibility env $ _operationResponses <$> prodCons
+--     -- FIXME: https://github.com/typeable/openapi-diff/issues/27
+--     case IOHM.null . _operationCallbacks <$> prodCons of
+--       (ProdCons True True) -> pure ()
+--       (ProdCons False _) -> issueAt producer CallbacksNotSupported
+--       (ProdCons _ False) -> issueAt consumer CallbacksNotSupported
+--     -- FIXME: https://github.com/typeable/openapi-diff/issues/28
+--     sequenceA_
+--       [ anyOfAt
+--         producer
+--         (SecurityRequirementNotMet i)
+--         [ localStep OperationSecurityRequirementStep $
+--           checkCompatibility env $ ProdCons prodSecurity consSecurity
+--         | consSecurity <- _operationSecurity . consumer $ prodCons
+--         ]
+--       | (i, prodSecurity) <- zip [0 ..] . _operationSecurity . producer $ prodCons
+--       ]
+--     -- FIXME: https://github.com/typeable/openapi-diff/issues/29s
+--     sequenceA_
+--       [ anyOfAt
+--         producer
+--         (ServerNotConsumed i)
+--         [ localStep OperationServerStep $
+--           checkCompatibility env $ ProdCons pServer cServer
+--         | cServer <- _operationServers . consumer $ prodCons
+--         ]
+--       | (i, pServer) <- zip [0 ..] . _operationServers . producer $ prodCons
+--       ]
+--     pure ()
 
 instance Steppable PathItem Operation where
   data Step PathItem Operation
