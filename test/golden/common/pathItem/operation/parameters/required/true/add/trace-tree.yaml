@@ -1,4 +1,6 @@
 Left:
   OpenApiPathsStep:
     MatchedPathStep "/test":
-      PostStep: ParamNotMatched ParamQuery "test2"
+      PostStep:
+        OperationParamsStep 1:
+          InlineStep: ParamNotMatched "test2"

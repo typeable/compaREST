@@ -1,7 +1,6 @@
 module OpenAPI.Checker.References
   ( TracedReferences
   , dereference
-  , dereferenceTraced
   )
 where
 
@@ -18,15 +17,10 @@ type TracedReferences root a = Map Reference (Traced root a)
 dereference
   :: Typeable a
   => Definitions a
-  -> Referenced a
-  -> Traced (Referenced a) a
-dereference _ (Inline a) = Traced (step InlineStep) a
-dereference defs (Ref r@(Reference ref)) =
-  Traced (step $ ReferencedStep r) (fromJust $ IOHM.lookup ref defs)
-
-dereferenceTraced
-  :: Typeable a
-  => Definitions a
   -> Traced r (Referenced a)
   -> Traced r a
-dereferenceTraced defs (Traced t x) = retrace t $ dereference defs x
+dereference defs x = case extract x of
+  Inline a
+    -> traced (ask x >>> step InlineStep) a
+  Ref r@(Reference ref)
+    -> traced (ask x >>> step (ReferencedStep r)) (fromJust $ IOHM.lookup ref defs)

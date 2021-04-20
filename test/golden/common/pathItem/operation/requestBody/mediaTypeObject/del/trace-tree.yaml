@@ -3,4 +3,5 @@ Left:
     MatchedPathStep "/test":
       PostStep:
         OperationRequestBodyStep:
-          InlineStep: RequestMediaTypeNotFound application/x-www-form-urlencoded
+          InlineStep:
+            RequestMediaTypeObject application/x-www-form-urlencoded: RequestMediaTypeNotFound

@@ -1,9 +1,11 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module OpenAPI.Checker.Validate.MediaTypeObject () where
+module OpenAPI.Checker.Validate.MediaTypeObject
+  ( CheckIssue(..)
+  ) where
 
+import Control.Lens
 import Data.Foldable as F
-import Data.Functor
 import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
@@ -15,13 +17,21 @@ import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
 
+tracedSchema :: Traced r MediaTypeObject -> Maybe (Traced r (Referenced Schema))
+tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
+
+tracedEncoding :: Traced r MediaTypeObject -> InsOrdHashMap Text (Traced r Encoding)
+tracedEncoding mto = IOHM.mapWithKey (\k -> traced (ask mto >>> step (MediaTypeParamEncoding k)))
+  $ _mediaTypeObjectEncoding $ extract mto
+
 instance Subtree MediaTypeObject where
   type CheckEnv MediaTypeObject =
     '[ MediaType
      , ProdCons (Definitions Schema)
      ]
   data CheckIssue MediaTypeObject
-    = MediaEncodingMissing Text
+    = RequestMediaTypeNotFound
+    | ResponseMediaTypeMissing
     | MediaEncodingIncompat
     | MediaTypeSchemaRequired
     deriving (Eq, Ord, Show)
@@ -32,11 +42,10 @@ instance Subtree MediaTypeObject where
        | otherwise -> pure ()
     -- If consumer requires schema then producer must produce compatible
     -- request
-    for_ (_mediaTypeObjectSchema c) $ \consRef ->
-        case _mediaTypeObjectSchema p of
-          Nothing -> issueAt producer MediaTypeSchemaRequired
-          Just prodRef -> localStep MediaTypeSchema
-            $ checkCompatibility env $ ProdCons prodRef consRef
+    for_ (tracedSchema c) $ \consRef ->
+        case tracedSchema p of
+          Nothing -> issueAt p MediaTypeSchemaRequired
+          Just prodRef -> checkCompatibility env $ ProdCons prodRef consRef
     pure ()
     where
       mediaType = getH @MediaType env
@@ -44,23 +53,25 @@ instance Subtree MediaTypeObject where
         let
           -- Parameters of the media type are product-like entities
           getEncoding mt = M.fromList
-            $ (IOHM.toList $ _mediaTypeObjectEncoding mt) <&> \(k, enc) ->
+            $ (IOHM.toList $ tracedEncoding mt) <&> \(k, enc) ->
             ( k
             , ProductLike
-              { traced = Traced (step $ MediaTypeParamEncoding k) enc
+              { tracedValue = enc
               , required = True } )
           encProdCons = getEncoding <$> prodCons
-        in checkProducts MediaEncodingMissing
+        in checkProducts (const MediaEncodingMissing)
            (const $ checkCompatibility HNil) encProdCons
 
 instance Subtree Encoding where
   type CheckEnv Encoding = '[]
-  data CheckIssue Encoding = EncodingNotSupported
+  data CheckIssue Encoding
+    = MediaEncodingMissing
+    | EncodingNotSupported
     --  FIXME: Support only JSON body for now. Then Encoding is checked only for
     --  multipart/form-url-encoded
     deriving (Eq, Ord, Show)
-  checkCompatibility _env _prodCons =
-    issueAt producer EncodingNotSupported
+  checkCompatibility _env pc =
+    issueAt (producer pc) EncodingNotSupported
 
 instance Steppable MediaTypeObject (Referenced Schema) where
   data Step MediaTypeObject (Referenced Schema) = MediaTypeSchema

@@ -2,5 +2,5 @@ Left:
   OpenApiPathsStep:
     MatchedPathStep "/test":
       PostStep:
-        OperationParamsStep:
+        OperationParamsStep 0:
           InlineStep: ParamRequired

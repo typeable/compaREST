@@ -14,58 +14,36 @@ This module abstracts this logic for arbitrary elements -}
 
 module OpenAPI.Checker.Validate.Products
   ( checkProducts
-  , checkProducts'
   , ProductLike(..)
   ) where
 
 import Data.Foldable
-import Data.Functor
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import Data.OpenApi.Internal
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
 
 -- | Some entity which is product-like
 data ProductLike root a = ProductLike
-  { traced :: Traced root a
+  { tracedValue :: Traced root a
   , required :: Bool
   }
 
-checkProducts'
-  :: forall k root t
-  .  (Subtree root, Ord k)
-  => (k -> CheckIssue root)
+checkProducts
+  :: forall k r t
+  .  (Subtree t, Ord k)
+  => (k -> CheckIssue t)
   -- ^ No required element found
-  -> (k -> ProdCons t -> CompatFormula t ())
-  -> ProdCons (Map k (ProductLike OpenApi t))
-  -> CompatFormula root ()
-checkProducts' noElt check (ProdCons p c) = for_ (M.toList c) $ \(key, consElt) ->
+  -> (k -> ProdCons (Traced r t) -> CompatFormula' SubtreeCheckIssue r ())
+  -> ProdCons (Map k (ProductLike r t))
+  -> CompatFormula' SubtreeCheckIssue r ()
+checkProducts noElt check (ProdCons p c) = for_ (M.toList c) $ \(key, consElt) ->
   case M.lookup key p of
     Nothing -> case required consElt of
-      True  -> issueAt producer $ noElt key
+      True  -> issueAt (tracedValue consElt) $ noElt key
       False -> pure ()
     Just prodElt -> do
       let
-        elts :: ProdCons (ProductLike OpenApi t)
+        elts :: ProdCons (ProductLike r t)
         elts = ProdCons prodElt consElt
-        trace = getTrace . traced <$> elts
-        elements = getTraced . traced <$> elts
-      localTrace' trace $ check key elements
-
-checkProducts
-  :: forall k root t
-  .  (Subtree root, Ord k)
-  => (k -> CheckIssue root)
-  -- ^ No required element found
-  -> (k -> ProdCons t -> CompatFormula t ())
-  -> ProdCons (Map k (ProductLike root t))
-  -> CompatFormula root ()
-checkProducts noElt check prodCons = withTrace $ \myTrace ->
-  let
-    retracedPC = retracePC <$> myTrace <*> prodCons
-    retracePC rootTrace els = els <&> \productLike ->
-      ProductLike
-      { traced = retrace rootTrace $ traced productLike
-      , required = required productLike }
-  in checkProducts' noElt check retracedPC
+      check key (tracedValue <$> elts)

@@ -10,19 +10,17 @@ import OpenAPI.Checker.Trace
 
 
 checkSums
-  :: forall k root t
-  .  (Ord k, Subtree root)
-  => (k -> CheckIssue root)
-  -> (k -> ProdCons t -> CompatFormula t ())
-  -> ProdCons (Map k (Traced root t))
-  -> CompatFormula root ()
+  :: forall k r t
+  .  (Ord k, Subtree t)
+  => (k -> CheckIssue t)
+  -> (k -> ProdCons (Traced r t) -> CompatFormula' SubtreeCheckIssue r ())
+  -> ProdCons (Map k (Traced r t))
+  -> CompatFormula' SubtreeCheckIssue r ()
 checkSums noElt check (ProdCons p c) = for_ (M.toList p) $ \(key, prodElt) ->
   case M.lookup key c of
-    Nothing -> issueAt consumer $ noElt key
+    Nothing -> issueAt prodElt $ noElt key
     Just consElt ->
       let
-        sumElts :: ProdCons (Traced root t)
+        sumElts :: ProdCons (Traced r t)
         sumElts = ProdCons prodElt consElt
-        trace = getTrace <$> sumElts
-        elements = getTraced <$> sumElts
-      in localTrace trace $ check key elements
+      in check key sumElts

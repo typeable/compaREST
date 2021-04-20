@@ -4,4 +4,5 @@ Left:
       PostStep:
         OperationResponsesStep:
           ResponseCodeStep 200:
-            InlineStep: ResponseMediaTypeMissing application/x-www-form-urlencoded
+            InlineStep:
+              ResponseMediaObject application/x-www-form-urlencoded: ResponseMediaTypeMissing

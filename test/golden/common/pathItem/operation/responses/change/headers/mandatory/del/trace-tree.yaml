@@ -4,4 +4,6 @@ Left:
       PostStep:
         OperationResponsesStep:
           ResponseCodeStep 200:
-            InlineStep: ResponseHeaderMissing "Test2"
+            InlineStep:
+              ResponseHeader "Test2":
+                InlineStep: ResponseHeaderMissing
