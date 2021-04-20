@@ -11,6 +11,7 @@ import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Param ()
+import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.RequestBody ()
 import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.SecurityRequirement ()
@@ -40,9 +41,7 @@ instance Subtree PathOperation where
     | SecurityRequirementNotMet Int -- security indexs
     | ServerNotConsumed Int -- server index
     deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons = do
-
-
+  checkCompatibility env prodCons = (error "FIXME: not implemented")
 
 
 -- instance Subtree Operation where
