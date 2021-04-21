@@ -47,9 +47,8 @@ instance Subtree MediaTypeObject where
             $ (IOHM.toList $ _mediaTypeObjectEncoding mt) <&> \(k, enc) ->
             ( k
             , ProductLike
-              { value = enc
-              , required = True
-              , eltStep = MediaTypeParamEncoding k} )
+              { traced = Traced (step $ MediaTypeParamEncoding k) enc
+              , required = True } )
           encProdCons = getEncoding <$> prodCons
         in checkProducts MediaEncodingMissing
            (const $ checkCompatibility HNil) encProdCons

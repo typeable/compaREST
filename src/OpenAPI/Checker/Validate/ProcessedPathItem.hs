@@ -8,8 +8,9 @@ module OpenAPI.Checker.Validate.ProcessedPathItem
   )
 where
 
-import Data.Foldable
+import Data.Foldable as F
 import Data.HList
+import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
 import Data.Text (Text)
@@ -19,6 +20,7 @@ import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Operation
 import OpenAPI.Checker.Validate.PathFragment
+import OpenAPI.Checker.Validate.Sums
 
 -- FIXME: There's probably a better name for this, but `PathItem` is already taken ;(
 data ProcessedPathItem = ProcessedPathItem
@@ -57,7 +59,7 @@ instance Subtree ProcessedPathItems where
         prodPath = path prodItem
         matchedItems = do
           consItem <- unProcessedPathItems c
-          matched <- toList $ matchingPathItems $ ProdCons prodItem consItem
+          matched <- F.toList $ matchingPathItems $ ProdCons prodItem consItem
           return matched
       case matchedItems of
         [] -> issueAt producer $ NoPathsMatched prodPath
@@ -76,7 +78,6 @@ data MatchedPathItem = MatchedPathItem
   { pathItem :: PathItem
   }
 
-
 instance Subtree MatchedPathItem where
   type CheckEnv MatchedPathItem =
     '[ ProdCons (Definitions Param)
@@ -87,8 +88,30 @@ instance Subtree MatchedPathItem where
      , ProdCons (Definitions Schema)
      ]
   data CheckIssue MatchedPathItem
+    = OperationMissing (Step MatchedPathItem MatchedOperation)
     deriving (Eq, Ord, Show)
-  checkCompatibility _ _ = error "Not implemented"
+  checkCompatibility env prodCons = do
+    let
+      check _ pc = checkCompatibility @MatchedOperation env pc
+      operations = getOperations <$> prodCons
+      getOperations mpi = M.fromList $ do
+        (get, s) <-
+          [ (_pathItemGet, GetStep)
+          , (_pathItemPut, PutStep)
+          , (_pathItemPost, PostStep)
+          , (_pathItemDelete, DeleteStep)
+          , (_pathItemOptions, OptionsStep)
+          , (_pathItemHead, HeadStep)
+          , (_pathItemPatch, PatchStep)
+          , (_pathItemTrace, TraceStep) ]
+        op <- F.toList $ get $ pathItem mpi
+        -- Got only Justs here
+        let
+          v = Traced (step s) $ MatchedOperation op
+        pure (s, v)
+    -- Operations are sum-like entities. Use step to operation as key because
+    -- why not
+    checkSums OperationMissing check operations
 
     -- let ProdCons {producer = p, consumer = c} =
     --       (\paramDefs -> fmap (processPathItem paramDefs) . unProcessedPathItems)
@@ -174,57 +197,69 @@ instance Steppable ProcessedPathItems MatchedPathItem where
   data Step ProcessedPathItems MatchedPathItem = MatchedPathStep FilePath
     deriving (Eq, Ord, Show)
 
-instance Steppable PathItem PathFragment where
-  data Step PathItem PathFragment
-    = -- | The index of the path item
-      PathFragmentStep Int
+instance Steppable MatchedPathItem MatchedOperation where
+  data Step MatchedPathItem MatchedOperation
+    = GetStep
+    | PutStep
+    | PostStep
+    | DeleteStep
+    | OptionsStep
+    | HeadStep
+    | PatchStep
+    | TraceStep
     deriving (Eq, Ord, Show)
 
-instance Steppable PathFragment PathItem where
-  data Step PathFragment PathItem = PathFragmentParentStep
-    deriving (Eq, Ord, Show)
+-- instance Steppable PathItem PathFragment where
+--   data Step PathItem PathFragment
+--     = -- | The index of the path item
+--       PathFragmentStep Int
+--     deriving (Eq, Ord, Show)
 
-instance Steppable PathItem (Referenced Param) where
-  data Step PathItem (Referenced Param) = PathItemParametersStep
-    deriving (Eq, Ord, Show)
+-- instance Steppable PathFragment PathItem where
+--   data Step PathFragment PathItem = PathFragmentParentStep
+--     deriving (Eq, Ord, Show)
 
-data ForeachOperation a = ForeachOperation
-  { processedPathItemGet :: a
-  , processedPathItemPut :: a
-  , processedPathItemPost :: a
-  , processedPathItemDelete :: a
-  , processedPathItemOptions :: a
-  , processedPathItemHead :: a
-  , processedPathItemPatch :: a
-  , processedPathItemTrace :: a
-  }
-  deriving stock (Functor, Generic1)
-  deriving (Applicative, Foldable) via Generically1 ForeachOperation
+-- instance Steppable PathItem (Referenced Param) where
+--   data Step PathItem (Referenced Param) = PathItemParametersStep
+--     deriving (Eq, Ord, Show)
 
-newtype ProcessedPathItemGetter = ProcessedPathItemGetter (forall a. ForeachOperation a -> a)
+-- data ForeachOperation a = ForeachOperation
+--   { processedPathItemGet :: a
+--   , processedPathItemPut :: a
+--   , processedPathItemPost :: a
+--   , processedPathItemDelete :: a
+--   , processedPathItemOptions :: a
+--   , processedPathItemHead :: a
+--   , processedPathItemPatch :: a
+--   , processedPathItemTrace :: a
+--   }
+--   deriving stock (Functor, Generic1)
+--   deriving (Applicative, Foldable) via Generically1 ForeachOperation
 
-processedPathItemGetters :: ForeachOperation ProcessedPathItemGetter
-processedPathItemGetters =
-  ForeachOperation
-    { processedPathItemGet = ProcessedPathItemGetter processedPathItemGet
-    , processedPathItemPut = ProcessedPathItemGetter processedPathItemPut
-    , processedPathItemPost = ProcessedPathItemGetter processedPathItemPost
-    , processedPathItemDelete = ProcessedPathItemGetter processedPathItemDelete
-    , processedPathItemOptions = ProcessedPathItemGetter processedPathItemOptions
-    , processedPathItemHead = ProcessedPathItemGetter processedPathItemHead
-    , processedPathItemPatch = ProcessedPathItemGetter processedPathItemPatch
-    , processedPathItemTrace = ProcessedPathItemGetter processedPathItemTrace
-    }
+-- newtype ProcessedPathItemGetter = ProcessedPathItemGetter (forall a. ForeachOperation a -> a)
 
-stepProcessedPathItem :: ForeachOperation (Step PathItem Operation)
-stepProcessedPathItem =
-  ForeachOperation
-    { processedPathItemGet = GetStep
-    , processedPathItemPut = PutStep
-    , processedPathItemPost = PostStep
-    , processedPathItemDelete = DeleteStep
-    , processedPathItemOptions = OptionsStep
-    , processedPathItemHead = HeadStep
-    , processedPathItemPatch = PatchStep
-    , processedPathItemTrace = TraceStep
-    }
+-- processedPathItemGetters :: ForeachOperation ProcessedPathItemGetter
+-- processedPathItemGetters =
+--   ForeachOperation
+--     { processedPathItemGet = ProcessedPathItemGetter processedPathItemGet
+--     , processedPathItemPut = ProcessedPathItemGetter processedPathItemPut
+--     , processedPathItemPost = ProcessedPathItemGetter processedPathItemPost
+--     , processedPathItemDelete = ProcessedPathItemGetter processedPathItemDelete
+--     , processedPathItemOptions = ProcessedPathItemGetter processedPathItemOptions
+--     , processedPathItemHead = ProcessedPathItemGetter processedPathItemHead
+--     , processedPathItemPatch = ProcessedPathItemGetter processedPathItemPatch
+--     , processedPathItemTrace = ProcessedPathItemGetter processedPathItemTrace
+--     }
+
+-- stepProcessedPathItem :: ForeachOperation (Step PathItem Operation)
+-- stepProcessedPathItem =
+--   ForeachOperation
+--     { processedPathItemGet = GetStep
+--     , processedPathItemPut = PutStep
+--     , processedPathItemPost = PostStep
+--     , processedPathItemDelete = DeleteStep
+--     , processedPathItemOptions = OptionsStep
+--     , processedPathItemHead = HeadStep
+--     , processedPathItemPatch = PatchStep
+--     , processedPathItemTrace = TraceStep
+--     }

@@ -1,10 +1,16 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module OpenAPI.Checker.Validate.Operation (Step (..)) where
+module OpenAPI.Checker.Validate.Operation
+  ( MatchedOperation(..)
 
-import Data.Foldable
+  ) where
+
+
+import Data.Foldable as F
 import Data.HList
 import qualified Data.HashMap.Strict.InsOrd as IOHM
+import Data.Map.Strict as M
+import Data.Maybe
 import Data.OpenApi
 import Data.Text (Text)
 import OpenAPI.Checker.References
@@ -12,21 +18,19 @@ import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Param ()
 import OpenAPI.Checker.Validate.PathFragment
+import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.RequestBody ()
 import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
 
-data PathOperation = PathOperation
+
+data MatchedOperation = MatchedOperation
   { operation :: Operation
-  , pathFrags :: [PathFragment]
-  -- ^ Parsed path
-  , pathParams :: [Referenced Param]
-  -- ^ Params from the parent PathItem
   }
 
-instance Subtree PathOperation where
-  type CheckEnv PathOperation =
+instance Subtree MatchedOperation where
+  type CheckEnv MatchedOperation =
     '[ ProdCons (Definitions Param)
      , ProdCons (Definitions RequestBody)
      , ProdCons (Definitions SecurityScheme)
@@ -34,15 +38,54 @@ instance Subtree PathOperation where
      , ProdCons (Definitions Header)
      , ProdCons (Definitions Schema)
      ]
-  data CheckIssue PathOperation
+  data CheckIssue MatchedOperation
     = ParamNotMatched Text -- Param name
     | NoRequestBody
     | CallbacksNotSupported
     | SecurityRequirementNotMet Int -- security indexs
     | ServerNotConsumed Int -- server index
     deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons = (error "FIXME: not implemented")
+  checkCompatibility env prodCons@(ProdCons p c) = do
+    checkParameters
+    checkRequestBodies
+    checkResponses
+    checkCallbacks
+    checkOperationSecurity
+    checkServers
+    pure ()
+    where
+      checkParameters = (error "FIXME: not implemented")
+      checkRequestBodies = do
+        let
+          check _ reqBody = checkCompatibility @RequestBody env reqBody
+          elements = getReqBody <$> bodyDefs <*> prodCons
+          getReqBody bodyDef mop = M.fromList $ do
+            bodyRef <- F.toList $ _operationRequestBody $ operation mop
+            let
+              traced = dereferenceTraced bodyDef
+                $ Traced (step $ OperationRequestBodyStep) bodyRef
+              required = fromMaybe False
+                $ _requestBodyRequired $ getTraced traced
+              elt = ProductLike { traced, required }
+            -- Single element map
+            pure ((), elt)
+        checkProducts (const NoRequestBody) check elements
+      checkResponses = do
+        let
+          responses = (_operationResponses . operation) <$> prodCons
+          respEnv = HCons (swapProdCons respDefs)
+            $ HCons (swapProdCons headerDefs)
+            $ HCons (swapProdCons schemaDefs) HNil
+        localStep OperationResponsesStep
+          $ swapRoles $ checkCompatibility respEnv responses
 
+      checkCallbacks = (error "FIXME: not implemented")
+      checkOperationSecurity = (error "FIXME: not implemented")
+      checkServers = (error "FIXME: not implemented")
+      bodyDefs = getH @(ProdCons (Definitions RequestBody)) env
+      respDefs = getH @(ProdCons (Definitions Response)) env
+      headerDefs =  getH @(ProdCons (Definitions Header)) env
+      schemaDefs = getH @(ProdCons (Definitions Schema)) env
 
 -- instance Subtree Operation where
 --   type
@@ -118,34 +161,22 @@ instance Subtree PathOperation where
 --       ]
 --     pure ()
 
-instance Steppable PathItem Operation where
-  data Step PathItem Operation
-    = GetStep
-    | PutStep
-    | PostStep
-    | DeleteStep
-    | OptionsStep
-    | HeadStep
-    | PatchStep
-    | TraceStep
+instance Steppable MatchedOperation (Referenced Param) where
+  data Step MatchedOperation (Referenced Param) = OperationParamsStep
     deriving (Eq, Ord, Show)
 
-instance Steppable Operation (Referenced Param) where
-  data Step Operation (Referenced Param) = OperationParamsStep
+instance Steppable MatchedOperation (Referenced RequestBody) where
+  data Step MatchedOperation (Referenced RequestBody) = OperationRequestBodyStep
     deriving (Eq, Ord, Show)
 
-instance Steppable Operation (Referenced RequestBody) where
-  data Step Operation (Referenced RequestBody) = OperationRequestBodyStep
+instance Steppable MatchedOperation Responses where
+  data Step MatchedOperation Responses = OperationResponsesStep
     deriving (Eq, Ord, Show)
 
-instance Steppable Operation Responses where
-  data Step Operation Responses = OperationResponsesStep
+instance Steppable MatchedOperation SecurityRequirement where
+  data Step MatchedOperation SecurityRequirement = OperationSecurityRequirementStep
     deriving (Eq, Ord, Show)
 
-instance Steppable Operation SecurityRequirement where
-  data Step Operation SecurityRequirement = OperationSecurityRequirementStep
-    deriving (Eq, Ord, Show)
-
-instance Steppable Operation Server where
-  data Step Operation Server = OperationServerStep
+instance Steppable MatchedOperation Server where
+  data Step MatchedOperation Server = OperationServerStep
     deriving (Eq, Ord, Show)

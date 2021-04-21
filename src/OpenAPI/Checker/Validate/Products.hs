@@ -26,15 +26,13 @@ import OpenAPI.Checker.Trace
 
 -- | Some entity which is product-like
 data ProductLike root a = ProductLike
-  { value :: a
+  { traced :: Traced root a
   , required :: Bool
-  , eltStep :: Step root a
-  -- ^ Oh such an irony
   }
 
 checkProducts
   :: forall k root t
-  .  (Subtree t, Subtree root, Steppable root t, Ord k)
+  .  (Subtree t, Subtree root, Ord k)
   => (k -> CheckIssue root)
   -- ^ No required element found
   -> (k -> ProdCons t -> CompatFormula t ())
@@ -49,6 +47,6 @@ checkProducts noElt check (ProdCons p c) = for_ (M.toList c) $ \(key, consElt) -
       let
         elts :: ProdCons (ProductLike root t)
         elts = ProdCons prodElt consElt
-        trace = (step . eltStep) <$> elts
-        elements = value <$> elts
+        trace = getTrace . traced <$> elts
+        elements = getTraced . traced <$> elts
       localTrace trace $ check key elements

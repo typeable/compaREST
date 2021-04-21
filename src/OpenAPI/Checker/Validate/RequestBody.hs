@@ -36,9 +36,9 @@ instance Subtree RequestBody where
         getSum rb = M.fromList
           $ (IOHM.toList $ _requestBodyContent rb) <&> \(mt, mto) ->
           ( mt
-          , SumLike
-            { value = mto
-            , eltStep = RequestMediaTypeObject mt })
+          , Traced
+            { getTraced = mto
+            , getTrace = step $ RequestMediaTypeObject mt })
       in checkSums RequestMediaTypeNotFound check sumElts
 
 instance Steppable RequestBody MediaTypeObject where
