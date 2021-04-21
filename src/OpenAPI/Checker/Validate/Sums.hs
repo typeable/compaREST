@@ -11,7 +11,7 @@ import OpenAPI.Checker.Trace
 
 checkSums
   :: forall k root t
-  .  (Ord k, Subtree root, Steppable root t)
+  .  (Ord k, Subtree root)
   => (k -> CheckIssue root)
   -> (k -> ProdCons t -> CompatFormula t ())
   -> ProdCons (Map k (Traced root t))
