@@ -1,2 +1,8 @@
 Left:
-  OpenApiPathsStep: NoPathsMatched
+  OpenApiPathsStep:
+    PathStep "/pets":
+      GetStep:
+        OperationServersStep:
+        - EnumValueNotPresent 2 "a"
+        - ConsumerNotOpen 2
+        - ServerNotMatched 1
