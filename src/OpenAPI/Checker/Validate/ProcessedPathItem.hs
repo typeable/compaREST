@@ -47,6 +47,7 @@ instance Subtree ProcessedPathItems where
        , ProdCons (Definitions Response)
        , ProdCons (Definitions Header)
        , ProdCons (Definitions Schema)
+       , ProdCons [Server]
        ]
   data CheckIssue ProcessedPathItems
     = NoPathsMatched FilePath

@@ -1,0 +1,38 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Swagger Petstore
+servers:
+  - url: http://petstore.swagger.io/v1
+    variables:
+      variableThatDoesntDoAnything:
+        default: a
+        enum:
+          - a
+          - bbb
+  - url: http://missing.url
+  - url: http://{x}variable.path/{y}/{openVariable1}/{openVariable2}
+    variables:
+      x:
+        default: a
+        enum:
+          - a
+          - b
+          - c
+      y:
+        default: aa
+        enum:
+          - a
+          - aa
+          - aaa
+      openVariable1:
+        default: henlo
+      openVariable2:
+        default: henlo
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: A paged array of pets
+components: {}

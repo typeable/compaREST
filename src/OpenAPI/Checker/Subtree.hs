@@ -5,12 +5,17 @@ module OpenAPI.Checker.Subtree
   , CompatFormula'
   , CompatFormula
   , ProdCons (..)
+  , prodConsAccessors
+  , Accessor (..)
+  , SomeIssue (..)
+  , issue
   , HasUnsupportedFeature (..)
   , swapProdCons
   , SubtreeCheckIssue (..)
   , runCompatFormula
   , anyOfM
   , anyOfAt
+  , anyOfSubtreeAt
   , issueAtTrace
   , issueAt
   , memo
@@ -44,6 +49,15 @@ data ProdCons a = ProdCons
   , consumer :: a
   }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+newtype Accessor f = Accessor (forall x. f x -> x)
+
+prodConsAccessors :: ProdCons (Accessor ProdCons)
+prodConsAccessors =
+  ProdCons
+    { producer = Accessor producer
+    , consumer = Accessor consumer
+    }
 
 swapProdCons :: ProdCons a -> ProdCons a
 swapProdCons (ProdCons a b) = ProdCons b a
