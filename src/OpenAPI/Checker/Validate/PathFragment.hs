@@ -1,9 +1,8 @@
 module OpenAPI.Checker.Validate.PathFragment
-  ( PathParamRefs
-  , TracedReferences
-  , getPathParamRefs
+  ( getPathParamRefs
   , parsePath
   , PathFragment (..)
+  , PathFragmentParam
   )
 where
 
@@ -18,6 +17,7 @@ import Data.Maybe
 import Data.OpenApi
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Typeable
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
@@ -36,32 +36,35 @@ getPathParamRefs defs xs =
 
 -- TODO: templates can be only part of the PathFragment. Currently only supports templates as full PathFragment.
 -- https://github.com/typeable/openapi-diff/issues/23
-parsePath :: FilePath -> [PathFragment]
+parsePath :: FilePath -> [PathFragment Text]
 parsePath = fmap partition . T.splitOn "/" . T.pack
   where
-    partition :: Text -> PathFragment
+    partition :: Text -> PathFragment Text
     partition t
       | Just ('{', rest) <- T.uncons t
         , Just (ref, '}') <- T.unsnoc rest =
-        DynamicPath $ Reference ref
+        DynamicPath ref
     partition t = StaticPath t
 
-data PathFragment
+data PathFragment param
   = StaticPath Text
-  | DynamicPath Reference
+  | DynamicPath param
   deriving stock (Eq, Ord)
 
-instance Steppable PathFragment Param where
-  data Step PathFragment Param = StaticPathParam
+type PathFragmentParam = PathFragment (Traced OpenApi Param)
+
+instance (Typeable param) => Steppable (PathFragment param) Param where
+  data Step (PathFragment param) Param = StaticPathParam Text
     deriving (Eq, Ord, Show)
 
-type PathParamRefs = TracedReferences PathFragment Param
+-- type PathParamRefs = TracedReferences PathFragment Param
 
-instance Subtree PathFragment where
-  type CheckEnv PathFragment =
-    '[ ProdCons PathParamRefs
-     , ProdCons (Definitions Schema)]
-  data CheckIssue PathFragment = PathFragmentsDontMatch Text Text
+instance Subtree PathFragmentParam where
+  type CheckEnv PathFragmentParam = '[ ]
+    -- '[ ProdCons PathParamRefs
+    --  , ProdCons (Definitions Schema)]
+  data CheckIssue PathFragmentParam =
+    PathFragmentsDontMatch Text Text
     deriving (Eq, Ord, Show)
 
   -- This case isn't strictly needed. It is here for optimization.
@@ -69,35 +72,37 @@ instance Subtree PathFragment where
     if x == y
       then pure ()
       else issueAt consumer (PathFragmentsDontMatch x y)
-  checkCompatibility env prodCons = do
-    let (t, param) =
-          fsplit . fmap deTraced $
-            dePathFragment
-              <$> (singletonH <$> getH @(ProdCons PathParamRefs) env)
-              <*> prodCons
-    localTrace t $ checkCompatibility env param
+  checkCompatibility env prodCons = (error "FIXME: not implemented")
 
--- | A clearer name for 'NE.unzip' that can be used without qualifying it.
-fsplit :: Functor f => f (a, b) -> (f a, f b)
-fsplit = NE.unzip
+    -- do
+    -- let (t, param) =
+    --       fsplit . fmap deTraced $
+    --         dePathFragment
+    --           <$> (singletonH <$> getH @(ProdCons PathParamRefs) env)
+    --           <*> prodCons
+    -- localTrace t $ checkCompatibility env param
 
-dePathFragment :: Has PathParamRefs xs => HList xs -> PathFragment -> Traced PathFragment Param
-dePathFragment (getH @PathParamRefs -> params) = \case
-  (StaticPath s) ->
-    Traced (step StaticPathParam) $
-      mempty
-        { _paramRequired = Just True
-        , _paramIn = ParamPath
-        , _paramAllowEmptyValue = Just False
-        , _paramAllowReserved = Just False
-        , _paramSchema = Just $ Inline $ staticStringSchema s
-        }
-  (DynamicPath ref) -> M.lookup ref params & fromMaybe (error $ show ref <> " not found.")
+-- -- | A clearer name for 'NE.unzip' that can be used without qualifying it.
+-- fsplit :: Functor f => f (a, b) -> (f a, f b)
+-- fsplit = NE.unzip
 
-staticStringSchema :: Text -> Schema
-staticStringSchema t =
-  mempty
-    { _schemaNullable = Just False
-    , _schemaType = Just OpenApiString
-    , _schemaEnum = Just [A.String t]
-    }
+-- dePathFragment :: Has PathParamRefs xs => HList xs -> PathFragment -> Traced PathFragment Param
+-- dePathFragment (getH @PathParamRefs -> params) = \case
+--   (StaticPath s) ->
+--     Traced (step StaticPathParam) $
+--       mempty
+--         { _paramRequired = Just True
+--         , _paramIn = ParamPath
+--         , _paramAllowEmptyValue = Just False
+--         , _paramAllowReserved = Just False
+--         , _paramSchema = Just $ Inline $ staticStringSchema s
+--         }
+--   (DynamicPath ref) -> M.lookup ref params & fromMaybe (error $ show ref <> " not found.")
+
+-- staticStringSchema :: Text -> Schema
+-- staticStringSchema t =
+--   mempty
+--     { _schemaNullable = Just False
+--     , _schemaType = Just OpenApiString
+--     , _schemaEnum = Just [A.String t]
+--     }

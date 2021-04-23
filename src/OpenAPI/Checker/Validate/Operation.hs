@@ -6,6 +6,7 @@ module OpenAPI.Checker.Validate.Operation
 
 
 import Data.Foldable as F
+import Data.Functor
 import Data.HList
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.List as L
@@ -27,9 +28,12 @@ import OpenAPI.Checker.Validate.Server ()
 -- data ParamKey
 
 data MatchedOperation = MatchedOperation
-  { operation :: Operation
-  , pathParams :: [Traced OpenApi Param ]
+  { operation :: !Operation
+  , pathParams :: ![Traced OpenApi Param]
   -- ^ Params from the PathItem
+  , getPathFragments :: !([Traced OpenApi Param] -> [Traced OpenApi PathFragmentParam])
+  -- ^ Path fragments traced from PathItem. Takes full list of
+  -- operation-specific parameters
   }
 
 -- | Normalized key for matching parameters. If keys of two parameters are equal
@@ -49,13 +53,16 @@ instance Subtree MatchedOperation where
      , ProdCons (Definitions Schema)
      ]
   data CheckIssue MatchedOperation
-    = ParamNotMatched ParamLocation Text -- Param name
+    = ParamNotMatched ParamLocation Text
+    -- ^ Non-path param has no pair
+    | PathFragmentNotMatched Int
+    -- ^ Path fragment with given position has no match
     | NoRequestBody
     | CallbacksNotSupported
     | SecurityRequirementNotMet Int -- security indexs
     | ServerNotConsumed Int -- server index
     deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons@(ProdCons p c) = do
+  checkCompatibility env prodCons = do
     checkParameters
     checkRequestBodies
     checkResponses
@@ -101,7 +108,19 @@ instance Subtree MatchedOperation where
           check _ param = do
             checkCompatibility @Param (singletonH schemaDefs) param
         checkProducts' (uncurry ParamNotMatched) check elements
-      checkPathParams params = (error "FIXME: not implemented")
+      checkPathParams pathParams = do
+        let
+          fragments :: ProdCons [Traced OpenApi PathFragmentParam]
+          fragments = getFragments <$> pathParams <*> prodCons
+          getFragments params mop = (getPathFragments mop) params
+          -- Feed path parameters to the fragments getter
+          check _ frags = checkCompatibility @PathFragmentParam env frags
+          elements = fragments <&> \frags -> M.fromList $ zip [0..] $ do
+            frag <- frags
+            pure $ ProductLike
+              { traced = frag
+              , required = True }
+        checkProducts' PathFragmentNotMatched check elements
       checkRequestBodies = do
         let
           check _ reqBody = checkCompatibility @RequestBody env reqBody

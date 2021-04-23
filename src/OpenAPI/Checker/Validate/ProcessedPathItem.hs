@@ -9,11 +9,14 @@ module OpenAPI.Checker.Validate.ProcessedPathItem
 where
 
 import Data.Foldable as F
+import Data.Functor
 import Data.HList
+import Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
 import Data.Text (Text)
+import Data.Text as T
 import Generic.Data
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
@@ -69,13 +72,15 @@ instance Subtree ProcessedPathItems where
             getTrace :: MatchedPathItem -> Trace ProcessedPathItems MatchedPathItem
             getTrace = (error "FIXME: not implemented")
           localTrace trace $ checkCompatibility env matched
-        x -> issueAt producer $ TooMuchPathsMatched prodPath $ length x
+        x -> issueAt producer $ TooMuchPathsMatched prodPath $ L.length x
 
 matchingPathItems :: ProdCons ProcessedPathItem -> Maybe (ProdCons MatchedPathItem)
 matchingPathItems = error "FIXME: matchingPathItems not implemented"
 
 data MatchedPathItem = MatchedPathItem
   { pathItem :: PathItem
+  , pathFragments :: [PathFragment Text]
+  -- ^ Pre-parsed path from PathItem
   }
 
 instance Subtree MatchedPathItem where
@@ -92,7 +97,6 @@ instance Subtree MatchedPathItem where
     deriving (Eq, Ord, Show)
   checkCompatibility env prodCons = withTrace $ \rootTrace -> do
     let
-      check _ pc = checkCompatibility @MatchedOperation env pc
       paramDefs = getH @(ProdCons (Definitions Param)) env
       pathTracedParams = getPathParams <$> rootTrace <*> paramDefs <*> prodCons
       getPathParams
@@ -107,8 +111,28 @@ instance Subtree MatchedPathItem where
             $ Traced (step PathItemParam) paramRef
           res = retrace root traced
         pure res
-      operations = getOperations <$> pathTracedParams <*> prodCons
-      getOperations pathParams mpi = M.fromList $ do
+      pathTracedFragments = mkPathFragments <$> rootTrace <*> prodCons
+      mkPathFragments myRoot mpi operationParams =
+        --  operationParams will be known on Operation check stage, so we give a
+        --  function, returning fragments
+        let
+          paramsMap :: Map Text (Traced OpenApi Param)
+          paramsMap = M.fromList $ do
+            tracedParam <- operationParams
+            let pname = _paramName $ getTraced tracedParam
+            pure (pname, tracedParam)
+          fragments :: [PathFragmentParam]
+          fragments = (pathFragments mpi) <&> \case
+            StaticPath t -> StaticPath t
+            DynamicPath pname -> DynamicPath
+              $ fromMaybe (error $ "Param not found " <> T.unpack pname)
+              $ M.lookup pname paramsMap
+          tracedFragments :: [Traced OpenApi PathFragmentParam]
+          tracedFragments = L.zip [0..] fragments <&> \(pos, frag) ->
+            retrace myRoot $ Traced (step $ PathFragmentStep pos) frag
+        in tracedFragments
+      operations = getOperations <$> pathTracedParams <*> pathTracedFragments <*> prodCons
+      getOperations pathParams getPathFragments mpi = M.fromList $ do
         (get, s) <-
           [ (_pathItemGet, GetStep)
           , (_pathItemPut, PutStep)
@@ -120,92 +144,19 @@ instance Subtree MatchedPathItem where
           , (_pathItemTrace, TraceStep) ]
         operation <- F.toList $ get $ pathItem mpi
         -- Got only Justs here
-        let mop = MatchedOperation { operation , pathParams}
-            v = Traced (step s) mop
-        pure (s, v)
+        let mop = MatchedOperation { operation , pathParams, getPathFragments }
+        pure (s, Traced (step s) mop)
+      check _ pc = checkCompatibility @MatchedOperation env pc
     -- Operations are sum-like entities. Use step to operation as key because
     -- why not
     checkSums OperationMissing check operations
 
-    -- let ProdCons {producer = p, consumer = c} =
-    --       (\paramDefs -> fmap (processPathItem paramDefs) . unProcessedPathItems)
-    --         <$> getH @(ProdCons (Definitions Param)) env
-    --         <*> prodCons
-    -- sequenceA_
-    --   [ anyOf'
-    --     [ localTrace (step <$> ProdCons pSPath cSPath) $ do
-    --       -- make sure every path fragment is compatible
-    --       sequenceA_
-    --         [ localTrace (pure . step $ PathFragmentStep i) $
-    --           checkCompatibility
-    --           (HCons (ProdCons pPathFragmentParams cPathFragmentParams) env)
-    --           pair
-    --         | (i, pair) <- zip [0 ..] pathFragments
-    --         ]
-    --       -- make sure the operation is compatible.
-    --       localTrace (pure . step $ getter stepProcessedPathItem) $
-    --         checkCompatibility env $ ProdCons pOperation cOperation
-    --       pure ()
-    --     | (cSPath, cPath, cPathItem) <- c
-    --     , -- ... and try to match it with every endpoint in the consumer.
-    --     --
-    --     -- This is required because the meaning of path fragments can change on
-    --     -- a per-method basis even within the same 'PathItem'
-    --     --
-    --     -- Here we only need to look for the method that the current producer
-    --     -- endpoint is using.
-    --     (cParams, cOperation) <- maybeToList $ getter cPathItem
-    --     , let cPathFragmentParams = retrace (step PathFragmentParentStep) <$> cParams
-    --     , -- make sure the paths are the same length
-    --     pathFragments <- maybeToList $ zipAllWith ProdCons pPath cPath
-    --     ]
-    --   | (pSPath, pPath, pPathItem) <- p
-    --   , -- look at every endpoint in the producer ...
-    --   (ProcessedPathItemGetter getter, (pParams, pOperation)) <-
-    --     toList (fmap . (,) <$> processedPathItemGetters <*> pPathItem) >>= maybeToList
-    --   , let pPathFragmentParams = retrace (step PathFragmentParentStep) <$> pParams
-    --   ]
 
 zipAllWith :: (a -> b -> c) -> [a] -> [b] -> Maybe [c]
 zipAllWith _ [] [] = Just []
 zipAllWith f (x : xs) (y : ys) = (f x y :) <$> zipAllWith f xs ys
 zipAllWith _ (_ : _) [] = Nothing
 zipAllWith _ [] (_ : _) = Nothing
-
--- processPathItem
---   :: Definitions Param -- ^ from components
---   -> ProcessedPathItem
---   -> ( Step ProcessedPathItems PathItem
---      , [PathFragment]
---      , ForeachOperation (Maybe (TracedReferences PathItem Param, Operation))
---      )
--- processPathItem componentParams ProcessedPathItem {path = pathS, item = pathItem} =
---   let path = parsePath pathS
---       commonPathParams =
---         retrace (step PathItemParametersStep)
---           <$> getPathParamRefs componentParams (_pathItemParameters pathItem)
---       processOperation (s :: Step PathItem Operation) op =
---         let operationParams =
---               retrace (Root `Snoc` s `Snoc` OperationParamsStep)
---                 <$> getPathParamRefs componentParams (_operationParameters op)
---             pathParams =
---               operationParams <> commonPathParams
---          in (pathParams, op)
---    in ( PathStep pathS
---       , path
---       , fmap . processOperation
---           <$> stepProcessedPathItem
---           <*> ForeachOperation
---             { processedPathItemGet = _pathItemGet pathItem
---             , processedPathItemPut = _pathItemPut pathItem
---             , processedPathItemPost = _pathItemPost pathItem
---             , processedPathItemDelete = _pathItemDelete pathItem
---             , processedPathItemOptions = _pathItemOptions pathItem
---             , processedPathItemHead = _pathItemHead pathItem
---             , processedPathItemPatch = _pathItemPatch pathItem
---             , processedPathItemTrace = _pathItemTrace pathItem
---             }
---       )
 
 instance Steppable ProcessedPathItems MatchedPathItem where
   data Step ProcessedPathItems MatchedPathItem = MatchedPathStep FilePath
@@ -227,57 +178,6 @@ instance Steppable MatchedPathItem (Referenced Param) where
   data Step MatchedPathItem (Referenced Param) = PathItemParam
     deriving (Eq, Ord, Show)
 
--- instance Steppable PathItem PathFragment where
---   data Step PathItem PathFragment
---     = -- | The index of the path item
---       PathFragmentStep Int
---     deriving (Eq, Ord, Show)
-
--- instance Steppable PathFragment PathItem where
---   data Step PathFragment PathItem = PathFragmentParentStep
---     deriving (Eq, Ord, Show)
-
--- instance Steppable PathItem (Referenced Param) where
---   data Step PathItem (Referenced Param) = PathItemParametersStep
---     deriving (Eq, Ord, Show)
-
--- data ForeachOperation a = ForeachOperation
---   { processedPathItemGet :: a
---   , processedPathItemPut :: a
---   , processedPathItemPost :: a
---   , processedPathItemDelete :: a
---   , processedPathItemOptions :: a
---   , processedPathItemHead :: a
---   , processedPathItemPatch :: a
---   , processedPathItemTrace :: a
---   }
---   deriving stock (Functor, Generic1)
---   deriving (Applicative, Foldable) via Generically1 ForeachOperation
-
--- newtype ProcessedPathItemGetter = ProcessedPathItemGetter (forall a. ForeachOperation a -> a)
-
--- processedPathItemGetters :: ForeachOperation ProcessedPathItemGetter
--- processedPathItemGetters =
---   ForeachOperation
---     { processedPathItemGet = ProcessedPathItemGetter processedPathItemGet
---     , processedPathItemPut = ProcessedPathItemGetter processedPathItemPut
---     , processedPathItemPost = ProcessedPathItemGetter processedPathItemPost
---     , processedPathItemDelete = ProcessedPathItemGetter processedPathItemDelete
---     , processedPathItemOptions = ProcessedPathItemGetter processedPathItemOptions
---     , processedPathItemHead = ProcessedPathItemGetter processedPathItemHead
---     , processedPathItemPatch = ProcessedPathItemGetter processedPathItemPatch
---     , processedPathItemTrace = ProcessedPathItemGetter processedPathItemTrace
---     }
-
--- stepProcessedPathItem :: ForeachOperation (Step PathItem Operation)
--- stepProcessedPathItem =
---   ForeachOperation
---     { processedPathItemGet = GetStep
---     , processedPathItemPut = PutStep
---     , processedPathItemPost = PostStep
---     , processedPathItemDelete = DeleteStep
---     , processedPathItemOptions = OptionsStep
---     , processedPathItemHead = HeadStep
---     , processedPathItemPatch = PatchStep
---     , processedPathItemTrace = TraceStep
---     }
+instance Steppable MatchedPathItem PathFragmentParam where
+  data Step MatchedPathItem PathFragmentParam = PathFragmentStep Int
+    deriving (Eq, Ord, Show)
