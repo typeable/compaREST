@@ -2,13 +2,13 @@
 
 module OpenAPI.Checker.Validate.Operation
   ( MatchedOperation(..)
-
   ) where
 
 
 import Data.Foldable as F
 import Data.HList
 import qualified Data.HashMap.Strict.InsOrd as IOHM
+import Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
@@ -24,10 +24,20 @@ import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
 
+-- data ParamKey
 
 data MatchedOperation = MatchedOperation
   { operation :: Operation
+  , pathParams :: [Traced OpenApi Param ]
+  -- ^ Params from the PathItem
   }
+
+-- | Normalized key for matching parameters. If keys of two parameters are equal
+-- then parameters must be checked for compatibility
+data ParamKey
+  = PathPosition Int
+  | OtherLocation ParamLocation Text
+  deriving (Eq, Ord, Show)
 
 instance Subtree MatchedOperation where
   type CheckEnv MatchedOperation =
@@ -39,7 +49,7 @@ instance Subtree MatchedOperation where
      , ProdCons (Definitions Schema)
      ]
   data CheckIssue MatchedOperation
-    = ParamNotMatched Text -- Param name
+    = ParamNotMatched ParamLocation Text -- Param name
     | NoRequestBody
     | CallbacksNotSupported
     | SecurityRequirementNotMet Int -- security indexs
@@ -54,7 +64,44 @@ instance Subtree MatchedOperation where
     checkServers
     pure ()
     where
-      checkParameters = (error "FIXME: not implemented")
+      checkParameters = do
+        let
+          -- Merged parameters got from Operation and PathItem in one
+          -- place. First element is path params, second is non-path params
+          tracedParams :: ProdCons ([Traced OpenApi Param], [Traced OpenApi Param])
+          tracedParams = getParams <$> prodCons
+          getParams mp =
+            let
+              operationParamsMap :: Map (ParamLocation, Text) (Traced OpenApi Param)
+              operationParamsMap = (error "FIXME: not implemented")
+              pathParamsMap :: Map (ParamLocation, Text) (Traced OpenApi Param)
+              pathParamsMap = error "FIXME: pathParamsMap not implemented"
+              params = M.elems $ M.union operationParamsMap pathParamsMap
+              -- We prefer params from Operation
+              splitted = L.partition
+                (\p -> (_paramIn $ getTraced p) == ParamPath) params
+            in splitted
+        checkNonPathParams $ snd <$> tracedParams
+        checkPathParams $ fst <$> tracedParams
+        pure ()
+      checkNonPathParams :: ProdCons [Traced OpenApi Param] -> CompatFormula MatchedOperation ()
+      checkNonPathParams params = do
+        let
+          elements = getEls <$> params
+          getEls traced = M.fromList $ do
+            p <- traced
+            let
+              param = getTraced p
+              k = (_paramIn param, _paramName param)
+              v = ProductLike
+                { traced = p
+                , required = fromMaybe False $ _paramRequired param
+                }
+            pure (k, v)
+          check _ param = do
+            checkCompatibility @Param (singletonH schemaDefs) param
+        checkProducts' (uncurry ParamNotMatched) check elements
+      checkPathParams params = (error "FIXME: not implemented")
       checkRequestBodies = do
         let
           check _ reqBody = checkCompatibility @RequestBody env reqBody

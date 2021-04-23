@@ -90,11 +90,25 @@ instance Subtree MatchedPathItem where
   data CheckIssue MatchedPathItem
     = OperationMissing (Step MatchedPathItem MatchedOperation)
     deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons = do
+  checkCompatibility env prodCons = withTrace $ \rootTrace -> do
     let
       check _ pc = checkCompatibility @MatchedOperation env pc
-      operations = getOperations <$> prodCons
-      getOperations mpi = M.fromList $ do
+      paramDefs = getH @(ProdCons (Definitions Param)) env
+      pathTracedParams = getPathParams <$> rootTrace <*> paramDefs <*> prodCons
+      getPathParams
+        :: Trace OpenApi MatchedPathItem
+        -> Definitions Param
+        -> MatchedPathItem
+        -> [Traced OpenApi Param]
+      getPathParams root defs mpi = do
+        paramRef <- _pathItemParameters $ pathItem mpi
+        let
+          traced = dereferenceTraced defs
+            $ Traced (step PathItemParam) paramRef
+          res = retrace root traced
+        pure res
+      operations = getOperations <$> pathTracedParams <*> prodCons
+      getOperations pathParams mpi = M.fromList $ do
         (get, s) <-
           [ (_pathItemGet, GetStep)
           , (_pathItemPut, PutStep)
@@ -104,10 +118,10 @@ instance Subtree MatchedPathItem where
           , (_pathItemHead, HeadStep)
           , (_pathItemPatch, PatchStep)
           , (_pathItemTrace, TraceStep) ]
-        op <- F.toList $ get $ pathItem mpi
+        operation <- F.toList $ get $ pathItem mpi
         -- Got only Justs here
-        let
-          v = Traced (step s) $ MatchedOperation op
+        let mop = MatchedOperation { operation , pathParams}
+            v = Traced (step s) mop
         pure (s, v)
     -- Operations are sum-like entities. Use step to operation as key because
     -- why not
@@ -207,6 +221,10 @@ instance Steppable MatchedPathItem MatchedOperation where
     | HeadStep
     | PatchStep
     | TraceStep
+    deriving (Eq, Ord, Show)
+
+instance Steppable MatchedPathItem (Referenced Param) where
+  data Step MatchedPathItem (Referenced Param) = PathItemParam
     deriving (Eq, Ord, Show)
 
 -- instance Steppable PathItem PathFragment where

@@ -109,6 +109,10 @@ instance Subtree Header where
             $ checkCompatibility env $ ProdCons prodRef consRef
     pure ()
 
+instance Steppable Responses (Referenced Response) where
+  data Step Responses (Referenced Response) = ResponseCodeStep HttpStatusCode
+    deriving (Eq, Ord, Show)
+
 instance Steppable Header (Referenced Schema) where
   data Step Header (Referenced Schema) = HeaderSchema
     deriving (Eq, Ord, Show)
@@ -119,8 +123,4 @@ instance Steppable Response (Referenced Header) where
 
 instance Steppable Response MediaTypeObject where
   data Step Response MediaTypeObject = ResponseMediaObject MediaType
-    deriving (Eq, Ord, Show)
-
-instance Steppable Responses (Referenced Response) where
-  data Step Responses (Referenced Response) = ResponseCodeStep HttpStatusCode
     deriving (Eq, Ord, Show)
