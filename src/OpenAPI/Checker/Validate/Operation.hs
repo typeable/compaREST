@@ -151,9 +151,9 @@ instance Subtree MatchedOperation where
             $ HCons (swapProdCons schemaDefs) HNil
         localStep OperationResponsesStep
           $ swapRoles $ checkCompatibility respEnv responses
-      checkCallbacks = (error "FIXME: not implemented")
-      checkOperationSecurity = (error "FIXME: not implemented")
-      checkServers = (error "FIXME: not implemented")
+      checkCallbacks = pure () -- (error "FIXME: not implemented")
+      checkOperationSecurity = pure () -- (error "FIXME: not implemented")
+      checkServers = pure () -- (error "FIXME: not implemented")
       bodyDefs = getH @(ProdCons (Definitions RequestBody)) env
       respDefs = getH @(ProdCons (Definitions Response)) env
       headerDefs =  getH @(ProdCons (Definitions Header)) env
