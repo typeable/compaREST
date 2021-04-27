@@ -81,12 +81,9 @@ instance Subtree MatchedOperation where
               operationParamsMap = M.fromList $ do
                 paramRef <- _operationParameters $ operation mp
                 let
-                  paramStep = case paramRef of
-                    Ref r -> OperationParamReference r
-                    Inline _ -> OperationParamInline
                   tracedParam = retrace root
                     $ dereferenceTraced defs
-                    $ Traced (step paramStep) paramRef
+                    $ Traced (step $ OperationParamsStep) paramRef
                   key = paramKey $ getTraced tracedParam
                 pure (key, tracedParam)
               pathParamsMap :: Map ParamKey (Traced OpenApi Param)
@@ -164,9 +161,7 @@ instance Subtree MatchedOperation where
       paramDefs = getH @(ProdCons (Definitions Param)) env
 
 instance Steppable MatchedOperation (Referenced Param) where
-  data Step MatchedOperation (Referenced Param)
-    = OperationParamInline
-    | OperationParamReference Reference
+  data Step MatchedOperation (Referenced Param) = OperationParamsStep
     deriving (Eq, Ord, Show)
 
 instance Steppable MatchedOperation (Referenced RequestBody) where
