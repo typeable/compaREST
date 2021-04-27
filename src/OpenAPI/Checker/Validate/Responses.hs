@@ -1,11 +1,11 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module OpenAPI.Checker.Validate.Responses
   (
   )
 where
 
-import Control.Monad
 import Data.Foldable
 import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
@@ -35,7 +35,7 @@ instance Subtree Responses where
   checkCompatibility env prodCons = do
     let
       defs = getH @(ProdCons (Definitions Response)) env
-      check _ responses = checkCompatibility @Response env responses
+      check _ resps = checkCompatibility @Response env resps
       elements = getEls <$> defs <*> prodCons
       getEls respDef resps = M.fromList $ do
         (code, respRef) <- IOHM.toList $ _responsesResponses resps
@@ -54,7 +54,7 @@ instance Subtree Response where
     = ResponseMediaTypeMissing MediaType
     | ResponseHeaderMissing HeaderName
     deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons@(ProdCons p c) = do
+  checkCompatibility env prodCons = do
     -- Roles are already swapped. Producer is a server and consumer is a client
     checkMediaTypes
     checkHeaders
@@ -76,7 +76,7 @@ instance Subtree Response where
       checkHeaders = do
         -- Headers are product-like entities
         let
-          check _hname headers = checkCompatibility @Header env headers
+          check _hname hdrs = checkCompatibility @Header env hdrs
           elements = getEls <$> headerDefs <*> prodCons
           getEls headerDef resp = M.fromList $ do
             (hname, headerRef) <- IOHM.toList $ _responseHeaders resp

@@ -5,19 +5,11 @@ module OpenAPI.Checker.Validate.PathFragment
   )
 where
 
-import Control.Lens
-import Control.Monad.Reader
 import qualified Data.Aeson as A
-import Data.HList
-import qualified Data.List.NonEmpty as NE
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
-import Data.Maybe
 import Data.OpenApi
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable
-import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Param ()

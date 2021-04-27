@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module OpenAPI.Checker.Validate.ProcessedPathItem
   ( ProcessedPathItem (..)
@@ -12,13 +13,11 @@ import Control.Monad
 import Data.Foldable as F
 import Data.Functor
 import Data.HList
-import Data.List as L
+import qualified Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
-import Data.Text (Text)
 import Data.Text as T
-import Generic.Data
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
@@ -160,7 +159,7 @@ instance Subtree MatchedPathItem where
         in tracedFragments
       operations = getOperations <$> pathTracedParams <*> pathTracedFragments <*> prodCons
       getOperations pathParams getPathFragments mpi = M.fromList $ do
-        (get, s) <-
+        (getOp, s) <-
           [ (_pathItemGet, GetStep)
           , (_pathItemPut, PutStep)
           , (_pathItemPost, PostStep)
@@ -169,7 +168,7 @@ instance Subtree MatchedPathItem where
           , (_pathItemHead, HeadStep)
           , (_pathItemPatch, PatchStep)
           , (_pathItemTrace, TraceStep) ]
-        operation <- F.toList $ get $ pathItem mpi
+        operation <- F.toList $ getOp $ pathItem mpi
         -- Got only Justs here
         let mop = MatchedOperation { operation , pathParams, getPathFragments }
         pure (s, Traced (step s) mop)

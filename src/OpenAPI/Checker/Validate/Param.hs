@@ -1,15 +1,15 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module OpenAPI.Checker.Validate.Param () where
 
 import Control.Monad
-import Data.HList
 import Data.Maybe
 import Data.OpenApi
 import OpenAPI.Checker.Orphans
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
-import OpenAPI.Checker.Validate.Schema
+import OpenAPI.Checker.Validate.Schema ()
 
 -- | The type is normalized encoding style of the parameter. If two encoding
 -- styles are equal then parameters are compatible with their encoding style

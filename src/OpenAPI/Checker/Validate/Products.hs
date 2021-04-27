@@ -20,7 +20,6 @@ module OpenAPI.Checker.Validate.Products
 
 import Data.Foldable
 import Data.Functor
-import Data.HList
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import Data.OpenApi.Internal
@@ -35,7 +34,7 @@ data ProductLike root a = ProductLike
 
 checkProducts'
   :: forall k root t
-  .  (Subtree t, Subtree root, Ord k)
+  .  (Subtree root, Ord k)
   => (k -> CheckIssue root)
   -- ^ No required element found
   -> (k -> ProdCons t -> CompatFormula t ())
@@ -56,7 +55,7 @@ checkProducts' noElt check (ProdCons p c) = for_ (M.toList c) $ \(key, consElt) 
 
 checkProducts
   :: forall k root t
-  .  (Subtree t, Subtree root, Ord k)
+  .  (Subtree root, Ord k)
   => (k -> CheckIssue root)
   -- ^ No required element found
   -> (k -> ProdCons t -> CompatFormula t ())

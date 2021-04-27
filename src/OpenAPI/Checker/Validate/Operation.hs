@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 
 module OpenAPI.Checker.Validate.Operation
   ( MatchedOperation(..)
@@ -8,8 +9,7 @@ module OpenAPI.Checker.Validate.Operation
 import Data.Foldable as F
 import Data.Functor
 import Data.HList
-import qualified Data.HashMap.Strict.InsOrd as IOHM
-import Data.List as L
+import qualified Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
@@ -145,12 +145,12 @@ instance Subtree MatchedOperation where
         checkProducts (const NoRequestBody) check elements
       checkResponses = do
         let
-          responses = (_operationResponses . operation) <$> prodCons
+          resps = (_operationResponses . operation) <$> prodCons
           respEnv = HCons (swapProdCons respDefs)
             $ HCons (swapProdCons headerDefs)
             $ HCons (swapProdCons schemaDefs) HNil
         localStep OperationResponsesStep
-          $ swapRoles $ checkCompatibility respEnv $ swapProdCons responses
+          $ swapRoles $ checkCompatibility respEnv $ swapProdCons resps
       checkCallbacks = pure () -- (error "FIXME: not implemented")
       checkOperationSecurity = pure () -- (error "FIXME: not implemented")
       checkServers = pure () -- (error "FIXME: not implemented")
