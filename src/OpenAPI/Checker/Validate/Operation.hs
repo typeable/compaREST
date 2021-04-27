@@ -150,7 +150,7 @@ instance Subtree MatchedOperation where
             $ HCons (swapProdCons headerDefs)
             $ HCons (swapProdCons schemaDefs) HNil
         localStep OperationResponsesStep
-          $ swapRoles $ checkCompatibility respEnv responses
+          $ swapRoles $ checkCompatibility respEnv $ swapProdCons responses
       checkCallbacks = pure () -- (error "FIXME: not implemented")
       checkOperationSecurity = pure () -- (error "FIXME: not implemented")
       checkServers = pure () -- (error "FIXME: not implemented")
