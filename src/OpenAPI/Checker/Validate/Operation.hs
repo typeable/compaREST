@@ -36,12 +36,10 @@ data MatchedOperation = MatchedOperation
   -- operation-specific parameters
   }
 
--- | Normalized key for matching parameters. If keys of two parameters are equal
--- then parameters must be checked for compatibility
-data ParamKey
-  = PathPosition Int
-  | OtherLocation ParamLocation Text
-  deriving (Eq, Ord, Show)
+type ParamKey = (ParamLocation, Text)
+
+paramKey :: Param -> ParamKey
+paramKey param = (_paramIn param, _paramName param)
 
 instance Subtree MatchedOperation where
   type CheckEnv MatchedOperation =
@@ -62,8 +60,8 @@ instance Subtree MatchedOperation where
     | SecurityRequirementNotMet Int -- security indexs
     | ServerNotConsumed Int -- server index
     deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons = do
-    checkParameters
+  checkCompatibility env prodCons = withTrace $ \myTrace -> do
+    checkParameters myTrace
     checkRequestBodies
     checkResponses
     checkCallbacks
@@ -71,18 +69,27 @@ instance Subtree MatchedOperation where
     checkServers
     pure ()
     where
-      checkParameters = do
+      checkParameters myTrace = do
         let
           -- Merged parameters got from Operation and PathItem in one
           -- place. First element is path params, second is non-path params
           tracedParams :: ProdCons ([Traced OpenApi Param], [Traced OpenApi Param])
-          tracedParams = getParams <$> prodCons
-          getParams mp =
+          tracedParams = getParams <$> myTrace <*> paramDefs <*> prodCons
+          getParams root defs mp =
             let
-              operationParamsMap :: Map (ParamLocation, Text) (Traced OpenApi Param)
-              operationParamsMap = (error "FIXME: not implemented")
-              pathParamsMap :: Map (ParamLocation, Text) (Traced OpenApi Param)
-              pathParamsMap = error "FIXME: pathParamsMap not implemented"
+              operationParamsMap :: Map ParamKey (Traced OpenApi Param)
+              operationParamsMap = M.fromList $ do
+                paramRef <- _operationParameters $ operation mp
+                let
+                  tracedParam = retrace root
+                    $ dereferenceTraced defs
+                    $ Traced (step $ OperationParamsStep) paramRef
+                  key = paramKey $ getTraced tracedParam
+                pure (key, tracedParam)
+              pathParamsMap :: Map ParamKey (Traced OpenApi Param)
+              pathParamsMap = M.fromList $ do
+                param <- pathParams mp
+                pure (paramKey $ getTraced param, param)
               params = M.elems $ M.union operationParamsMap pathParamsMap
               -- We prefer params from Operation
               splitted = L.partition
@@ -151,80 +158,7 @@ instance Subtree MatchedOperation where
       respDefs = getH @(ProdCons (Definitions Response)) env
       headerDefs =  getH @(ProdCons (Definitions Header)) env
       schemaDefs = getH @(ProdCons (Definitions Schema)) env
-
--- instance Subtree Operation where
---   type
---     CheckEnv Operation =
---       '[ ProdCons (Definitions Param)
---        , ProdCons (Definitions RequestBody)
---        , ProdCons (Definitions SecurityScheme)
---        , ProdCons (Definitions Response)
---        , ProdCons (Definitions Header)
---        , ProdCons (Definitions Schema)
---        ]
---   data CheckIssue Operation
---     = ParamNotMatched Text -- Param name
---     | NoRequestBody
---     | CallbacksNotSupported
---     | SecurityRequirementNotMet Int -- security indexs
---     | ServerNotConsumed Int -- server index
---     deriving (Eq, Ord, Show)
---   checkCompatibility env prodCons = do
---     let ProdCons {producer = pNonPathParams, consumer = cNonPathParams} = do
---           op <- _operationParameters <$> prodCons
---           defParams <- getH @(ProdCons (Definitions Param)) env
---           pure $
---             filter ((/= ParamPath) . _paramIn . getTraced)
---               . fmap (dereference defParams)
---               $ op
---         reqBody = do
---           op <- _operationRequestBody <$> prodCons
---           reqDefs <- getH @(ProdCons (Definitions RequestBody)) env
---           pure $ fmap (dereference reqDefs) op
---     for_ pNonPathParams $ \p@(Traced _ param) ->
---       anyOfAt
---         producer
---         (ParamNotMatched $ _paramName param)
---         [ checkProdCons env . fmap (retrace (step OperationParamsStep)) $ ProdCons p c
---         | c <- cNonPathParams
---         ]
---     case reqBody of
---       ProdCons Nothing Nothing -> pure ()
---       ProdCons (Just pBody) (Just cBody) ->
---         localStep OperationRequestBodyStep $
---           checkProdCons env (ProdCons pBody cBody)
---       ProdCons Nothing (Just _) -> issueAt producer NoRequestBody
---       ProdCons (Just _) Nothing -> issueAt consumer NoRequestBody
---     localStep OperationResponsesStep $
---       checkCompatibility env $ _operationResponses <$> prodCons
---     -- FIXME: https://github.com/typeable/openapi-diff/issues/27
---     case IOHM.null . _operationCallbacks <$> prodCons of
---       (ProdCons True True) -> pure ()
---       (ProdCons False _) -> issueAt producer CallbacksNotSupported
---       (ProdCons _ False) -> issueAt consumer CallbacksNotSupported
---     -- FIXME: https://github.com/typeable/openapi-diff/issues/28
---     sequenceA_
---       [ anyOfAt
---         producer
---         (SecurityRequirementNotMet i)
---         [ localStep OperationSecurityRequirementStep $
---           checkCompatibility env $ ProdCons prodSecurity consSecurity
---         | consSecurity <- _operationSecurity . consumer $ prodCons
---         ]
---       | (i, prodSecurity) <- zip [0 ..] . _operationSecurity . producer $ prodCons
---       ]
---     -- FIXME: https://github.com/typeable/openapi-diff/issues/29s
---     sequenceA_
---       [ anyOfAt
---         producer
---         (ServerNotConsumed i)
---         [ localStep OperationServerStep $
---           checkCompatibility env $ ProdCons pServer cServer
---         | cServer <- _operationServers . consumer $ prodCons
---         ]
---       | (i, pServer) <- zip [0 ..] . _operationServers . producer $ prodCons
---       ]
---     pure ()
+      paramDefs = getH @(ProdCons (Definitions Param)) env
 
 instance Steppable MatchedOperation (Referenced Param) where
   data Step MatchedOperation (Referenced Param) = OperationParamsStep
