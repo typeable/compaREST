@@ -2,7 +2,7 @@ Left:
   OpenApiPathsStep:
     MatchedPathStep "/test":
       PostStep:
-        OperationParamInline:
+        OperationParamsStep:
           InlineStep:
             ParamSchema:
               InlineStep: NoContradiction
