@@ -1,9 +1,9 @@
 Left:
   OpenApiPathsStep:
-    PathStep "/test":
+    MatchedPathStep "/test":
       PostStep:
         OperationRequestBodyStep:
           InlineStep:
-            MediaTypeStep application/json:
+            RequestMediaTypeObject application/json:
               MediaTypeSchema:
                 InlineStep: NoContradiction
