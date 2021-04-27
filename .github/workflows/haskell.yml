@@ -27,5 +27,7 @@ jobs:
             ${{ runner.os }}-build-stack-
       - name: Build
         run: stack build
+      - name: Test
+        run: stack test --test-arguments='--hide-successes --no-create'
 #     - name: Test
 #       run: stack test
