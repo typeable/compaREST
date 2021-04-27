@@ -8,6 +8,7 @@ module OpenAPI.Checker.Validate.ProcessedPathItem
   )
 where
 
+import Control.Monad
 import Data.Foldable as F
 import Data.Functor
 import Data.HList
@@ -75,7 +76,26 @@ instance Subtree ProcessedPathItems where
         x -> issueAt producer $ TooMuchPathsMatched prodPath $ L.length x
 
 matchingPathItems :: ProdCons ProcessedPathItem -> Maybe (ProdCons MatchedPathItem)
-matchingPathItems = error "FIXME: matchingPathItems not implemented"
+matchingPathItems prodCons = do
+  let frags = parsePath . path <$> prodCons
+  guard $ fragsMatch frags
+  let
+    mkMatchedItems frag ppi = MatchedPathItem
+      { pathItem = item $ ppi
+      , pathFragments = frag }
+  return $ mkMatchedItems <$> frags <*> prodCons
+
+fragsMatch :: ProdCons [PathFragment Text] -> Bool
+fragsMatch (ProdCons p c) = maybe False and $ zipAllWith check p c
+  where
+    check (StaticPath s1) (StaticPath s2) = s1 == s2
+    check _ _ = True
+
+zipAllWith :: (a -> b -> c) -> [a] -> [b] -> Maybe [c]
+zipAllWith _ [] [] = Just []
+zipAllWith f (x : xs) (y : ys) = (f x y :) <$> zipAllWith f xs ys
+zipAllWith _ (_ : _) [] = Nothing
+zipAllWith _ [] (_ : _) = Nothing
 
 data MatchedPathItem = MatchedPathItem
   { pathItem :: PathItem
@@ -151,12 +171,6 @@ instance Subtree MatchedPathItem where
     -- why not
     checkSums OperationMissing check operations
 
-
-zipAllWith :: (a -> b -> c) -> [a] -> [b] -> Maybe [c]
-zipAllWith _ [] [] = Just []
-zipAllWith f (x : xs) (y : ys) = (f x y :) <$> zipAllWith f xs ys
-zipAllWith _ (_ : _) [] = Nothing
-zipAllWith _ [] (_ : _) = Nothing
 
 instance Steppable ProcessedPathItems MatchedPathItem where
   data Step ProcessedPathItems MatchedPathItem = MatchedPathStep FilePath
