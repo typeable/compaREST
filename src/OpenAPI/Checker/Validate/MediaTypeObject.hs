@@ -3,13 +3,16 @@
 module OpenAPI.Checker.Validate.MediaTypeObject () where
 
 import Data.Foldable as F
+import Data.Functor
 import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
+import Data.Map.Strict as M
 import Data.OpenApi
 import Data.Text (Text)
 import Network.HTTP.Media (MediaType, mainType, subType)
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
+import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
 
 instance Subtree MediaTypeObject where
@@ -18,37 +21,37 @@ instance Subtree MediaTypeObject where
      , ProdCons (Definitions Schema)
      ]
   data CheckIssue MediaTypeObject
-    = MediaEncodingMissing
+    = MediaEncodingMissing Text
     | MediaEncodingIncompat
     | MediaTypeSchemaRequired
     deriving (Eq, Ord, Show)
-  checkCompatibility env (ProdCons p c) = do
-    tryCheckEncoding
-    checkSchema
-    pure ()
-    where
-      mediaType = getH @MediaType env
-      tryCheckEncoding =
-        if | "multipart" == mainType mediaType -> checkEncoding
-           | "application" == mainType mediaType &&
-             "x-www-form-urlencoded" == subType mediaType -> checkEncoding
-           | otherwise -> pure ()
-        where
-          -- Each parameter encoded by the producer must be parsed by the
-          -- consumer
-          checkEncoding = for_ (IOHM.toList $ _mediaTypeObjectEncoding p) $ \(paramName, prodEncoding) ->
-            case IOHM.lookup paramName $ _mediaTypeObjectEncoding c of
-              Nothing -> issueAt consumer MediaEncodingMissing
-              Just consEncoding -> localStep (MediaTypeParamEncoding paramName)
-                $ checkCompatibility HNil
-                $ ProdCons prodEncoding consEncoding
-      -- If consumer requires schema then producer must produce compatible
-      -- request
-      checkSchema = for_ (_mediaTypeObjectSchema c) $ \consRef ->
+  checkCompatibility env prodCons@(ProdCons p c) = do
+    if | "multipart" == mainType mediaType -> checkEncoding
+       | "application" == mainType mediaType &&
+         "x-www-form-urlencoded" == subType mediaType -> checkEncoding
+       | otherwise -> pure ()
+    -- If consumer requires schema then producer must produce compatible
+    -- request
+    for_ (_mediaTypeObjectSchema c) $ \consRef ->
         case _mediaTypeObjectSchema p of
           Nothing -> issueAt producer MediaTypeSchemaRequired
           Just prodRef -> localStep MediaTypeSchema
             $ checkCompatibility env $ ProdCons prodRef consRef
+    pure ()
+    where
+      mediaType = getH @MediaType env
+      checkEncoding =
+        let
+          -- Parameters of the media type are product-like entities
+          getEncoding mt = M.fromList
+            $ (IOHM.toList $ _mediaTypeObjectEncoding mt) <&> \(k, enc) ->
+            ( k
+            , ProductLike
+              { traced = Traced (step $ MediaTypeParamEncoding k) enc
+              , required = True } )
+          encProdCons = getEncoding <$> prodCons
+        in checkProducts MediaEncodingMissing
+           (const $ checkCompatibility HNil) encProdCons
 
 instance Subtree Encoding where
   type CheckEnv Encoding = '[]

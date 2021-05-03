@@ -1,0 +1,6 @@
+Left:
+  OpenApiPathsStep:
+    MatchedPathStep "/test":
+      PostStep:
+        OperationParamsStep:
+          InlineStep: ParamEmptinessIncompatible

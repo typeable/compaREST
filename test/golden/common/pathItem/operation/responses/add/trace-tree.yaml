@@ -1,0 +1,5 @@
+Left:
+  OpenApiPathsStep:
+    MatchedPathStep "/test":
+      PostStep:
+        OperationResponsesStep: ResponseCodeNotFound 500

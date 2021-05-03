@@ -21,7 +21,10 @@ deriving stock instance Ord AdditionalProperties
 deriving stock instance Ord Discriminator
 deriving stock instance Ord Xml
 deriving stock instance Ord OpenApiType
+deriving stock instance Ord Style
 deriving stock instance Ord OpenApiItems
+deriving stock instance Ord ParamLocation
+
 
 instance (Ord k, Ord v) => Ord (IOHM.InsOrdHashMap k v) where
   compare xs ys = compare (IOHM.toList xs) (IOHM.toList ys)
