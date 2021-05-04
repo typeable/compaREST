@@ -41,8 +41,8 @@ instance (Typeable param) => Steppable (PathFragment param) Param where
   data Step (PathFragment param) Param = StaticPathParam Text
     deriving (Eq, Ord, Show)
 
-tracedDePathFragment :: Traced OpenApi PathFragmentParam -> Traced OpenApi Param
-tracedDePathFragment pfp = case extract pfp of
+tracedPathFragmentParam :: Traced OpenApi PathFragmentParam -> Traced OpenApi Param
+tracedPathFragmentParam pfp = case extract pfp of
   StaticPath s -> traced (ask pfp >>> step (StaticPathParam s))
     $ mempty
     { _paramRequired = Just True
@@ -73,4 +73,4 @@ instance Subtree PathFragmentParam where
       then pure ()
       else issueAt c (PathFragmentsDontMatch x y)
   checkCompatibility env prodCons = do
-    checkCompatibility env (tracedDePathFragment <$> prodCons)
+    checkCompatibility env (tracedPathFragmentParam <$> prodCons)
