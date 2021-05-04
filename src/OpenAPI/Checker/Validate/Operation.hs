@@ -4,6 +4,8 @@
 module OpenAPI.Checker.Validate.Operation
   ( MatchedOperation (..)
   , CheckIssue (..)
+  , OperationMethod(..)
+  , pathItemMethod
   ) where
 
 
@@ -23,8 +25,6 @@ import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.RequestBody
 import OpenAPI.Checker.Validate.Responses ()
-
--- data ParamKey
 
 data MatchedOperation = MatchedOperation
   { operation :: !Operation
@@ -75,7 +75,7 @@ instance Subtree MatchedOperation where
      , ProdCons (Definitions Schema)
      ]
   data CheckIssue MatchedOperation
-    = OperationMissing
+    = OperationMissing OperationMethod
     | CallbacksNotSupported
     deriving (Eq, Ord, Show)
   checkCompatibility env prodCons = do
@@ -173,6 +173,28 @@ instance Subtree MatchedOperation where
       headerDefs =  getH @(ProdCons (Definitions Header)) env
       schemaDefs = getH @(ProdCons (Definitions Schema)) env
       paramDefs = getH @(ProdCons (Definitions Param)) env
+
+data OperationMethod = 
+  GetMethod
+  | PutMethod
+  | PostMethod
+  | DeleteMethod
+  | OptionsMethod
+  | HeadMethod
+  | PatchMethod
+  | TraceMethod
+  deriving (Eq, Ord, Show)
+
+pathItemMethod :: OperationMethod -> PathItem -> Maybe Operation 
+pathItemMethod = \case
+  GetMethod -> _pathItemGet
+  PutMethod -> _pathItemPut
+  PostMethod -> _pathItemPost
+  DeleteMethod -> _pathItemDelete
+  OptionsMethod -> _pathItemOptions
+  HeadMethod -> _pathItemHead
+  PatchMethod -> _pathItemPatch
+  TraceMethod -> _pathItemTrace
 
 instance Steppable MatchedOperation (Referenced Param) where
   data Step MatchedOperation (Referenced Param) = OperationParamsStep Int

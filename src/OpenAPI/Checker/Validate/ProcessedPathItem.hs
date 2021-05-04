@@ -118,24 +118,11 @@ tracedFragments mpi =
   | (i, x) <- L.zip [0..] $ pathFragments $ extract mpi
   ]
 
--- TODO: simplify?
-tracedOp
-  :: Step MatchedPathItem MatchedOperation
-  -> (PathItem -> Maybe Operation)
+tracedMethod
+  :: OperationMethod
   -> Traced r MatchedPathItem
   -> Maybe (Env (Trace r MatchedOperation) Operation)
-tracedOp s f mpi = env (ask mpi >>> step s) <$> (f . pathItem . extract $ mpi)
-
-tracedGet, tracedPut, tracedPost, tracedDelete, tracedOptions, tracedHead, tracedPatch, tracedTrace
-  :: Traced r MatchedPathItem -> Maybe (Env (Trace r MatchedOperation) Operation)
-tracedGet = tracedOp GetStep _pathItemGet
-tracedPut = tracedOp PutStep _pathItemPut
-tracedPost = tracedOp PostStep _pathItemPost
-tracedDelete = tracedOp DeleteStep _pathItemDelete
-tracedOptions = tracedOp OptionsStep _pathItemOptions
-tracedHead = tracedOp HeadStep _pathItemHead
-tracedPatch = tracedOp PatchStep _pathItemPatch
-tracedTrace = tracedOp DeleteStep _pathItemDelete
+tracedMethod s mpi = env (ask mpi >>> step (OperationMethodStep s)) <$> (pathItemMethod s . pathItem . extract $ mpi)
 
 instance Subtree MatchedPathItem where
   type CheckEnv MatchedPathItem =
@@ -177,8 +164,8 @@ instance Subtree MatchedPathItem where
         in tracedFragments mpi <&> fmap convertFragment
       operations = getOperations <$> pathTracedParams <*> pathTracedFragments <*> prodCons
       getOperations pathParams getPathFragments mpi = M.fromList $ do
-        (i, getOp) <- L.zip [0 :: Int ..]
-          [tracedGet, tracedPut, tracedPost, tracedDelete, tracedOptions, tracedHead, tracedPatch, tracedTrace]
+        (i, getOp) <- (\m -> (m, tracedMethod m)) <$>
+          [GetMethod, PutMethod, PostMethod, DeleteMethod, OptionsMethod, HeadMethod, PatchMethod, DeleteMethod]
         operation <- F.toList $ getOp mpi
         -- Got only Justs here
         let retraced = \op -> MatchedOperation { operation = op, pathParams, getPathFragments }
@@ -186,7 +173,7 @@ instance Subtree MatchedPathItem where
       check pc = checkCompatibility @MatchedOperation env pc
     -- Operations are sum-like entities. Use step to operation as key because
     -- why not
-    checkSums (const OperationMissing) (const check) operations
+    checkSums OperationMissing (const check) operations
 
 
 instance Steppable ProcessedPathItems MatchedPathItem where
@@ -194,15 +181,7 @@ instance Steppable ProcessedPathItems MatchedPathItem where
     deriving (Eq, Ord, Show)
 
 instance Steppable MatchedPathItem MatchedOperation where
-  data Step MatchedPathItem MatchedOperation
-    = GetStep
-    | PutStep
-    | PostStep
-    | DeleteStep
-    | OptionsStep
-    | HeadStep
-    | PatchStep
-    | TraceStep
+  data Step MatchedPathItem MatchedOperation = OperationMethodStep OperationMethod
     deriving (Eq, Ord, Show)
 
 instance Steppable MatchedPathItem (Referenced Param) where
