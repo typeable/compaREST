@@ -3,7 +3,6 @@
 
 module OpenAPI.Checker.Validate.Operation
   ( MatchedOperation (..)
-  , CheckIssue (..)
   , OperationMethod(..)
   , pathItemMethod
   ) where
@@ -17,21 +16,21 @@ import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
 import Data.Text (Text)
+import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
-import OpenAPI.Checker.Validate.Param
+import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.Products
-import OpenAPI.Checker.Validate.RequestBody
+import OpenAPI.Checker.Validate.RequestBody ()
 import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.Server ()
 
 data MatchedOperation = MatchedOperation
   { operation :: !Operation
-  , pathParams :: ![Traced OpenApi Param]
+  , pathParams :: ![Traced Param]
   -- ^ Params from the PathItem
-  , getPathFragments :: !([Traced OpenApi Param] -> [Traced OpenApi PathFragmentParam])
+  , getPathFragments :: !([Traced Param] -> [Traced PathFragmentParam])
   -- ^ Path fragments traced from PathItem. Takes full list of
   -- operation-specific parameters
   }
@@ -41,20 +40,20 @@ type ParamKey = (ParamLocation, Text)
 paramKey :: Param -> ParamKey
 paramKey param = (_paramIn param, _paramName param)
 
-tracedParameters :: Traced r MatchedOperation -> [Traced r (Referenced Param)]
+tracedParameters :: Traced MatchedOperation -> [Traced (Referenced Param)]
 tracedParameters oper =
   [ traced (ask oper >>> step (OperationParamsStep i)) x
   | (i, x) <- zip [0..] $ _operationParameters . operation $ extract oper
   ]
 
-tracedRequestBody :: Traced r MatchedOperation -> Maybe (Traced r (Referenced RequestBody))
+tracedRequestBody :: Traced MatchedOperation -> Maybe (Traced (Referenced RequestBody))
 tracedRequestBody oper = _operationRequestBody (operation $ extract oper) <&> traced (ask oper >>> step OperationRequestBodyStep)
 
-tracedResponses :: Traced r MatchedOperation -> Traced r Responses
+tracedResponses :: Traced MatchedOperation -> Traced Responses
 tracedResponses oper = traced (ask oper >>> step OperationResponsesStep)
   $ _operationResponses . operation $ extract oper
 
-tracedSecurity :: Traced r MatchedOperation -> [Traced r SecurityRequirement]
+tracedSecurity :: Traced MatchedOperation -> [Traced SecurityRequirement]
 tracedSecurity oper =
   [ traced (ask oper >>> step (OperationSecurityRequirementStep i)) x
   | (i, x) <- zip [0..] $ _operationSecurity . operation $ extract oper
@@ -63,29 +62,42 @@ tracedSecurity oper =
 -- FIXME: https://github.com/typeable/openapi-diff/issues/28
 tracedServers
   :: [Server] -- ^ Servers from env
-  -> Traced r MatchedOperation
-  -> Traced r [Server]
+  -> Traced MatchedOperation
+  -> Traced [Server]
 tracedServers env oper =
   traced (ask oper >>> step OperationServersStep) $
     case _operationServers . operation $ extract oper of
       [] -> env
       ss -> ss
 
+instance Behavable 'OperationLevel 'PathFragmentLevel where
+  data Behave 'OperationLevel 'PathFragmentLevel
+    = InParam Text
+    | InFragment Int
+    deriving stock (Eq, Ord, Show)
+
+instance Behavable 'OperationLevel 'RequestLevel where
+  data Behave 'OperationLevel 'RequestLevel
+    = InRequest
+    deriving stock (Eq, Ord, Show)
+
+instance Behavable 'OperationLevel 'ServerLevel where
+  data Behave 'OperationLevel 'ServerLevel
+    = InServer
+    deriving stock (Eq, Ord, Show)
+
 instance Subtree MatchedOperation where
+  type ToBehavior MatchedOperation = 'OperationLevel
   type CheckEnv MatchedOperation =
-    '[ ProdCons (Definitions Param)
-     , ProdCons (Definitions RequestBody)
-     , ProdCons (Definitions SecurityScheme)
-     , ProdCons (Definitions Response)
-     , ProdCons (Definitions Header)
-     , ProdCons (Definitions Schema)
+    '[ ProdCons (Traced (Definitions Param))
+     , ProdCons (Traced (Definitions RequestBody))
+     , ProdCons (Traced (Definitions SecurityScheme))
+     , ProdCons (Traced (Definitions Response))
+     , ProdCons (Traced (Definitions Header))
+     , ProdCons (Traced (Definitions Schema))
      , ProdCons [Server]
      ]
-  data CheckIssue MatchedOperation
-    = OperationMissing OperationMethod
-    | CallbacksNotSupported
-    deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons = do
+  checkCompatibility env beh prodCons = do
     checkParameters
     checkRequestBodies
     checkResponses
@@ -98,30 +110,29 @@ instance Subtree MatchedOperation where
         let
           -- Merged parameters got from Operation and PathItem in one
           -- place. First element is path params, second is non-path params
-          tracedParams :: ProdCons ([Traced OpenApi Param], [Traced OpenApi Param])
+          tracedParams :: ProdCons ([Traced Param], [Traced Param])
           tracedParams = getParams <$> paramDefs <*> prodCons
           getParams defs mp =
             let
-              operationParamsMap :: Map ParamKey (Traced OpenApi Param)
+              operationParamsMap :: Map ParamKey (Traced Param)
               operationParamsMap = M.fromList $ do
                 paramRef <- tracedParameters mp
                 let
                   param = dereference defs paramRef
                   key = paramKey . extract $ param
                 pure (key, param)
-              pathParamsMap :: Map ParamKey (Traced OpenApi Param)
+              pathParamsMap :: Map ParamKey (Traced Param)
               pathParamsMap = M.fromList $ do
                 param <- pathParams . extract $ mp
                 pure (paramKey . extract $ param, param)
-              params = M.elems $ M.union operationParamsMap pathParamsMap
-              -- We prefer params from Operation
+              params = M.elems $ M.union operationParamsMap pathParamsMap -- We prefer params from Operation
               splitted = L.partition
                 (\p -> (_paramIn . extract $ p) == ParamPath) params
             in splitted
         checkNonPathParams $ snd <$> tracedParams
         checkPathParams $ fst <$> tracedParams
         pure ()
-      checkNonPathParams :: ProdCons [Traced OpenApi Param] -> CompatFormula ()
+      checkNonPathParams :: ProdCons [Traced Param] -> CompatFormula ()
       checkNonPathParams params = do
         let
           elements = getEls <$> params
@@ -130,30 +141,30 @@ instance Subtree MatchedOperation where
             let
               k = (_paramIn . extract $ p, _paramName . extract $ p)
               v = ProductLike
-                { tracedValue = p
+                { productValue = p
                 , required = fromMaybe False . _paramRequired . extract $ p
                 }
             pure (k, v)
-          check param = do
-            checkCompatibility @Param (singletonH schemaDefs) param
-        checkProducts (ParamNotMatched . snd) (const check) elements
-      checkPathParams :: ProdCons [Traced OpenApi Param] -> CompatFormula ()
+          check (_, name) param = do
+            checkCompatibility @Param (singletonH schemaDefs) (beh >>> step (InParam name)) param
+        checkProducts beh (ParamNotMatched . snd) check elements
+      checkPathParams :: ProdCons [Traced Param] -> CompatFormula ()
       checkPathParams pathParams = do
         let
-          fragments :: ProdCons [Traced OpenApi PathFragmentParam]
+          fragments :: ProdCons [Traced PathFragmentParam]
           fragments = getFragments <$> pathParams <*> prodCons
           getFragments params mop = getPathFragments (extract mop) params
           -- Feed path parameters to the fragments getter
-          check frags = checkCompatibility @PathFragmentParam env frags
+          check idx frags = checkCompatibility @PathFragmentParam env (beh >>> step (InFragment idx)) frags
           elements = fragments <&> \frags -> M.fromList $ zip [0 :: Int ..] $ do
             frag <- frags
             pure $ ProductLike
-              { tracedValue = frag
+              { productValue = frag
               , required = True }
-        checkProducts (const PathFragmentNotMatched) (const check) elements
+        checkProducts beh PathFragmentNotMatched check elements
       checkRequestBodies = do
         let
-          check reqBody = checkCompatibility @RequestBody env reqBody
+          check reqBody = checkCompatibility @RequestBody env (beh >>> step InRequest) reqBody
           elements = getReqBody <$> bodyDefs <*> prodCons
           getReqBody bodyDef mop = M.fromList $ do
             bodyRef <- F.toList . tracedRequestBody $ mop
@@ -161,31 +172,31 @@ instance Subtree MatchedOperation where
               body = dereference bodyDef bodyRef
             -- Single element map
             pure ((), ProductLike
-              { tracedValue = body
+              { productValue = body
               , required = fromMaybe False . _requestBodyRequired . extract $ body
               })
-        checkProducts (const NoRequestBody) (const check) elements
+        checkProducts beh (const NoRequestBody) (const check) elements
       checkResponses = do
         let
           respEnv = HCons (swapProdCons respDefs)
             $ HCons (swapProdCons headerDefs)
             $ HCons (swapProdCons schemaDefs) HNil
           resps = tracedResponses <$> prodCons
-        checkCompatibility respEnv $ swapProdCons resps
+        checkCompatibility respEnv beh $ swapProdCons resps
       -- FIXME: https://github.com/typeable/openapi-diff/issues/27
       checkCallbacks = pure () -- (error "FIXME: not implemented")
       -- FIXME: https://github.com/typeable/openapi-diff/issues/28
       checkOperationSecurity = pure () -- (error "FIXME: not implemented")
       checkServers =
-        checkCompatibility env $
+        checkCompatibility env (beh >>> step InServer) $
           tracedServers <$> getH @(ProdCons [Server]) env <*> prodCons
-      bodyDefs = getH @(ProdCons (Definitions RequestBody)) env
-      respDefs = getH @(ProdCons (Definitions Response)) env
-      headerDefs =  getH @(ProdCons (Definitions Header)) env
-      schemaDefs = getH @(ProdCons (Definitions Schema)) env
-      paramDefs = getH @(ProdCons (Definitions Param)) env
+      bodyDefs = getH @(ProdCons (Traced (Definitions RequestBody))) env
+      respDefs = getH @(ProdCons (Traced (Definitions Response))) env
+      headerDefs =  getH @(ProdCons (Traced (Definitions Header))) env
+      schemaDefs = getH @(ProdCons (Traced (Definitions Schema))) env
+      paramDefs = getH @(ProdCons (Traced (Definitions Param))) env
 
-data OperationMethod = 
+data OperationMethod =
   GetMethod
   | PutMethod
   | PostMethod
@@ -196,7 +207,7 @@ data OperationMethod =
   | TraceMethod
   deriving (Eq, Ord, Show)
 
-pathItemMethod :: OperationMethod -> PathItem -> Maybe Operation 
+pathItemMethod :: OperationMethod -> PathItem -> Maybe Operation
 pathItemMethod = \case
   GetMethod -> _pathItemGet
   PutMethod -> _pathItemPut
@@ -209,19 +220,19 @@ pathItemMethod = \case
 
 instance Steppable MatchedOperation (Referenced Param) where
   data Step MatchedOperation (Referenced Param) = OperationParamsStep Int
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedOperation (Referenced RequestBody) where
   data Step MatchedOperation (Referenced RequestBody) = OperationRequestBodyStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedOperation Responses where
   data Step MatchedOperation Responses = OperationResponsesStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedOperation SecurityRequirement where
   data Step MatchedOperation SecurityRequirement = OperationSecurityRequirementStep Int
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedOperation [Server] where
   data Step MatchedOperation [Server] 

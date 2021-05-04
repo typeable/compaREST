@@ -1,9 +1,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module OpenAPI.Checker.Validate.Server
-  ( CheckIssue (..)
-  )
-where
+  ( Issue (..)
+  ) where
 
 import Control.Applicative
 import Control.Comonad
@@ -20,41 +19,35 @@ import Data.OpenApi
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Traversable
+import OpenAPI.Checker.Behavior
+import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
 import Prelude as P
 
 tracedParsedServerUrlParts
-  :: Traced' r [Server] Server
-  -> Traced' r ProcessedServer (Either (CheckIssue ProcessedServer) ProcessedServer)
+  :: Traced' [Server] Server
+  -> Either (Issue 'ServerLevel) (Traced ProcessedServer)
 tracedParsedServerUrlParts s =
   let rawURL = _serverUrl $ extract s
       parsedUrl = parseServerUrl rawURL
       serverVariables = _serverVariables $ extract s
-   in traced (ask s >>> step (ServerStep rawURL)) $
-        parsedUrl
-          & (traverse . traverse)
-            (\var -> case IOHM.lookup var serverVariables of
-               Nothing -> Left VariableNotDefined
-               Just x -> Right x)
+      lookupVar var = case IOHM.lookup var serverVariables of
+        Nothing -> Left VariableNotDefined
+        Just x -> Right x
+   in traced (ask s >>> step (ServerStep rawURL)) <$>
+     traverse (traverse lookupVar) parsedUrl
 
 instance Subtree [Server] where
+  type ToBehavior [Server] = 'ServerLevel
   type CheckEnv [Server] = '[]
-  data CheckIssue [Server]
-    deriving (Eq, Ord, Show)
-  checkCompatibility env pcServer = do
+  checkCompatibility env beh pcServer = do
     let (ProdCons (pErrs, pUrls) (cErrs, cUrls)) =
-          pcServer <&> partitionEithers . fmap (bicosequence . tracedParsedServerUrlParts) . sequence
-        bicosequence :: Comonad f => f (Either a b) -> Either (f a) (f b)
-        bicosequence x = case extract x of
-          Left e -> Left $ x $> e
-          Right a -> Right $ x $> a
-        throwAllErrors = traverse_ tracedIssue
-    throwAllErrors pErrs
-    throwAllErrors cErrs
-    for_ pUrls $ \cUrl -> do
-      let potentiallyCompatible = P.filter ((staticCompatible `on` extract) cUrl) cUrls
-      anyOfSubtreeAt cUrl ServerNotMatched $ potentiallyCompatible <&> (checkCompatibility env . ProdCons cUrl)
+          pcServer <&> partitionEithers . fmap (tracedParsedServerUrlParts) . sequence
+    for_ pErrs $ issueAt beh
+    for_ cErrs $ issueAt beh
+    for_ pUrls $ \pUrl -> do
+      let potentiallyCompatible = P.filter ((staticCompatible `on` extract) pUrl) cUrls
+      anyOfAt beh ServerNotMatched $ potentiallyCompatible <&> (checkCompatibility env beh . ProdCons pUrl)
     pure ()
 
 type ProcessedServer = [ServerUrlPart ServerVariable]
@@ -108,22 +101,26 @@ instance Steppable [Server] ProcessedServer where
   data Step [Server] ProcessedServer = ServerStep Text
     deriving (Eq, Ord, Show)
 
-instance Subtree ProcessedServer where
-  type CheckEnv ProcessedServer = '[]
-  data CheckIssue ProcessedServer
+instance Issuable 'ServerLevel where
+  data Issue 'ServerLevel
     = VariableNotDefined
     | ServerNotMatched
     | EnumValueNotConsumed Int Text
     | ConsumerNotOpen Int
-    deriving (Eq, Ord, Show)
-  checkCompatibility _ pc@(ProdCons p _) =
+    deriving stock (Eq, Ord, Show)
+  issueIsUnsupported _ = False
+
+instance Subtree ProcessedServer where
+  type ToBehavior ProcessedServer = 'ServerLevel
+  type CheckEnv ProcessedServer = '[]
+  checkCompatibility _ beh pc =
     -- traversing here is fine because we have already filtered for length
     for_ (zip [0 ..] $ zipProdCons . fmap (fmap unifyPart . extract) $ pc) $ \(i, pcPart) -> case pcPart of
-      (Just x, Just y) -> for_ x $ \v -> unless (v `IOHS.member` y) (issueAt p $ EnumValueNotConsumed i v)
+      (Just x, Just y) -> for_ x $ \v -> unless (v `IOHS.member` y) (issueAt beh $ EnumValueNotConsumed i v)
       -- Consumer can consume anything
       (_, Nothing) -> pure ()
       -- Producer can produce anythings, but consumer has a finite enum ;(
-      (Nothing, Just _) -> issueAt p (ConsumerNotOpen i)
+      (Nothing, Just _) -> issueAt beh (ConsumerNotOpen i)
     where
       zipProdCons :: ProdCons [a] -> [(a, a)]
       zipProdCons (ProdCons x y) = zip x y

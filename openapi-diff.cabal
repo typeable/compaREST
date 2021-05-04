@@ -98,15 +98,16 @@ library
   import:              common-options
   hs-source-dirs:      src
   exposed-modules:  Data.HList
+                  , OpenAPI.Checker.Behavior
                   , OpenAPI.Checker.Formula
                   , OpenAPI.Checker.Memo
                   , OpenAPI.Checker.Options
                   , OpenAPI.Checker.Orphans
+                  , OpenAPI.Checker.Paths
+                  , OpenAPI.Checker.PathsPrefixTree
                   , OpenAPI.Checker.References
                   , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Subtree
-                  , OpenAPI.Checker.Trace
-                  , OpenAPI.Checker.TracePrefixTree
                   , OpenAPI.Checker.Validate.MediaTypeObject
                   , OpenAPI.Checker.Validate.OpenApi
                   , OpenAPI.Checker.Validate.Operation

@@ -1,18 +1,23 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module OpenAPI.Checker.Validate.SecurityRequirement
-  ( CheckIssue (..)
+  ( Issue (..)
   ) where
 
 import Data.OpenApi
+import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
 
+instance Issuable 'SecurityRequirementLevel where
+  data Issue 'SecurityRequirementLevel
+    = SecurityRequirementNotMet
+    deriving stock (Eq, Ord, Show)
+  issueIsUnsupported _ = False
+
 instance Subtree SecurityRequirement where
+  type ToBehavior SecurityRequirement = 'SecurityRequirementLevel
   type
     CheckEnv SecurityRequirement =
-      '[ ProdCons (Definitions SecurityScheme)
+      '[ ProdCons (Traced (Definitions SecurityScheme))
        ]
-  data CheckIssue SecurityRequirement
-    = SecurityRequirementNotMet
-    deriving (Eq, Ord, Show)
   checkCompatibility = undefined

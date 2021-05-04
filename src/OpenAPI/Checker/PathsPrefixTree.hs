@@ -1,7 +1,7 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 
-module OpenAPI.Checker.TracePrefixTree
-  ( TracePrefixTree
+module OpenAPI.Checker.PathsPrefixTree
+  ( PathsPrefixTree
   , empty
   , singleton
   , fromList
@@ -9,6 +9,7 @@ module OpenAPI.Checker.TracePrefixTree
   , foldWith
   , toList
   , filter
+  , embed
   )
 where
 
@@ -24,22 +25,22 @@ import Data.Type.Equality
 import qualified Data.TypeRepMap as TRM
 import qualified Data.Vector as V
 import qualified GHC.Exts as TRM
-import OpenAPI.Checker.Trace
+import OpenAPI.Checker.Paths
 import Type.Reflection
 import Prelude hiding (filter, null)
 
 -- | A list of @AnItem r f@, but optimized into a prefix tree.
-data TracePrefixTree (f :: k -> Type) (r :: k) = TracePrefixTree
+data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPrefixTree
   { rootItems :: !(ASet (f r))
-  , snocItems :: !(TRM.TypeRepMap (AStep f r))
+  , snocItems :: !(TRM.TypeRepMap (AStep q f r))
   }
 
-instance (forall a. ToJSON (f a)) => ToJSON (TracePrefixTree f r) where
+instance (forall a. ToJSON (f a)) => ToJSON (PathsPrefixTree q f r) where
   toJSON =
     Object . getMergableObject
       . foldWith (\t x -> MergableObject . traceObject t $ toJSON x)
 
-deriving instance Eq (TracePrefixTree f a)
+deriving instance Eq (PathsPrefixTree q f a)
 
 -- Kind of orphan. Treat the map as an infinite tuple of @Maybe (f a)@'s, where
 -- the components are ordered by the @SomeTypeRep@ of the @a@.
@@ -69,8 +70,8 @@ compareTRM s1 s2 =
       M.fromList
         [(someTypeRep x, w) | w@(TRM.WrapTypeable x) <- TRM.toList s]
 
-instance Ord (TracePrefixTree f a) where
-  compare (TracePrefixTree r1 s1) (TracePrefixTree r2 s2) =
+instance Ord (PathsPrefixTree q f a) where
+  compare (PathsPrefixTree r1 s1) (PathsPrefixTree r2 s2) =
     compare r1 r2 <> compareTRM s1 s2
 
 data ASet (a :: Type) where
@@ -97,74 +98,79 @@ deriving instance Ord (ASet a)
 instance Monoid (ASet a) where
   mempty = AnEmptySet
 
-data AStep (f :: k -> Type) (r :: k) (a :: k) where
+data AStep (q :: k -> k -> Type) (f :: k -> Type) (r :: k) (a :: k) where
   AStep
-    :: Steppable r a =>
-    !(M.Map (Step r a) (TracePrefixTree f a))
-    -> AStep f r a
+    :: NiceQuiver q r a =>
+    !(M.Map (q r a) (PathsPrefixTree q f a))
+    -> AStep q f r a
 
-deriving instance Eq (AStep f r a)
+deriving instance Eq (AStep q f r a)
 
-deriving instance Ord (AStep f r a)
+deriving instance Ord (AStep q f r a)
 
-singleton :: AnItem f r -> TracePrefixTree f r
-singleton (AnItem ys v) = go ys $ TracePrefixTree (ASet $ S.singleton v) TRM.empty
+singleton :: AnItem q f r -> PathsPrefixTree q f r
+singleton (AnItem ys v) = go ys $ PathsPrefixTree (ASet $ S.singleton v) TRM.empty
   where
-    go :: Trace r a -> TracePrefixTree f a -> TracePrefixTree f r
+    go :: Paths q r a -> PathsPrefixTree q f a -> PathsPrefixTree q f r
     go Root !t = t
     go (Snoc xs x) !t =
       go xs $
-        TracePrefixTree AnEmptySet $
+        PathsPrefixTree AnEmptySet $
           TRM.one $
             AStep $ M.singleton x t
 
-instance Semigroup (TracePrefixTree f r) where
-  TracePrefixTree r1 s1 <> TracePrefixTree r2 s2 =
-    TracePrefixTree (r1 <> r2) (TRM.unionWith joinSteps s1 s2)
+instance Semigroup (PathsPrefixTree q f r) where
+  PathsPrefixTree r1 s1 <> PathsPrefixTree r2 s2 =
+    PathsPrefixTree (r1 <> r2) (TRM.unionWith joinSteps s1 s2)
     where
       joinSteps (AStep m1) (AStep m2) = AStep $ M.unionWith (<>) m1 m2
 
-instance Monoid (TracePrefixTree f r) where
-  mempty = TracePrefixTree mempty TRM.empty
+instance Monoid (PathsPrefixTree q f r) where
+  mempty = PathsPrefixTree mempty TRM.empty
 
-empty :: TracePrefixTree f r
+empty :: PathsPrefixTree q f r
 empty = mempty
 
-fromList :: [AnItem f r] -> TracePrefixTree f r
+fromList :: [AnItem q f r] -> PathsPrefixTree q f r
 fromList = foldMap singleton
 
-null :: TracePrefixTree f r -> Bool
-null (TracePrefixTree AnEmptySet s) = TRM.size s == 0
+null :: PathsPrefixTree q f r -> Bool
+null (PathsPrefixTree AnEmptySet s) = TRM.size s == 0
 null _ = False
 
 foldWith
-  :: forall f m r.
+  :: forall q f m r.
   Monoid m
-  => (forall a. Ord (f a) => Trace r a -> f a -> m)
-  -> TracePrefixTree f r
+  => (forall a. Ord (f a) => Paths q r a -> f a -> m)
+  -> PathsPrefixTree q f r
   -> m
 foldWith k = goTPT Root
   where
-    goTPT :: forall a. Trace r a -> TracePrefixTree f a -> m
+    goTPT :: forall a. Paths q r a -> PathsPrefixTree q f a -> m
     goTPT xs t = goASet xs (rootItems t) <> goTRM xs (snocItems t)
-    goASet :: forall a. Trace r a -> ASet (f a) -> m
+    goASet :: forall a. Paths q r a -> ASet (f a) -> m
     goASet _ AnEmptySet = mempty
     goASet xs (ASet rs) = foldMap (k xs) rs
-    goTRM :: forall a. Trace r a -> TRM.TypeRepMap (AStep f a) -> m
+    goTRM :: forall a. Paths q r a -> TRM.TypeRepMap (AStep q f a) -> m
     goTRM xs s = foldMap (\(TRM.WrapTypeable f) -> goAStep xs f) $ TRM.toList s
-    goAStep :: forall a b. Trace r a -> AStep f a b -> m
+    goAStep :: forall a b. Paths q r a -> AStep q f a b -> m
     goAStep xs (AStep m) =
       M.foldrWithKey (\x t -> (goTPT (Snoc xs x) t <>)) mempty m
 
-toList :: TracePrefixTree f r -> [AnItem f r]
+toList :: PathsPrefixTree q f r -> [AnItem q f r]
 toList t = appEndo (foldWith (\xs f -> Endo (AnItem xs f :)) t) []
 
 -- | Select a subtree by prefix
-filter :: Trace r a -> TracePrefixTree f r -> TracePrefixTree f a
+filter :: Paths q r a -> PathsPrefixTree q f r -> PathsPrefixTree q f a
 filter Root t = t
 filter (Snoc xs x) t =
   foldMap (\(AStep m) -> fold $ M.lookup x m) $
     TRM.lookup $ snocItems $ filter xs t
+
+-- | Embed a subtree in a larger tree with given prefix
+embed :: Paths q r a -> PathsPrefixTree q f a -> PathsPrefixTree q f r
+embed Root t = t
+embed (Snoc xs x) t = embed xs $ PathsPrefixTree AnEmptySet $ TRM.one $ AStep $ M.singleton x t
 
 newtype MergableObject = MergableObject {getMergableObject :: Object}
 
@@ -183,7 +189,7 @@ instance Semigroup MergableObject where
 instance Monoid MergableObject where
   mempty = MergableObject mempty
 
-traceObject :: Trace r a -> Value -> Object
+traceObject :: Paths q r a -> Value -> Object
 traceObject Root (Object o) = o
 traceObject Root v = HM.singleton "root" v
 traceObject (root `Snoc` s) v =

@@ -5,22 +5,20 @@ module OpenAPI.Checker.Validate.Sums
 import Data.Foldable
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
-
+import OpenAPI.Checker.Paths
 
 checkSums
-  :: forall k r t
-  .  (Ord k, Subtree t)
-  => (k -> CheckIssue t)
-  -> (k -> ProdCons (Traced r t) -> CompatFormula' SubtreeCheckIssue r ())
-  -> ProdCons (Map k (Traced r t))
-  -> CompatFormula' SubtreeCheckIssue r ()
-checkSums noElt check (ProdCons p c) = for_ (M.toList p) $ \(key, prodElt) ->
+  :: (Ord k, Issuable l)
+  => Paths q r l
+  -> (k -> Issue l)
+  -> (k -> ProdCons t -> CompatFormula' q AnIssue r ())
+  -> ProdCons (Map k t)
+  -> CompatFormula' q AnIssue r ()
+checkSums xs noElt check (ProdCons p c) = for_ (M.toList p) $ \(key, prodElt) ->
   case M.lookup key c of
-    Nothing -> issueAt prodElt $ noElt key
+    Nothing -> issueAt xs $ noElt key
     Just consElt ->
-      let
-        sumElts :: ProdCons (Traced r t)
-        sumElts = ProdCons prodElt consElt
+      let sumElts = ProdCons prodElt consElt
       in check key sumElts

@@ -20,30 +20,30 @@ module OpenAPI.Checker.Validate.Products
 import Data.Foldable
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
+import OpenAPI.Checker.Behavior
+import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
 
 -- | Some entity which is product-like
-data ProductLike root a = ProductLike
-  { tracedValue :: Traced root a
+data ProductLike a = ProductLike
+  { productValue :: a
   , required :: Bool
   }
 
 checkProducts
-  :: forall k r t
-  .  (Subtree t, Ord k)
-  => (k -> CheckIssue t)
+  :: (Ord k, Issuable l)
+  => Paths q r l
+  -> (k -> Issue l)
   -- ^ No required element found
-  -> (k -> ProdCons (Traced r t) -> CompatFormula' SubtreeCheckIssue r ())
-  -> ProdCons (Map k (ProductLike r t))
-  -> CompatFormula' SubtreeCheckIssue r ()
-checkProducts noElt check (ProdCons p c) = for_ (M.toList c) $ \(key, consElt) ->
+  -> (k -> ProdCons t -> CompatFormula' q AnIssue r ())
+  -> ProdCons (Map k (ProductLike t))
+  -> CompatFormula' q AnIssue r ()
+checkProducts xs noElt check (ProdCons p c) = for_ (M.toList c) $ \(key, consElt) ->
   case M.lookup key p of
     Nothing -> case required consElt of
-      True  -> issueAt (tracedValue consElt) $ noElt key
+      True  -> issueAt xs $ noElt key
       False -> pure ()
     Just prodElt -> do
       let
-        elts :: ProdCons (ProductLike r t)
         elts = ProdCons prodElt consElt
-      check key (tracedValue <$> elts)
+      check key (productValue <$> elts)

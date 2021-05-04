@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module OpenAPI.Checker.Validate.RequestBody
-  ( CheckIssue (..)
+  ( Issue (..)
   )
 where
 
@@ -11,33 +11,42 @@ import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
 import Network.HTTP.Media (MediaType)
+import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.Sums
 
-tracedContent :: Traced r RequestBody -> IOHM.InsOrdHashMap MediaType (Traced r MediaTypeObject)
+tracedContent :: Traced RequestBody -> IOHM.InsOrdHashMap MediaType (Traced MediaTypeObject)
 tracedContent resp = IOHM.mapWithKey (\k -> traced (ask resp >>> step (RequestMediaTypeObject k)))
   $ _requestBodyContent $ extract resp
 
+instance Issuable 'RequestLevel where
+  data Issue 'RequestLevel
+    = RequestBodyRequired
+    | RequestMediaTypeNotFound MediaType
+    deriving stock (Eq, Ord, Show)
+  issueIsUnsupported _ = False
+
+instance Behavable 'RequestLevel 'PayloadLevel where
+  data Behave 'RequestLevel 'PayloadLevel
+    = InPayload
+    deriving stock (Eq, Ord, Show)
+
 instance Subtree RequestBody where
+  type ToBehavior RequestBody = 'RequestLevel
   type CheckEnv RequestBody =
-    '[ ProdCons (Definitions Schema) ]
-  data CheckIssue RequestBody
-    = NoRequestBody
-    | RequestBodyRequired
-    deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons@(ProdCons p c) =
+    '[ ProdCons (Traced (Definitions Schema)) ]
+  checkCompatibility env beh prodCons@(ProdCons p c) =
     if not (fromMaybe False . _requestBodyRequired . extract $ p)
         && (fromMaybe False . _requestBodyRequired . extract $ c)
-    then issueAt p RequestBodyRequired
+    then issueAt beh RequestBodyRequired
     else
       -- Media type object are sums-like entities.
       let
-        check mediaType pc = checkCompatibility @MediaTypeObject (HCons mediaType env) pc
+        check mediaType pc = checkCompatibility @MediaTypeObject (HCons mediaType env) (beh >>> step InPayload) pc
         sumElts = getSum <$> prodCons
         getSum rb = M.fromList . IOHM.toList $ tracedContent rb
-      in checkSums (const RequestMediaTypeNotFound) check sumElts
+      in checkSums beh RequestMediaTypeNotFound check sumElts
 
 instance Steppable RequestBody MediaTypeObject where
   data Step RequestBody MediaTypeObject = RequestMediaTypeObject MediaType
