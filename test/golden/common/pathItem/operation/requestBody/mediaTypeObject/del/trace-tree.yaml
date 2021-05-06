@@ -1,6 +1,7 @@
 Left:
   OpenApiPathsStep:
     MatchedPathStep "/test":
-      PostStep:
+      OperationMethodStep PostMethod:
         OperationRequestBodyStep:
-          InlineStep: RequestMediaTypeNotFound application/x-www-form-urlencoded
+          InlineStep:
+            RequestMediaTypeObject application/x-www-form-urlencoded: RequestMediaTypeNotFound

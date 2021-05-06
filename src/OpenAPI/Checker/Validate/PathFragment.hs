@@ -2,6 +2,7 @@ module OpenAPI.Checker.Validate.PathFragment
   ( parsePath
   , PathFragment (..)
   , PathFragmentParam
+  , CheckIssue (..)
   )
 where
 
@@ -40,32 +41,16 @@ instance (Typeable param) => Steppable (PathFragment param) Param where
   data Step (PathFragment param) Param = StaticPathParam Text
     deriving (Eq, Ord, Show)
 
-instance Subtree PathFragmentParam where
-  type CheckEnv PathFragmentParam =
-    '[ ProdCons (Definitions Schema) ]
-  data CheckIssue PathFragmentParam =
-    PathFragmentsDontMatch Text Text
-    deriving (Eq, Ord, Show)
-  -- This case isn't strictly needed. It is here for optimization.
-  checkCompatibility _ ProdCons {producer = (StaticPath x), consumer = (StaticPath y)} =
-    if x == y
-      then pure ()
-      else issueAt consumer (PathFragmentsDontMatch x y)
-  checkCompatibility env prodCons = withTrace $ \myTrace -> do
-    let
-      tracedParams = dePathFragment <$> myTrace <*> prodCons
-      dePathFragment root = \case
-        StaticPath s -> retrace root $ Traced (step $ StaticPathParam s)
-          $ mempty
-          { _paramRequired = Just True
-          , _paramIn = ParamPath
-          , _paramAllowEmptyValue = Just False
-          , _paramAllowReserved = Just False
-          , _paramSchema = Just $ Inline $ staticStringSchema s }
-        DynamicPath p -> p
-      params = getTraced <$> tracedParams
-      paramTrace = getTrace <$> tracedParams
-    localTrace' paramTrace $ checkCompatibility env params
+tracedPathFragmentParam :: Traced OpenApi PathFragmentParam -> Traced OpenApi Param
+tracedPathFragmentParam pfp = case extract pfp of
+  StaticPath s -> traced (ask pfp >>> step (StaticPathParam s))
+    $ mempty
+    { _paramRequired = Just True
+    , _paramIn = ParamPath
+    , _paramAllowEmptyValue = Just False
+    , _paramAllowReserved = Just False
+    , _paramSchema = Just $ Inline $ staticStringSchema s }
+  DynamicPath p -> p
 
 staticStringSchema :: Text -> Schema
 staticStringSchema t =
@@ -74,3 +59,18 @@ staticStringSchema t =
     , _schemaType = Just OpenApiString
     , _schemaEnum = Just [A.String t]
     }
+
+instance Subtree PathFragmentParam where
+  type CheckEnv PathFragmentParam =
+    '[ ProdCons (Definitions Schema) ]
+  data CheckIssue PathFragmentParam
+    = PathFragmentNotMatched
+    | PathFragmentsDontMatch Text Text
+    deriving (Eq, Ord, Show)
+  -- This case isn't strictly needed. It is here for optimization.
+  checkCompatibility _ (ProdCons (extract -> StaticPath x) c@(extract -> StaticPath y))
+    = if x == y
+      then pure ()
+      else issueAt c (PathFragmentsDontMatch x y)
+  checkCompatibility env prodCons = do
+    checkCompatibility env (tracedPathFragmentParam <$> prodCons)

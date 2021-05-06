@@ -1,11 +1,15 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
-module OpenAPI.Checker.Validate.Param () where
+module OpenAPI.Checker.Validate.Param
+  ( CheckIssue (..)
+  ) where
 
+import Control.Lens
 import Control.Monad
 import Data.Maybe
 import Data.OpenApi
+import Data.Text
 import OpenAPI.Checker.Orphans
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Trace
@@ -38,10 +42,14 @@ paramEncoding p = EncodingStyle
       ParamQuery -> Just $ fromMaybe False $ _paramAllowReserved p
       _ -> Nothing
 
+tracedSchema :: Traced r Param -> Maybe (Traced r (Referenced Schema))
+tracedSchema par = _paramSchema (extract par) <&> traced (ask par >>> step ParamSchema)
+
 instance Subtree Param where
   type CheckEnv Param = '[ProdCons (Definitions Schema)]
   data CheckIssue Param
-    = ParamNameMismatch
+    = ParamNotMatched Text
+    | ParamNameMismatch
     -- ^ Params have different names
     | ParamEmptinessIncompatible
     -- ^ Consumer requires non-empty param, but producer gives emptyable
@@ -53,28 +61,28 @@ instance Subtree Param where
     | ParamSchemaMismatch
     -- ^ One of schemas not presented
     deriving (Eq, Ord, Show)
-  checkCompatibility env (ProdCons p c) = do
-    when (_paramName p /= _paramName c)
-      $ issueAt producer ParamNameMismatch
-    when ((fromMaybe False $ _paramRequired c) &&
-          not (fromMaybe False $ _paramRequired p))
-      $ issueAt producer ParamRequired
-    case (_paramIn p, _paramIn c) of
+  checkCompatibility env pc@(ProdCons p c) = do
+    when (_paramName (extract p) /= _paramName (extract c))
+      $ issueAt p ParamNameMismatch
+    when ((fromMaybe False . _paramRequired . extract $ c) &&
+          not (fromMaybe False . _paramRequired . extract $ p))
+      $ issueAt p ParamRequired
+    case (_paramIn . extract $ p, _paramIn . extract $ c) of
       (ParamQuery, ParamQuery) -> do
         -- Emptiness is only for query params
-        when ((fromMaybe False $ _paramAllowEmptyValue p)
-              && not (fromMaybe False $ _paramAllowEmptyValue c))
-          $ issueAt producer ParamEmptinessIncompatible
+        when ((fromMaybe False . _paramAllowEmptyValue . extract $ p)
+              && not (fromMaybe False . _paramAllowEmptyValue . extract $ c))
+          $ issueAt p ParamEmptinessIncompatible
       (a, b) | a == b -> pure ()
-      _ -> issueAt producer ParamPlaceIncompatible
-    unless (paramEncoding p == paramEncoding c)
-      $ issueAt producer ParamStyleMismatch
-    case (_paramSchema p, _paramSchema c) of
-      (Just prodSchema, Just consSchema) -> localStep ParamSchema
-        $ checkCompatibility env (ProdCons prodSchema consSchema)
-      (Nothing, Nothing) -> pure ()
-      (Nothing, Just _consSchema) -> issueAt producer ParamSchemaMismatch
-      (Just _prodSchema, Nothing) -> pure ()
+      _ -> issueAt p ParamPlaceIncompatible
+    unless (paramEncoding (extract p) == paramEncoding (extract c))
+      $ issueAt p ParamStyleMismatch
+    case tracedSchema <$> pc of
+      ProdCons (Just prodSchema) (Just consSchema) -> do
+        checkCompatibility env $ ProdCons prodSchema consSchema
+      ProdCons Nothing Nothing -> pure ()
+      ProdCons Nothing (Just _consSchema) -> issueAt p ParamSchemaMismatch
+      ProdCons (Just _prodSchema) Nothing -> pure ()
       -- If consumer doesn't care then why we should?
     pure ()
 

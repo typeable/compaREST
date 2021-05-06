@@ -1,7 +1,9 @@
 Left:
   OpenApiPathsStep:
     MatchedPathStep "/test":
-      PostStep:
+      OperationMethodStep PostMethod:
         OperationResponsesStep:
           ResponseCodeStep 200:
-            InlineStep: ResponseHeaderMissing "Test2"
+            InlineStep:
+              ResponseHeader "Test2":
+                InlineStep: ResponseHeaderMissing
