@@ -1,0 +1,9 @@
+Left:
+  OpenApiPathsStep:
+    MatchedPathStep "/pets":
+      OperationMethodStep GetMethod:
+        OperationServersStep:
+          ServerStep "http://missing.url": ServerNotMatched
+          ServerStep "http://{x}variable.path/{y}/{openVariable1}/{openVariable2}":
+          - EnumValueNotConsumed 1 "a"
+          - ConsumerNotOpen 7

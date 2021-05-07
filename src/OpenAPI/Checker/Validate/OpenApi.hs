@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# OPTIONS_GHC -fconstraint-solver-iterations=5 #-} -- Not compiles without
+-- Does not compiles otherwise
+{-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 
 module OpenAPI.Checker.Validate.OpenApi
   (
@@ -30,6 +31,7 @@ instance Subtree OpenApi where
          `HCons` (_componentsResponses <$> cs)
          `HCons` (_componentsHeaders <$> cs)
          `HCons` (_componentsSchemas <$> cs)
+         `HCons` (_openApiServers . extract <$> prodCons)
          `HCons` HNil)
       (tracedPaths <$> prodCons)
 

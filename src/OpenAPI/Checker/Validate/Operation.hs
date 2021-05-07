@@ -25,6 +25,7 @@ import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.RequestBody
 import OpenAPI.Checker.Validate.Responses ()
+import OpenAPI.Checker.Validate.Server ()
 
 data MatchedOperation = MatchedOperation
   { operation :: !Operation
@@ -59,11 +60,16 @@ tracedSecurity oper =
   | (i, x) <- zip [0..] $ _operationSecurity . operation $ extract oper
   ]
 
-tracedServers :: Traced r MatchedOperation -> [Traced r Server]
-tracedServers oper =
-  [ traced (ask oper >>> step (OperationServerStep i)) x
-  | (i, x) <- zip [0..] $ _operationServers . operation $ extract oper
-  ]
+-- FIXME: https://github.com/typeable/openapi-diff/issues/28
+tracedServers
+  :: [Server] -- ^ Servers from env
+  -> Traced r MatchedOperation
+  -> Traced r [Server]
+tracedServers env oper =
+  traced (ask oper >>> step OperationServersStep) $
+    case _operationServers . operation $ extract oper of
+      [] -> env
+      ss -> ss
 
 instance Subtree MatchedOperation where
   type CheckEnv MatchedOperation =
@@ -73,6 +79,7 @@ instance Subtree MatchedOperation where
      , ProdCons (Definitions Response)
      , ProdCons (Definitions Header)
      , ProdCons (Definitions Schema)
+     , ProdCons [Server]
      ]
   data CheckIssue MatchedOperation
     = OperationMissing OperationMethod
@@ -165,9 +172,13 @@ instance Subtree MatchedOperation where
             $ HCons (swapProdCons schemaDefs) HNil
           resps = tracedResponses <$> prodCons
         checkCompatibility respEnv $ swapProdCons resps
+      -- FIXME: https://github.com/typeable/openapi-diff/issues/27
       checkCallbacks = pure () -- (error "FIXME: not implemented")
+      -- FIXME: https://github.com/typeable/openapi-diff/issues/28
       checkOperationSecurity = pure () -- (error "FIXME: not implemented")
-      checkServers = pure () -- (error "FIXME: not implemented")
+      checkServers =
+        checkCompatibility env $
+          tracedServers <$> getH @(ProdCons [Server]) env <*> prodCons
       bodyDefs = getH @(ProdCons (Definitions RequestBody)) env
       respDefs = getH @(ProdCons (Definitions Response)) env
       headerDefs =  getH @(ProdCons (Definitions Header)) env
@@ -212,6 +223,8 @@ instance Steppable MatchedOperation SecurityRequirement where
   data Step MatchedOperation SecurityRequirement = OperationSecurityRequirementStep Int
     deriving (Eq, Ord, Show)
 
-instance Steppable MatchedOperation Server where
-  data Step MatchedOperation Server = OperationServerStep Int
+instance Steppable MatchedOperation [Server] where
+  data Step MatchedOperation [Server] 
+    = OperationServersStep 
+    | EnvServerStep
     deriving (Eq, Ord, Show)
