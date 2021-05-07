@@ -5,19 +5,16 @@ module OpenAPI.Checker.Subtree
   , CompatFormula'
   , CompatFormula
   , ProdCons (..)
-  , prodConsAccessors
-  , Accessor (..)
-  , SomeIssue (..)
-  , issue
+  , anyOfSubtreeAt
   , HasUnsupportedFeature (..)
   , swapProdCons
   , SubtreeCheckIssue (..)
   , runCompatFormula
   , anyOfM
   , anyOfAt
-  , anyOfSubtreeAt
   , issueAtTrace
   , issueAt
+  , tracedIssue
   , memo
   )
 where
@@ -50,15 +47,6 @@ data ProdCons a = ProdCons
   }
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-newtype Accessor f = Accessor (forall x. f x -> x)
-
-prodConsAccessors :: ProdCons (Accessor ProdCons)
-prodConsAccessors =
-  ProdCons
-    { producer = Accessor producer
-    , consumer = Accessor consumer
-    }
-
 swapProdCons :: ProdCons a -> ProdCons a
 swapProdCons (ProdCons a b) = ProdCons b a
 
@@ -78,6 +66,7 @@ newtype CompatM a = CompatM
     )
 
 type CompatFormula' f r = Compose CompatM (FormulaF f r)
+
 type CompatFormula = CompatFormula' SubtreeCheckIssue OpenApi
 
 class (Typeable t, Ord (CheckIssue t), Show (CheckIssue t)) => Subtree (t :: Type) where
@@ -158,6 +147,12 @@ issueAt
   -> CompatFormula' SubtreeCheckIssue r a
 issueAt x = issueAtTrace (ask x)
 
+tracedIssue
+  :: (Subtree t, ComonadEnv (Trace r t) w)
+  => w (CheckIssue t)
+  -> CompatFormula' SubtreeCheckIssue r a
+tracedIssue x = issueAtTrace (ask x) (extract x)
+
 anyOfM
   :: Subtree t
   => Trace r t
@@ -175,6 +170,15 @@ anyOfAt
   -> CompatFormula' SubtreeCheckIssue r a
 anyOfAt x = anyOfM (ask x)
 
+anyOfSubtreeAt
+  :: (Subtree t, ComonadEnv (Trace r t) w)
+  => w x
+  -> CheckIssue t
+  -> [CompatFormula' SubtreeCheckIssue r a]
+  -> CompatFormula' SubtreeCheckIssue r a
+anyOfSubtreeAt _ _ [x] = x
+anyOfSubtreeAt f i fs = anyOfAt f i fs
+
 fixpointKnot
   :: MonadState (MemoState VarRef) m
   => KnotTier (FormulaF f r ()) VarRef m
@@ -189,5 +193,5 @@ memo
   :: (Typeable r, Subtree t)
   => (ProdCons (Traced r t) -> CompatFormula ())
   -> (ProdCons (Traced r t) -> CompatFormula ())
-memo f pc  = Compose $ do
+memo f pc = Compose $ do
   memoWithKnot fixpointKnot (getCompose $ f pc) (ask <$> pc)

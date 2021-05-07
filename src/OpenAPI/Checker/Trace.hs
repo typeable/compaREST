@@ -10,6 +10,7 @@ module OpenAPI.Checker.Trace
   , AnItem (..)
   , step
   , Traced
+  , Traced'
   , traced
 
     -- * Reexports
@@ -120,7 +121,9 @@ instance Typeable r => Ord (AnItem f r) where
           Root -> compare (someTypeRep xs) (someTypeRep ys)
           Snoc _ _ -> compare (someTypeRep xs) (someTypeRep ys)
 
-type Traced r a = Env (Trace r a) a
+type Traced r a = Traced' r a a
 
-traced :: Trace r a -> a -> Traced r a
+type Traced' r a b = Env (Trace r a) b
+
+traced :: Trace r a -> b -> Traced' r a b
 traced = env

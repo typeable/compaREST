@@ -133,6 +133,7 @@ instance Subtree MatchedPathItem where
      , ProdCons (Definitions Response)
      , ProdCons (Definitions Header)
      , ProdCons (Definitions Schema)
+     , ProdCons [Server]
      ]
   data CheckIssue MatchedPathItem
     deriving (Eq, Ord, Show)
