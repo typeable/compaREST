@@ -43,3 +43,9 @@ instance
 
 singletonH :: a -> HList '[a]
 singletonH a = a `HCons` HNil
+
+instance Eq (HList '[]) where
+  HNil == HNil = True
+
+instance (Eq x, Eq (HList xs)) => Eq (HList (x ': xs)) where
+  (HCons x xs) == (HCons y ys) = x == y && xs == ys

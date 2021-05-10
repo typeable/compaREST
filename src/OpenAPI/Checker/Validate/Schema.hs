@@ -598,11 +598,11 @@ schemaToFormula
 schemaToFormula defs rs = runWriter . (`runReaderT` defs) $ processSchema rs
 
 checkFormulas
-  :: HasAll (CheckEnv Schema) xs
+  :: (HasAll (CheckEnv Schema) xs, ProdConsEqHList xs)
   => HList xs
   -> Behavior 'SchemaLevel
   -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
-  -> CompatFormula ()
+  -> SemanticCompatFormula ()
 checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
   case P.toList ep ++ P.toList ec of
     issues@(_:_) -> F.for_ issues $ \(AnItem t (AnIssue e)) -> issueAt (beh >>> t) e
@@ -647,16 +647,16 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
 checkContradiction
   :: Behavior 'TypedSchemaLevel
   -> [Condition t]
-  -> CompatFormula ()
+  -> SemanticCompatFormula ()
 checkContradiction beh _ = issueAt beh NoContradiction -- TODO
 
 checkImplication
-  :: (HasAll (CheckEnv Schema) xs)
+  :: (HasAll (CheckEnv Schema) xs, ProdConsEqHList xs)
   => HList xs
   -> Behavior 'TypedSchemaLevel
   -> [Condition t]
   -> Condition t
-  -> CompatFormula ()
+  -> SemanticCompatFormula ()
 checkImplication env beh prods cons = case findExactly prods of
   Just e
     | all (satisfiesTyped e) prods ->
@@ -803,14 +803,14 @@ instance Behavable 'TypedSchemaLevel 'SchemaLevel where
 instance Subtree Schema where
   type SubtreeLevel Schema = 'SchemaLevel
   type CheckEnv Schema = '[ProdCons (Traced (Definitions Schema))]
-  checkCompatibility env beh schs = do
+  checkSemanticCompatibility env beh schs = do
     let defs = getH env
     checkFormulas env beh $ schemaToFormula <$> defs <*> schs
 
 instance Subtree (Referenced Schema) where
   type SubtreeLevel (Referenced Schema) = 'SchemaLevel
   type CheckEnv (Referenced Schema) = CheckEnv Schema
-  checkCompatibility env beh refs = do
+  checkSemanticCompatibility env beh refs = do
     let
       defs = getH env
       schs = dereference <$> defs <*> refs

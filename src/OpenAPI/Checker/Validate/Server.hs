@@ -22,6 +22,7 @@ import qualified Data.Text as T
 import Data.Traversable
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
+import OpenAPI.Checker.Common
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
 import Prelude as P
@@ -44,7 +45,7 @@ instance Behavable 'OperationLevel 'ServerLevel where
 instance Subtree [Server] where
   type SubtreeLevel [Server] = 'OperationLevel
   type CheckEnv [Server] = '[]
-  checkCompatibility env beh pcServer = do
+  checkSemanticCompatibility env beh pcServer = do
     let (ProdCons (pErrs, pUrls) (cErrs, cUrls)) =
           pcServer
             <&> partitionEithers
@@ -74,12 +75,6 @@ unifyPart :: ServerUrlPart ServerVariable -> Maybe (IOHS.InsOrdHashSet Text)
 unifyPart (ServerUrlVariable v) = _serverVariableEnum v
 unifyPart (ServerUrlConstant c) = Just $ IOHS.singleton c
 
-zipAll :: [a] -> [b] -> Maybe [(a, b)]
-zipAll [] [] = Just []
-zipAll (x : xs) (y : ys) = ((x, y) :) <$> zipAll xs ys
-zipAll (_ : _) [] = Nothing
-zipAll [] (_ : _) = Nothing
-
 staticCompatiblePart :: ServerUrlPart x -> ServerUrlPart x -> Bool
 staticCompatiblePart (ServerUrlConstant x) (ServerUrlConstant y) = x == y
 staticCompatiblePart _ _ = True
@@ -90,7 +85,7 @@ staticCompatible a b = maybe False (all $ uncurry staticCompatiblePart) $ zipAll
 data ServerUrlPart var
   = ServerUrlVariable var
   | ServerUrlConstant Text
-  deriving stock (Show, Functor, Foldable, Traversable)
+  deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 -- | This is super rough. Things like @{a|b}c@ will not match @ac@.
 -- FIXME: https://github.com/typeable/openapi-diff/issues/46
@@ -130,7 +125,7 @@ instance Issuable 'ServerLevel where
 instance Subtree ProcessedServer where
   type SubtreeLevel ProcessedServer = 'ServerLevel
   type CheckEnv ProcessedServer = '[]
-  checkCompatibility _ beh pc =
+  checkSemanticCompatibility _ beh pc =
     -- traversing here is fine because we have already filtered for length
     for_ (zip [0 ..] $ zipProdCons . fmap (fmap unifyPart . extract) $ pc) $ \(i, pcPart) -> case pcPart of
       (Just x, Just y) -> for_ x $ \v -> unless (v `IOHS.member` y) (issueAt beh $ EnumValueNotConsumed i v)

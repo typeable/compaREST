@@ -20,4 +20,4 @@ instance Subtree SecurityRequirement where
     CheckEnv SecurityRequirement =
       '[ ProdCons (Traced (Definitions SecurityScheme))
        ]
-  checkCompatibility = undefined
+  checkSemanticCompatibility = undefined

@@ -64,9 +64,9 @@ instance Subtree PathFragmentParam where
   type CheckEnv PathFragmentParam =
     '[ ProdCons (Traced (Definitions Schema)) ]
   -- This case isn't strictly needed. It is here for optimization.
-  checkCompatibility _ beh (ProdCons (extract -> StaticPath x) (extract -> StaticPath y))
+  checkSemanticCompatibility _ beh (ProdCons (extract -> StaticPath x) (extract -> StaticPath y))
     = if x == y
       then pure ()
       else issueAt beh (PathFragmentsDontMatch x y)
-  checkCompatibility env beh prodCons = do
+  checkSemanticCompatibility env beh prodCons = do
     checkCompatibility env beh (tracedPathFragmentParam <$> prodCons)

@@ -93,6 +93,7 @@ common common-options
                     , UndecidableInstances
                     , ViewPatterns
                     , QuantifiedConstraints
+                    , DefaultSignatures
 
 library
   import:              common-options
@@ -121,6 +122,7 @@ library
                   , OpenAPI.Checker.Validate.SecurityRequirement
                   , OpenAPI.Checker.Validate.Server
                   , OpenAPI.Checker.Validate.Sums
+                  , OpenAPI.Checker.Common
 
 executable openapi-diff
   import:              common-options

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module OpenAPI.Checker.Subtree
   ( Steppable (..)
   , Trace
@@ -6,15 +8,19 @@ module OpenAPI.Checker.Subtree
   , pattern Traced
   , traced
   , Subtree (..)
+  , checkCompatibility
+  , eqStructuralCompatibility
   , CompatM (..)
   , CompatFormula'
-  , CompatFormula
+  , SemanticCompatFormula
+  , ProdConsEqHList
   , ProdCons (..)
   , HasUnsupportedFeature (..)
   , swapProdCons
   , runCompatFormula
   , issueAt
   , anyOfAt
+  , absurdIssue
   , memo
 
     -- * Reexports
@@ -36,6 +42,7 @@ import Data.Kind
 import Data.Monoid
 import Data.OpenApi
 import Data.Typeable
+import Network.HTTP.Media
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Formula
 import OpenAPI.Checker.Memo
@@ -89,18 +96,64 @@ newtype CompatM a = CompatM
 
 type CompatFormula' q f r = Compose CompatM (FormulaF q f r)
 
-type CompatFormula = CompatFormula' Behave AnIssue 'APILevel
+type SemanticCompatFormula = CompatFormula' Behave AnIssue 'APILevel
+
+type StructuralCompatFormula = CompatFormula' UnitQuiver Proxy ()
+
+data UnitQuiver a b where
+  UnitQuiver :: UnitQuiver () ()
+
+deriving stock instance Eq (UnitQuiver a b)
+
+deriving stock instance Ord (UnitQuiver a b)
+
+deriving stock instance Show (UnitQuiver a b)
 
 class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   type CheckEnv t :: [Type]
   type SubtreeLevel t :: BehaviorLevel
 
-  checkCompatibility
-    :: HasAll (CheckEnv t) xs
+  checkStructuralCompatibility
+    :: (HasAll (CheckEnv t) xs, ProdConsEqHList xs)
+    => HList xs
+    -> ProdCons t
+    -> StructuralCompatFormula ()
+  default checkStructuralCompatibility
+    :: (Eq t, ProdConsEqHList xs) => HList xs -> ProdCons t -> StructuralCompatFormula ()
+  checkStructuralCompatibility = eqStructuralCompatibility
+
+  checkSemanticCompatibility
+    :: (HasAll (CheckEnv t) xs, ProdConsEqHList xs)
     => HList xs
     -> Behavior (SubtreeLevel t)
     -> ProdCons (Traced t)
-    -> CompatFormula ()
+    -> SemanticCompatFormula ()
+
+checkCompatibility
+  :: (HasAll (CheckEnv t) xs, Subtree t, ProdConsEqHList xs)
+  => HList xs
+  -> Behavior (SubtreeLevel t)
+  -> ProdCons (Traced t)
+  -> SemanticCompatFormula ()
+checkCompatibility e bhv pc =
+  case runCompatFormula $ checkStructuralCompatibility e $ fmap extract pc of
+    Left _ -> checkSemanticCompatibility e bhv pc
+    Right () -> pure ()
+
+eqStructuralCompatibility :: (Eq t, ProdConsEqHList xs) => HList xs -> ProdCons t -> StructuralCompatFormula ()
+eqStructuralCompatibility e (ProdCons p c) = unless (pcHListEq e && p == c) absurdIssue
+
+class ProdConsEqHList xs where
+  pcHListEq :: HList xs -> Bool
+
+instance ProdConsEqHList '[] where
+  pcHListEq HNil = True
+
+instance (Eq x, ProdConsEqHList xs) => ProdConsEqHList (ProdCons x ': xs) where
+  pcHListEq (HCons (ProdCons a b) xs) = a == b && pcHListEq xs
+
+instance ProdConsEqHList xs => ProdConsEqHList (MediaType ': xs) where
+  pcHListEq (HCons _ xs) = pcHListEq xs
 
 class HasUnsupportedFeature x where
   hasUnsupportedFeature :: x -> Bool
@@ -136,6 +189,9 @@ runCompatFormula (Compose f) =
 
 issueAt :: Issuable l => Paths q r l -> Issue l -> CompatFormula' q AnIssue r a
 issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ AnIssue issue
+
+absurdIssue :: StructuralCompatFormula a
+absurdIssue = Compose $ pure $ anError $ AnItem (step UnitQuiver) Proxy
 
 anyOfAt
   :: Issuable l

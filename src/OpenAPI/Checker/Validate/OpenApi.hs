@@ -46,7 +46,7 @@ tracedSchemas oa = traced (ask oa >>> step ComponentsSchema)
 instance Subtree OpenApi where
   type SubtreeLevel OpenApi = 'APILevel
   type CheckEnv OpenApi = '[]
-  checkCompatibility _ beh prodCons = do
+  checkSemanticCompatibility _ beh prodCons = do
     checkCompatibility @ProcessedPathItems
       ((tracedRequestBodies <$> prodCons)
          `HCons` (tracedParameters <$> prodCons)

@@ -25,6 +25,8 @@ import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.RequestBody ()
 import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.Server ()
+import qualified Data.OpenApi.Schema.Generator as G
+import OpenAPI.Checker.Common
 
 data MatchedOperation = MatchedOperation
   { operation :: !Operation
@@ -92,7 +94,39 @@ instance Subtree MatchedOperation where
      , ProdCons (Traced (Definitions Schema))
      , ProdCons [Server]
      ]
-  checkCompatibility env beh prodCons = do
+  checkStructuralCompatibility env pc = do
+    let
+      pParams :: ProdCons [Param]
+      pParams = do
+        defs <- extract <$> getH @(ProdCons (Traced (Definitions Param))) env
+        op' <- _operationParameters . operation <$> pc
+        pp <- fmap extract . pathParams <$> pc
+        pure $ 
+          let o = M.fromList $ do
+                param <- G.dereference defs <$> op'
+                let key = paramKey param
+                pure (key, param)
+              p = M.fromList $ do
+                param <- pp
+                pure (paramKey param, param)
+            in M.elems $ o <> p
+      reqBody = do
+        defs <- extract <$> getH @(ProdCons (Traced (Definitions RequestBody))) env
+        body <- _operationRequestBody . operation <$> pc
+        pure $ G.dereference defs <$> body
+    case zipAll (producer pParams) (consumer pParams) of
+      Nothing -> absurdIssue 
+      Just xs -> for_ xs $ \(p, c) -> checkStructuralCompatibility env $ ProdCons p c
+    case reqBody of
+      ProdCons Nothing Nothing -> pure ()
+      ProdCons (Just p) (Just c) -> checkStructuralCompatibility env $ ProdCons p c
+      _ -> absurdIssue
+    checkStructuralCompatibility env $ _operationResponses . operation <$> pc
+    checkStructuralCompatibility env $ _operationServers . operation <$> pc
+    -- TODO: Callbacks
+    -- TODO: Security
+    pure ()
+  checkSemanticCompatibility env beh prodCons = do
     checkParameters
     checkRequestBodies
     checkResponses
@@ -127,7 +161,7 @@ instance Subtree MatchedOperation where
         checkNonPathParams $ snd <$> tracedParams
         checkPathParams $ fst <$> tracedParams
         pure ()
-      checkNonPathParams :: ProdCons [Traced Param] -> CompatFormula ()
+      checkNonPathParams :: ProdCons [Traced Param] -> SemanticCompatFormula ()
       checkNonPathParams params = do
         let
           elements = getEls <$> params
@@ -143,7 +177,7 @@ instance Subtree MatchedOperation where
           check (_, name) param = do
             checkCompatibility @Param (singletonH schemaDefs) (beh >>> step (InParam name)) param
         checkProducts beh (ParamNotMatched . snd) check elements
-      checkPathParams :: ProdCons [Traced Param] -> CompatFormula ()
+      checkPathParams :: ProdCons [Traced Param] -> SemanticCompatFormula ()
       checkPathParams pathParams = do
         let
           fragments :: ProdCons [Traced PathFragmentParam]

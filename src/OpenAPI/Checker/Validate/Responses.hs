@@ -36,7 +36,7 @@ instance Subtree Responses where
   -- Roles are already swapped. Producer is a server and consumer is a
   -- client. Response codes are sum-like entity because we can answer with only
   -- one element
-  checkCompatibility env beh prodCons = do
+  checkSemanticCompatibility env beh prodCons = do
     let
       defs = getH @(ProdCons (Traced (Definitions Response))) env
       check code resps = checkCompatibility @Response env (beh >>> step (WithStatusCode code)) resps
@@ -77,7 +77,7 @@ instance Subtree Response where
     '[ ProdCons (Traced (Definitions Header))
      , ProdCons (Traced (Definitions Schema))
      ]
-  checkCompatibility env beh prodCons = do
+  checkSemanticCompatibility env beh prodCons = do
     -- Roles are already swapped. Producer is a server and consumer is a client
     checkMediaTypes
     checkHeaders
@@ -127,7 +127,7 @@ instance Behavable 'HeaderLevel 'SchemaLevel where
 instance Subtree Header where
   type SubtreeLevel Header = 'HeaderLevel
   type CheckEnv Header = '[ProdCons (Traced (Definitions Schema))]
-  checkCompatibility env beh (ProdCons p c) = do
+  checkSemanticCompatibility env beh (ProdCons p c) = do
     if (fromMaybe False $ _headerRequired $ extract c) && not (fromMaybe False $ _headerRequired $ extract p)
       then issueAt beh RequiredHeaderMissing else pure ()
     if not (fromMaybe False $ _headerAllowEmptyValue $ extract c) && (fromMaybe False $ _headerAllowEmptyValue $ extract p)

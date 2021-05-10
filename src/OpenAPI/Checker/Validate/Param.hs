@@ -71,7 +71,7 @@ instance Behavable 'PathFragmentLevel 'SchemaLevel where
 instance Subtree Param where
   type SubtreeLevel Param = 'PathFragmentLevel
   type CheckEnv Param = '[ProdCons (Traced (Definitions Schema))]
-  checkCompatibility env beh pc@(ProdCons p c) = do
+  checkSemanticCompatibility env beh pc@(ProdCons p c) = do
     when (_paramName (extract p) /= _paramName (extract c))
       $ issueAt beh ParamNameMismatch
     when ((fromMaybe False . _paramRequired . extract $ c) &&

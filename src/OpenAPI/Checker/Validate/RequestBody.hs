@@ -36,7 +36,7 @@ instance Subtree RequestBody where
   type SubtreeLevel RequestBody = 'RequestLevel
   type CheckEnv RequestBody =
     '[ ProdCons (Traced (Definitions Schema)) ]
-  checkCompatibility env beh prodCons@(ProdCons p c) =
+  checkSemanticCompatibility env beh prodCons@(ProdCons p c) =
     if not (fromMaybe False . _requestBodyRequired . extract $ p)
         && (fromMaybe False . _requestBodyRequired . extract $ c)
     then issueAt beh RequestBodyRequired

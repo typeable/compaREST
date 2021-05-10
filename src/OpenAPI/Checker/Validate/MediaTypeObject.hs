@@ -48,7 +48,7 @@ instance Subtree MediaTypeObject where
     '[ MediaType
      , ProdCons (Traced (Definitions Schema))
      ]
-  checkCompatibility env beh prodCons@(ProdCons p c) = do
+  checkSemanticCompatibility env beh prodCons@(ProdCons p c) = do
     if | "multipart" == mainType mediaType -> checkEncoding
        | "application" == mainType mediaType &&
          "x-www-form-urlencoded" == subType mediaType -> checkEncoding
@@ -81,7 +81,8 @@ instance Subtree Encoding where
   type CheckEnv Encoding = '[]
     --  FIXME: Support only JSON body for now. Then Encoding is checked only for
     --  multipart/form-url-encoded
-  checkCompatibility _env beh _pc =
+    --  https://github.com/typeable/openapi-diff/issues/54
+  checkSemanticCompatibility _env beh _pc =
     issueAt beh EncodingNotSupported
 
 instance Steppable MediaTypeObject (Referenced Schema) where
