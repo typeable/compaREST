@@ -22,32 +22,41 @@ import Data.Traversable
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Subtree
+import OpenAPI.Checker.Validate.MediaTypeObject
 import Prelude as P
 
 tracedParsedServerUrlParts
   :: Traced' [Server] Server
-  -> Either (Issue 'ServerLevel) (Traced ProcessedServer)
+  -> Either (Issue 'OperationLevel) (Text, Traced ProcessedServer)
 tracedParsedServerUrlParts s =
   let rawURL = _serverUrl $ extract s
       parsedUrl = parseServerUrl rawURL
       serverVariables = _serverVariables $ extract s
       lookupVar var = case IOHM.lookup var serverVariables of
-        Nothing -> Left VariableNotDefined
+        Nothing -> Left $ ServerVariableNotDefined var
         Just x -> Right x
-   in traced (ask s >>> step (ServerStep rawURL)) <$>
+   in (rawURL,) . traced (ask s >>> step (ServerStep rawURL)) <$>
      traverse (traverse lookupVar) parsedUrl
 
+instance Behavable 'OperationLevel 'ServerLevel where
+  data Behave 'OperationLevel 'ServerLevel
+    = InServer Text
+    deriving stock (Eq, Ord, Show)
+
 instance Subtree [Server] where
-  type ToBehavior [Server] = 'ServerLevel
+  type ToBehavior [Server] = 'OperationLevel
   type CheckEnv [Server] = '[]
   checkCompatibility env beh pcServer = do
     let (ProdCons (pErrs, pUrls) (cErrs, cUrls)) =
-          pcServer <&> partitionEithers . fmap (tracedParsedServerUrlParts) . sequence
+          pcServer <&> partitionEithers . fmap tracedParsedServerUrlParts . sequence
     for_ pErrs $ issueAt beh
     for_ cErrs $ issueAt beh
-    for_ pUrls $ \pUrl -> do
-      let potentiallyCompatible = P.filter ((staticCompatible `on` extract) pUrl) cUrls
-      anyOfAt beh ServerNotMatched $ potentiallyCompatible <&> (checkCompatibility env beh . ProdCons pUrl)
+    for_ pUrls $ \(pRawUrl, pUrl) -> do
+      let potentiallyCompatible = P.filter ((staticCompatible `on` extract) pUrl) $ fmap snd cUrls
+      anyOfAt beh (ServerNotMatched pRawUrl)
+        [ checkCompatibility env (beh >>> step (InServer pRawUrl)) (ProdCons pUrl cUrl)
+        | cUrl <- potentiallyCompatible
+        ]
     pure ()
 
 type ProcessedServer = [ServerUrlPart ServerVariable]
@@ -103,9 +112,7 @@ instance Steppable [Server] ProcessedServer where
 
 instance Issuable 'ServerLevel where
   data Issue 'ServerLevel
-    = VariableNotDefined
-    | ServerNotMatched
-    | EnumValueNotConsumed Int Text
+    = EnumValueNotConsumed Int Text
     | ConsumerNotOpen Int
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False

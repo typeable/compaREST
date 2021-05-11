@@ -104,6 +104,8 @@ instance Issuable 'OperationLevel where
     | ParamNotMatched Text
     | PathFragmentNotMatched Int
     | NoRequestBody
+    | ServerVariableNotDefined Text
+    | ServerNotMatched Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
     CallbacksNotSupported -> True

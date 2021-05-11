@@ -81,11 +81,6 @@ instance Behavable 'OperationLevel 'RequestLevel where
     = InRequest
     deriving stock (Eq, Ord, Show)
 
-instance Behavable 'OperationLevel 'ServerLevel where
-  data Behave 'OperationLevel 'ServerLevel
-    = InServer
-    deriving stock (Eq, Ord, Show)
-
 instance Subtree MatchedOperation where
   type ToBehavior MatchedOperation = 'OperationLevel
   type CheckEnv MatchedOperation =
@@ -188,7 +183,7 @@ instance Subtree MatchedOperation where
       -- FIXME: https://github.com/typeable/openapi-diff/issues/28
       checkOperationSecurity = pure () -- (error "FIXME: not implemented")
       checkServers =
-        checkCompatibility env (beh >>> step InServer) $
+        checkCompatibility env beh $
           tracedServers <$> getH @(ProdCons [Server]) env <*> prodCons
       bodyDefs = getH @(ProdCons (Traced (Definitions RequestBody))) env
       respDefs = getH @(ProdCons (Traced (Definitions Response))) env
