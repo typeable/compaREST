@@ -1,9 +1,7 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationRequestBodyStep:
-          InlineStep:
-            RequestMediaTypeObject application/json:
-              MediaTypeSchema:
-                InlineStep: NoContradiction
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType String: NoContradiction

@@ -1,7 +1,3 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationResponsesStep:
-          ResponseCodeStep 500:
-            InlineStep: ResponseCodeNotFound
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod: ResponseCodeNotFound 500

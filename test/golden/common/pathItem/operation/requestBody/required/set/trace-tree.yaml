@@ -1,6 +1,4 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationRequestBodyStep:
-          InlineStep: RequestBodyRequired
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      InRequest: RequestBodyRequired

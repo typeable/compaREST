@@ -1,8 +1,4 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationResponsesStep:
-          ResponseCodeStep 200:
-            InlineStep:
-              ResponseMediaObject application/x-www-form-urlencoded: ResponseMediaTypeMissing
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      WithStatusCode 200: ResponseMediaTypeMissing application/x-www-form-urlencoded
