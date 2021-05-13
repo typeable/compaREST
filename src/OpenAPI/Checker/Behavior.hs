@@ -22,7 +22,8 @@ data BehaviorLevel
   | RequestLevel
   | ResponseLevel
   | HeaderLevel
-  | PayloadLevel -- either request or response data
+  | -- | either request or response data
+    PayloadLevel
   | SchemaLevel
   | TypedSchemaLevel
 
