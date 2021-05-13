@@ -27,7 +27,7 @@ tracedResponses resp = IOHM.mapWithKey (\k -> traced (ask resp >>> step (Respons
   $ _responsesResponses $ extract resp
 
 instance Subtree Responses where
-  type ToBehavior Responses = 'OperationLevel
+  type SubtreeLevel Responses = 'OperationLevel
   type CheckEnv Responses =
     '[ ProdCons (Traced (Definitions Response))
      , ProdCons (Traced (Definitions Header))
@@ -72,7 +72,7 @@ instance Behavable 'ResponseLevel 'HeaderLevel where
     deriving stock (Eq, Ord, Show)
 
 instance Subtree Response where
-  type ToBehavior Response = 'ResponseLevel
+  type SubtreeLevel Response = 'ResponseLevel
   type CheckEnv Response =
     '[ ProdCons (Traced (Definitions Header))
      , ProdCons (Traced (Definitions Schema))
@@ -125,7 +125,7 @@ instance Behavable 'HeaderLevel 'SchemaLevel where
     deriving stock (Eq, Ord, Show)
 
 instance Subtree Header where
-  type ToBehavior Header = 'HeaderLevel
+  type SubtreeLevel Header = 'HeaderLevel
   type CheckEnv Header = '[ProdCons (Traced (Definitions Schema))]
   checkCompatibility env beh (ProdCons p c) = do
     if (fromMaybe False $ _headerRequired $ extract c) && not (fromMaybe False $ _headerRequired $ extract p)

@@ -69,7 +69,7 @@ instance Behavable 'PathFragmentLevel 'SchemaLevel where
     deriving (Eq, Ord, Show)
 
 instance Subtree Param where
-  type ToBehavior Param = 'PathFragmentLevel
+  type SubtreeLevel Param = 'PathFragmentLevel
   type CheckEnv Param = '[ProdCons (Traced (Definitions Schema))]
   checkCompatibility env beh pc@(ProdCons p c) = do
     when (_paramName (extract p) /= _paramName (extract c))

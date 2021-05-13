@@ -43,7 +43,7 @@ instance Behavable 'PayloadLevel 'SchemaLevel where
     deriving (Eq, Ord, Show)
 
 instance Subtree MediaTypeObject where
-  type ToBehavior MediaTypeObject = 'PayloadLevel
+  type SubtreeLevel MediaTypeObject = 'PayloadLevel
   type CheckEnv MediaTypeObject =
     '[ MediaType
      , ProdCons (Traced (Definitions Schema))
@@ -77,7 +77,7 @@ instance Subtree MediaTypeObject where
            (const $ checkCompatibility HNil beh) encProdCons
 
 instance Subtree Encoding where
-  type ToBehavior Encoding = 'PayloadLevel
+  type SubtreeLevel Encoding = 'PayloadLevel
   type CheckEnv Encoding = '[]
     --  FIXME: Support only JSON body for now. Then Encoding is checked only for
     --  multipart/form-url-encoded

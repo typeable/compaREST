@@ -33,7 +33,7 @@ instance Behavable 'RequestLevel 'PayloadLevel where
     deriving stock (Eq, Ord, Show)
 
 instance Subtree RequestBody where
-  type ToBehavior RequestBody = 'RequestLevel
+  type SubtreeLevel RequestBody = 'RequestLevel
   type CheckEnv RequestBody =
     '[ ProdCons (Traced (Definitions Schema)) ]
   checkCompatibility env beh prodCons@(ProdCons p c) =

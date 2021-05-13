@@ -83,14 +83,14 @@ newtype CompatM a = CompatM
 type CompatFormula' q f r = Compose CompatM (FormulaF q f r)
 type CompatFormula = CompatFormula' Behave AnIssue 'APILevel
 
-class (Typeable t, Issuable (ToBehavior t)) => Subtree (t :: Type) where
+class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   type CheckEnv t :: [Type]
-  type ToBehavior t :: BehaviorLevel
+  type SubtreeLevel t :: BehaviorLevel
 
   checkCompatibility
     :: HasAll (CheckEnv t) xs
     => HList xs
-    -> Behavior (ToBehavior t)
+    -> Behavior (SubtreeLevel t)
     -> ProdCons (Traced t)
     -> CompatFormula ()
 

@@ -801,14 +801,14 @@ instance Behavable 'TypedSchemaLevel 'SchemaLevel where
     deriving stock (Eq, Ord, Show)
 
 instance Subtree Schema where
-  type ToBehavior Schema = 'SchemaLevel
+  type SubtreeLevel Schema = 'SchemaLevel
   type CheckEnv Schema = '[ProdCons (Traced (Definitions Schema))]
   checkCompatibility env beh schs = do
     let defs = getH env
     checkFormulas env beh $ schemaToFormula <$> defs <*> schs
 
 instance Subtree (Referenced Schema) where
-  type ToBehavior (Referenced Schema) = 'SchemaLevel
+  type SubtreeLevel (Referenced Schema) = 'SchemaLevel
   type CheckEnv (Referenced Schema) = CheckEnv Schema
   checkCompatibility env beh refs = do
     let

@@ -44,7 +44,7 @@ tracedSchemas oa = traced (ask oa >>> step ComponentsSchema)
   (_componentsSchemas . _openApiComponents . extract $ oa)
 
 instance Subtree OpenApi where
-  type ToBehavior OpenApi = 'APILevel
+  type SubtreeLevel OpenApi = 'APILevel
   type CheckEnv OpenApi = '[]
   checkCompatibility _ beh prodCons = do
     checkCompatibility @ProcessedPathItems

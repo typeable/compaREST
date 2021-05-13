@@ -55,7 +55,7 @@ instance Behavable 'APILevel 'PathLevel where
     deriving stock (Eq, Ord, Show)
 
 instance Subtree ProcessedPathItems where
-  type ToBehavior ProcessedPathItems = 'APILevel
+  type SubtreeLevel ProcessedPathItems = 'APILevel
   type
     CheckEnv ProcessedPathItems =
       '[ ProdCons (Traced (Definitions Param))
@@ -149,7 +149,7 @@ instance Behavable 'PathLevel 'OperationLevel where
     deriving (Eq, Ord, Show)
 
 instance Subtree MatchedPathItem where
-  type ToBehavior MatchedPathItem = 'PathLevel
+  type SubtreeLevel MatchedPathItem = 'PathLevel
   type CheckEnv MatchedPathItem =
     '[ ProdCons (Traced (Definitions Param))
      , ProdCons (Traced (Definitions RequestBody))

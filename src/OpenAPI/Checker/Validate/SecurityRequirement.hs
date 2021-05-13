@@ -15,7 +15,7 @@ instance Issuable 'SecurityRequirementLevel where
   issueIsUnsupported _ = False
 
 instance Subtree SecurityRequirement where
-  type ToBehavior SecurityRequirement = 'SecurityRequirementLevel
+  type SubtreeLevel SecurityRequirement = 'SecurityRequirementLevel
   type
     CheckEnv SecurityRequirement =
       '[ ProdCons (Traced (Definitions SecurityScheme))

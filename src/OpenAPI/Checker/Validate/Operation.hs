@@ -82,7 +82,7 @@ instance Behavable 'OperationLevel 'RequestLevel where
     deriving stock (Eq, Ord, Show)
 
 instance Subtree MatchedOperation where
-  type ToBehavior MatchedOperation = 'OperationLevel
+  type SubtreeLevel MatchedOperation = 'OperationLevel
   type CheckEnv MatchedOperation =
     '[ ProdCons (Traced (Definitions Param))
      , ProdCons (Traced (Definitions RequestBody))
@@ -230,7 +230,7 @@ instance Steppable MatchedOperation SecurityRequirement where
     deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedOperation [Server] where
-  data Step MatchedOperation [Server] 
-    = OperationServersStep 
+  data Step MatchedOperation [Server]
+    = OperationServersStep
     | EnvServerStep
     deriving (Eq, Ord, Show)

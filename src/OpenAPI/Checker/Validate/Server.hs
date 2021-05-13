@@ -44,7 +44,7 @@ instance Behavable 'OperationLevel 'ServerLevel where
     deriving stock (Eq, Ord, Show)
 
 instance Subtree [Server] where
-  type ToBehavior [Server] = 'OperationLevel
+  type SubtreeLevel [Server] = 'OperationLevel
   type CheckEnv [Server] = '[]
   checkCompatibility env beh pcServer = do
     let (ProdCons (pErrs, pUrls) (cErrs, cUrls)) =
@@ -118,7 +118,7 @@ instance Issuable 'ServerLevel where
   issueIsUnsupported _ = False
 
 instance Subtree ProcessedServer where
-  type ToBehavior ProcessedServer = 'ServerLevel
+  type SubtreeLevel ProcessedServer = 'ServerLevel
   type CheckEnv ProcessedServer = '[]
   checkCompatibility _ beh pc =
     -- traversing here is fine because we have already filtered for length

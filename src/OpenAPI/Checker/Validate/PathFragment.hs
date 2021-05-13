@@ -60,7 +60,7 @@ staticStringSchema t =
     }
 
 instance Subtree PathFragmentParam where
-  type ToBehavior PathFragmentParam = 'PathFragmentLevel
+  type SubtreeLevel PathFragmentParam = 'PathFragmentLevel
   type CheckEnv PathFragmentParam =
     '[ ProdCons (Traced (Definitions Schema)) ]
   -- This case isn't strictly needed. It is here for optimization.
