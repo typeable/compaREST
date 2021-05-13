@@ -2,7 +2,8 @@
 
 module OpenAPI.Checker.Validate.Server
   ( Issue (..)
-  ) where
+  )
+where
 
 import Control.Applicative
 import Control.Comonad
@@ -26,17 +27,14 @@ import OpenAPI.Checker.Validate.MediaTypeObject
 import Prelude as P
 
 tracedParsedServerUrlParts
-  :: Traced' [Server] Server
-  -> Either (Issue 'OperationLevel) (Text, Traced ProcessedServer)
+  :: Server
+  -> Either (Issue 'ServerLevel) ProcessedServer
 tracedParsedServerUrlParts s =
-  let rawURL = _serverUrl $ extract s
-      parsedUrl = parseServerUrl rawURL
-      serverVariables = _serverVariables $ extract s
-      lookupVar var = case IOHM.lookup var serverVariables of
+  let parsedUrl = parseServerUrl $ _serverUrl s
+      lookupVar var = case IOHM.lookup var (_serverVariables s) of
         Nothing -> Left $ ServerVariableNotDefined var
         Just x -> Right x
-   in (rawURL,) . traced (ask s >>> step (ServerStep rawURL)) <$>
-     traverse (traverse lookupVar) parsedUrl
+   in (traverse @[] . traverse @ServerUrlPart) lookupVar parsedUrl
 
 instance Behavable 'OperationLevel 'ServerLevel where
   data Behave 'OperationLevel 'ServerLevel
@@ -48,13 +46,23 @@ instance Subtree [Server] where
   type CheckEnv [Server] = '[]
   checkCompatibility env beh pcServer = do
     let (ProdCons (pErrs, pUrls) (cErrs, cUrls)) =
-          pcServer <&> partitionEithers . fmap tracedParsedServerUrlParts . sequence
-    for_ pErrs $ issueAt beh
-    for_ cErrs $ issueAt beh
-    for_ pUrls $ \(pRawUrl, pUrl) -> do
+          pcServer
+            <&> partitionEithers
+              . fmap
+                (\(Traced t s) ->
+                   let bhv = beh >>> step (InServer $ _serverUrl s)
+                    in case tracedParsedServerUrlParts s of
+                         Left e -> Left $ issueAt bhv e
+                         Right u -> Right (bhv, Traced (t >>> step (ServerStep $ _serverUrl s)) u))
+              . sequence
+    sequenceA_ pErrs
+    sequenceA_ cErrs
+    for_ pUrls $ \(bhv, pUrl) -> do
       let potentiallyCompatible = P.filter ((staticCompatible `on` extract) pUrl) $ fmap snd cUrls
-      anyOfAt beh (ServerNotMatched pRawUrl)
-        [ checkCompatibility env (beh >>> step (InServer pRawUrl)) (ProdCons pUrl cUrl)
+      anyOfSubtreeAt
+        bhv
+        ServerNotMatched
+        [ checkCompatibility env bhv (ProdCons pUrl cUrl)
         | cUrl <- potentiallyCompatible
         ]
     pure ()
@@ -114,6 +122,8 @@ instance Issuable 'ServerLevel where
   data Issue 'ServerLevel
     = EnumValueNotConsumed Int Text
     | ConsumerNotOpen Int
+    | ServerVariableNotDefined Text
+    | ServerNotMatched
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
 

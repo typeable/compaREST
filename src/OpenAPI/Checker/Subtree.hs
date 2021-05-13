@@ -3,6 +3,7 @@ module OpenAPI.Checker.Subtree
   , Trace
   , Traced
   , Traced'
+  , pattern Traced
   , traced
   , Subtree (..)
   , CompatM (..)
@@ -14,9 +15,10 @@ module OpenAPI.Checker.Subtree
   , runCompatFormula
   , issueAt
   , anyOfAt
+  , anyOfSubtreeAt
   , memo
 
-  -- * Reexports
+    -- * Reexports
   , (>>>)
   , (<<<)
   , extract
@@ -51,7 +53,13 @@ class
 type Trace = Paths Step OpenApi
 
 type Traced' a b = Env (Trace a) b
+
 type Traced a = Traced' a a
+
+pattern Traced :: Trace a -> b -> Traced' a b
+pattern Traced t x = EnvT t (Identity x)
+
+{-# COMPLETE Traced #-}
 
 traced :: Trace a -> a -> Traced a
 traced = env
@@ -81,6 +89,7 @@ newtype CompatM a = CompatM
     )
 
 type CompatFormula' q f r = Compose CompatM (FormulaF q f r)
+
 type CompatFormula = CompatFormula' Behave AnIssue 'APILevel
 
 class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
@@ -138,6 +147,15 @@ anyOfAt
 anyOfAt xs issue fs =
   Compose $ (`eitherOf` AnItem xs (AnIssue issue)) <$> sequenceA (getCompose <$> fs)
 
+anyOfSubtreeAt
+  :: Issuable l
+  => Paths q r l
+  -> Issue l
+  -> [CompatFormula' q AnIssue r a]
+  -> CompatFormula' q AnIssue r a
+anyOfSubtreeAt _ _ [x] = x
+anyOfSubtreeAt f i fs = anyOfAt f i fs
+
 fixpointKnot
   :: MonadState (MemoState VarRef) m
   => KnotTier (FormulaF q f r ()) VarRef m
@@ -152,5 +170,5 @@ memo
   :: (Typeable q, Typeable f, NiceQuiver p r t)
   => (ProdCons (Env (Paths p r t) t) -> CompatFormula' q f r ())
   -> (ProdCons (Env (Paths p r t) t) -> CompatFormula' q f r ())
-memo f pc  = Compose $ do
+memo f pc = Compose $ do
   memoWithKnot fixpointKnot (getCompose $ f pc) (ask <$> pc)
