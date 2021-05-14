@@ -20,7 +20,7 @@ module OpenAPI.Checker.Subtree
   , runCompatFormula
   , issueAt
   , anyOfAt
-  , absurdIssue
+  , structuralIssue
   , memo
 
     -- * Reexports
@@ -141,7 +141,7 @@ checkCompatibility e bhv pc =
     Right () -> pure ()
 
 eqStructuralCompatibility :: (Eq t, ProdConsEqHList xs) => HList xs -> ProdCons t -> StructuralCompatFormula ()
-eqStructuralCompatibility e (ProdCons p c) = unless (pcHListEq e && p == c) absurdIssue
+eqStructuralCompatibility e (ProdCons p c) = unless (pcHListEq e && p == c) structuralIssue
 
 class ProdConsEqHList xs where
   pcHListEq :: HList xs -> Bool
@@ -190,8 +190,8 @@ runCompatFormula (Compose f) =
 issueAt :: Issuable l => Paths q r l -> Issue l -> CompatFormula' q AnIssue r a
 issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ AnIssue issue
 
-absurdIssue :: StructuralCompatFormula a
-absurdIssue = Compose $ pure $ anError $ AnItem (step UnitQuiver) Proxy
+structuralIssue :: StructuralCompatFormula a
+structuralIssue = Compose $ pure $ anError $ AnItem (step UnitQuiver) Proxy
 
 anyOfAt
   :: Issuable l
