@@ -6,6 +6,7 @@ module OpenAPI.Checker.Validate.Server
 where
 
 import Control.Applicative
+import Control.Arrow ((&&&))
 import Control.Comonad
 import Control.Monad
 import Data.Attoparsec.Text
@@ -14,15 +15,17 @@ import Data.Foldable
 import Data.Function
 import Data.Functor
 import Data.HashMap.Strict.InsOrd as IOHM
+import qualified Data.HashSet.InsOrd as IOHM
 import qualified Data.HashSet.InsOrd as IOHS
 import Data.Maybe
 import Data.OpenApi
+import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Traversable
 import OpenAPI.Checker.Behavior
-import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Common
+import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
 import Prelude as P
@@ -45,6 +48,13 @@ instance Behavable 'OperationLevel 'ServerLevel where
 instance Subtree [Server] where
   type SubtreeLevel [Server] = 'OperationLevel
   type CheckEnv [Server] = '[]
+  checkStructuralCompatibility _ pc =
+    structuralEq $ S.fromList . fmap reduceServer <$> pc
+    where
+      reducerServerVariable =
+        fmap IOHM.toHashSet . _serverVariableEnum &&& _serverVariableDefault
+      reduceServer =
+        _serverUrl &&& fmap reducerServerVariable . IOHM.toHashMap . _serverVariables
   checkSemanticCompatibility env beh pcServer = do
     let (ProdCons (pErrs, pUrls) (cErrs, cUrls)) =
           pcServer
@@ -125,6 +135,11 @@ instance Issuable 'ServerLevel where
 instance Subtree ProcessedServer where
   type SubtreeLevel ProcessedServer = 'ServerLevel
   type CheckEnv ProcessedServer = '[]
+  checkStructuralCompatibility _ pc =
+    structuralEq $ (fmap . fmap . fmap) reducerServerVariable pc
+    where
+      reducerServerVariable =
+        fmap IOHM.toHashSet . _serverVariableEnum &&& _serverVariableDefault
   checkSemanticCompatibility _ beh pc =
     -- traversing here is fine because we have already filtered for length
     for_ (zip [0 ..] $ zipProdCons . fmap (fmap unifyPart . extract) $ pc) $ \(i, pcPart) -> case pcPart of

@@ -50,6 +50,7 @@ import Data.Kind
 import Data.Monoid
 import Data.OpenApi
 import qualified Data.Set as S
+import qualified Data.Text as T
 import Data.Typeable
 import Network.HTTP.Media
 import OpenAPI.Checker.Behavior
@@ -162,7 +163,7 @@ structuralEq :: Eq a => ProdCons a -> StructuralCompatFormula ()
 structuralEq (ProdCons a b) = if a == b then pure () else structuralIssue
 
 iohmStructuralCompatibility
-  :: (HasAll (CheckEnv v) xs, Ord k, Subtree v, ProdConsEqHList xs, Hashable k)
+  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, ProdConsEqHList (k ': xs), Hashable k)
   => HList xs
   -> ProdCons (IOHM.InsOrdHashMap k v)
   -> StructuralCompatFormula ()
@@ -173,7 +174,7 @@ iohmStructuralCompatibility e pc = do
       for_
         pEKeys
         (\eKey ->
-           checkStructuralCompatibility e $
+           checkStructuralCompatibility (eKey `HCons` e) $
              IOHM.lookupDefault (error "impossible") eKey <$> pc)
     else structuralIssue
 
@@ -191,6 +192,14 @@ instance (Eq x, ProdConsEqHList xs) => ProdConsEqHList (ProdCons x ': xs) where
 
 instance ProdConsEqHList xs => ProdConsEqHList (MediaType ': xs) where
   pcHListEq (HCons _ xs) = pcHListEq xs
+
+instance ProdConsEqHList xs => ProdConsEqHList (T.Text ': xs) where
+  pcHListEq (HCons _ xs) = pcHListEq xs
+
+instance ProdConsEqHList xs => ProdConsEqHList (HttpStatusCode ': xs) where
+  pcHListEq (HCons _ xs) = pcHListEq xs
+
+
 
 class HasUnsupportedFeature x where
   hasUnsupportedFeature :: x -> Bool

@@ -124,6 +124,7 @@ library
                   , OpenAPI.Checker.Validate.Server
                   , OpenAPI.Checker.Validate.Sums
                   , OpenAPI.Checker.Validate.Header
+                  , OpenAPI.Checker.Validate.Link
                   , OpenAPI.Checker.Common
 
 executable openapi-diff

@@ -40,6 +40,10 @@ instance Subtree RequestBody where
       '[ ProdCons (Traced (Definitions Schema))
        , ProdCons (Traced (Definitions Header))
        ]
+  checkStructuralCompatibility env pc = do
+    structuralEq $ _requestBodyRequired <$> pc
+    iohmStructuralCompatibility env $ _requestBodyContent <$> pc
+    pure ()
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) =
     if not (fromMaybe False . _requestBodyRequired . extract $ p)
       && (fromMaybe False . _requestBodyRequired . extract $ c)

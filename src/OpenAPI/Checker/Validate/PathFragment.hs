@@ -63,6 +63,8 @@ instance Subtree PathFragmentParam where
   type SubtreeLevel PathFragmentParam = 'PathFragmentLevel
   type CheckEnv PathFragmentParam =
     '[ ProdCons (Traced (Definitions Schema)) ]
+  -- Not much to compare at this level
+  checkStructuralCompatibility _ _ = structuralIssue 
   -- This case isn't strictly needed. It is here for optimization.
   checkSemanticCompatibility _ beh (ProdCons (extract -> StaticPath x) (extract -> StaticPath y))
     = if x == y

@@ -16,6 +16,7 @@ import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Header ()
+import OpenAPI.Checker.Validate.Link ()
 import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
@@ -33,7 +34,13 @@ instance Subtree Responses where
       '[ ProdCons (Traced (Definitions Response))
        , ProdCons (Traced (Definitions Header))
        , ProdCons (Traced (Definitions Schema))
+       , ProdCons (Traced (Definitions Link))
        ]
+
+  checkStructuralCompatibility env pc = do
+    structuralMaybe env $ _responsesDefault <$> pc
+    iohmStructuralCompatibility env $ _responsesResponses <$> pc
+    pure ()
 
   -- Roles are already swapped. Producer is a server and consumer is a
   -- client. Response codes are sum-like entity because we can answer with only
@@ -80,7 +87,13 @@ instance Subtree Response where
     CheckEnv Response =
       '[ ProdCons (Traced (Definitions Header))
        , ProdCons (Traced (Definitions Schema))
+       , ProdCons (Traced (Definitions Link))
        ]
+  checkStructuralCompatibility env pc = do
+    iohmStructuralCompatibility env $ _responseContent <$> pc
+    iohmStructuralCompatibility env $ _responseHeaders <$> pc
+    iohmStructuralCompatibility env $ _responseLinks <$> pc
+    pure ()
   checkSemanticCompatibility env beh prodCons = do
     -- Roles are already swapped. Producer is a server and consumer is a client
     checkMediaTypes

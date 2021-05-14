@@ -63,15 +63,14 @@ tracedSecurity oper =
   ]
 
 -- FIXME: https://github.com/typeable/openapi-diff/issues/28
-tracedServers
+getServers
   :: [Server] -- ^ Servers from env
-  -> Traced MatchedOperation
-  -> Traced [Server]
-tracedServers env oper =
-  traced (ask oper >>> step OperationServersStep) $
-    case _operationServers . operation $ extract oper of
-      [] -> env
-      ss -> ss
+  -> MatchedOperation
+  -> [Server]
+getServers env oper =
+  case _operationServers . operation $ oper of
+    [] -> env
+    ss -> ss
 
 instance Behavable 'OperationLevel 'PathFragmentLevel where
   data Behave 'OperationLevel 'PathFragmentLevel
@@ -95,6 +94,7 @@ instance Subtree MatchedOperation where
        , ProdCons (Traced (Definitions Header))
        , ProdCons (Traced (Definitions Schema))
        , ProdCons [Server]
+       , ProdCons (Traced (Definitions Link))
        ]
   checkStructuralCompatibility env pc = do
     let pParams :: ProdCons [Param]
@@ -111,19 +111,12 @@ instance Subtree MatchedOperation where
                   param <- pp
                   pure (paramKey param, param)
              in M.elems $ o <> p
-        reqBody = do
-          defs <- extract <$> getH @(ProdCons (Traced (Definitions RequestBody))) env
-          body <- _operationRequestBody . operation <$> pc
-          pure $ G.dereference defs <$> body
     case zipAll (producer pParams) (consumer pParams) of
       Nothing -> structuralIssue
       Just xs -> for_ xs $ \(p, c) -> checkStructuralCompatibility env $ ProdCons p c
-    case reqBody of
-      ProdCons Nothing Nothing -> pure ()
-      ProdCons (Just p) (Just c) -> checkStructuralCompatibility env $ ProdCons p c
-      _ -> structuralIssue
+    structuralMaybe env $ _operationRequestBody . operation <$> pc
     checkStructuralCompatibility env $ _operationResponses . operation <$> pc
-    checkStructuralCompatibility env $ _operationServers . operation <$> pc
+    checkStructuralCompatibility env $ getServers <$> getH env <*> pc
     -- TODO: Callbacks
     -- TODO: Security
     pure ()
@@ -212,7 +205,8 @@ instance Subtree MatchedOperation where
         let respEnv =
               HCons (swapProdCons respDefs) $
                 HCons (swapProdCons headerDefs) $
-                  HCons (swapProdCons schemaDefs) HNil
+                  HCons (swapProdCons schemaDefs) $
+                    HCons (swapProdCons linkDefs) HNil
             resps = tracedResponses <$> prodCons
         checkCompatibility respEnv beh $ swapProdCons resps
       -- FIXME: https://github.com/typeable/openapi-diff/issues/27
@@ -220,13 +214,16 @@ instance Subtree MatchedOperation where
       -- FIXME: https://github.com/typeable/openapi-diff/issues/28
       checkOperationSecurity = pure () -- (error "FIXME: not implemented")
       checkServers =
-        checkCompatibility env beh $
-          tracedServers <$> getH @(ProdCons [Server]) env <*> prodCons
+        checkCompatibility env beh $ do
+          x <- prodCons
+          se <- getH @(ProdCons [Server]) env
+          pure $ Traced (ask x >>> step OperationServersStep) (getServers se (extract x))
       bodyDefs = getH @(ProdCons (Traced (Definitions RequestBody))) env
       respDefs = getH @(ProdCons (Traced (Definitions Response))) env
       headerDefs = getH @(ProdCons (Traced (Definitions Header))) env
       schemaDefs = getH @(ProdCons (Traced (Definitions Schema))) env
       paramDefs = getH @(ProdCons (Traced (Definitions Param))) env
+      linkDefs = getH @(ProdCons (Traced (Definitions Link))) env
 
 data OperationMethod
   = GetMethod
