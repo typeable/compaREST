@@ -6,7 +6,7 @@ import Data.HList
 import qualified Data.Yaml as Yaml
 import OpenAPI.Checker.Options
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
+import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Validate.OpenApi ()
 import Prelude hiding (id, (.))
 
@@ -26,5 +26,5 @@ runChecker = do
           Right s -> pure s
   a <- traced Root <$> parseSchema (clientFile opts)
   b <- traced Root <$> parseSchema (serverFile opts)
-  let report = runCompatFormula $ checkCompatibility HNil (ProdCons a b)
+  let report = runCompatFormula $ checkCompatibility HNil Root (ProdCons a b)
   BSC.putStrLn $ Yaml.encode report

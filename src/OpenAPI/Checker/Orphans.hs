@@ -1,20 +1,12 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module OpenAPI.Checker.Orphans (Step (..)) where
+module OpenAPI.Checker.Orphans () where
 
 import Control.Comonad.Env
 import Data.OpenApi
-import Data.Typeable
 import qualified Data.HashMap.Strict.InsOrd as IOHM
-import OpenAPI.Checker.Trace
 
 deriving newtype instance Ord Reference
-
-instance Typeable a => Steppable (Referenced a) a where
-  data Step (Referenced a) a
-    = InlineStep
-    | ReferencedStep Reference
-    deriving (Eq, Ord, Show)
 
 deriving stock instance Ord a => Ord (Referenced a)
 deriving stock instance Ord Schema

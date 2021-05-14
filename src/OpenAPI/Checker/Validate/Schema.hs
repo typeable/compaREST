@@ -39,11 +39,12 @@ import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T hiding (singleton)
 import Data.Typeable
+import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.References
+import OpenAPI.Checker.Paths
+import qualified OpenAPI.Checker.PathsPrefixTree as P
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
-import qualified OpenAPI.Checker.TracePrefixTree as T
 
 -- | Type of a JSON value
 data JsonType
@@ -53,7 +54,7 @@ data JsonType
   | String
   | Array
   | Object
-  deriving (Eq, Show)
+  deriving stock (Eq, Ord, Show)
 
 -- | A 'A.Value' whose type we know
 data TypedValue :: JsonType -> Type where
@@ -88,8 +89,8 @@ instance Ord a => Ord (Bound a) where
 
 data Property = Property
   { propRequired :: Bool
-  , propFormula :: ForeachType (JsonFormula OpenApi)
-  , propRefSchema :: Traced OpenApi (Referenced Schema)
+  , propFormula :: ForeachType JsonFormula
+  , propRefSchema :: Traced (Referenced Schema)
   }
   deriving stock (Eq, Ord, Show)
 
@@ -106,17 +107,17 @@ data Condition :: JsonType -> Type where
   Pattern :: !Pattern -> Condition 'String
   StringFormat :: !Format -> Condition 'String
   Items
-    :: !(ForeachType (JsonFormula OpenApi))
-    -> !(Traced OpenApi (Referenced Schema))
+    :: !(ForeachType JsonFormula)
+    -> !(Traced (Referenced Schema))
     -> Condition 'Array
   MaxItems :: !Integer -> Condition 'Array
   MinItems :: !Integer -> Condition 'Array
   UniqueItems :: Condition 'Array
   Properties
     :: !(M.Map Text Property)
-    -> !(ForeachType (JsonFormula OpenApi))
+    -> !(ForeachType JsonFormula)
       -- ^ formula for additional properties
-    -> !(Maybe (Traced OpenApi (Referenced Schema)))
+    -> !(Maybe (Traced (Referenced Schema)))
       -- ^ schema for additional properties, Nothing means bottom
     -> Condition 'Object
   MaxProperties :: !Integer -> Condition 'Object
@@ -158,7 +159,7 @@ deriving stock instance Ord (Condition t)
 deriving stock instance Show (Condition t)
 
 data SomeCondition where
-  SomeCondition :: Typeable t => Traced OpenApi (Condition t) -> SomeCondition
+  SomeCondition :: Typeable t => Condition t -> SomeCondition
 
 instance Eq SomeCondition where
   SomeCondition x == SomeCondition y = case cast x of
@@ -175,26 +176,24 @@ deriving stock instance Show SomeCondition
 -- | A boolean formula (without "not") of 'Condition's. Represented as a
 -- Disjunctive Normal Form: the formula is a disjunction of a set of conjuncts,
 -- each of which is a conjunction of a set of 'Condition's.
-newtype JsonFormula r t
-  = DNF (S.Set (M.Map (Condition t) (Trace r (Condition t))))
+newtype JsonFormula t
+  = DNF (S.Set (S.Set (Condition t)))
   deriving stock (Eq, Ord, Show)
 
 disjAdd
-  :: JsonFormula r t
-  -> M.Map (Condition t) (Trace r (Condition t))
-  -> JsonFormula r t
+  :: JsonFormula t
+  -> S.Set (Condition t)
+  -> JsonFormula t
 disjAdd (DNF yss) xs
-  | any (`isMapSubsetOf` xs) yss = DNF yss
-  | otherwise = DNF $ S.insert xs $ S.filter (not . isMapSubsetOf xs) yss
-  where
-    isMapSubsetOf a b = M.keysSet a `S.isSubsetOf` M.keysSet b
+  | any (`S.isSubsetOf` xs) yss = DNF yss
+  | otherwise = DNF $ S.insert xs $ S.filter (not . S.isSubsetOf xs) yss
 
-instance Lattice (JsonFormula r t) where
+instance Lattice (JsonFormula t) where
   xss \/ DNF yss = S.foldl' disjAdd xss yss
   DNF xss /\ DNF yss = F.foldl' disjAdd bottom $
-    liftA2 M.union (S.toList xss) (S.toList yss)
+    liftA2 S.union (S.toList xss) (S.toList yss)
 
-pattern BottomFormula :: JsonFormula r t
+pattern BottomFormula :: JsonFormula t
 pattern BottomFormula <- DNF (S.null -> True)
   where BottomFormula = DNF S.empty
 
@@ -203,35 +202,35 @@ isSingleton s
   | S.size s == 1 = S.lookupMin s
   | otherwise = Nothing
 
-pattern Conjunct :: [Traced r (Condition t)] -> M.Map (Condition t) (Trace r (Condition t))
-pattern Conjunct xs <- (map (uncurry $ flip traced) . M.toList -> xs)
-  where Conjunct xs = M.fromList $ (extract &&& ask) <$> xs
+pattern Conjunct :: [Condition t] -> S.Set (Condition t)
+pattern Conjunct xs <- (S.toList -> xs)
+  where Conjunct = S.fromList
 {-# COMPLETE Conjunct #-}
 
-pattern SingleConjunct :: [Traced r (Condition t)] -> JsonFormula r t
+pattern SingleConjunct :: [Condition t] -> JsonFormula t
 pattern SingleConjunct xs <- DNF (isSingleton -> Just (Conjunct xs))
   where SingleConjunct xs = DNF $ S.singleton $ Conjunct xs
 
-pattern TopFormula :: JsonFormula r t
-pattern TopFormula <- DNF (isSingleton -> Just (M.null -> True))
-  where TopFormula = DNF $ S.singleton M.empty
+pattern TopFormula :: JsonFormula t
+pattern TopFormula <- DNF (isSingleton -> Just (S.null -> True))
+  where TopFormula = DNF $ S.singleton S.empty
 
-instance BoundedJoinSemiLattice (JsonFormula r t) where
+instance BoundedJoinSemiLattice (JsonFormula t) where
   bottom = BottomFormula
 
-instance BoundedMeetSemiLattice (JsonFormula r t) where
+instance BoundedMeetSemiLattice (JsonFormula t) where
   top = TopFormula
 
 foldLattice
   :: BoundedLattice l
-  => (Traced r (Condition t) -> l)
-  -> JsonFormula r t
+  => (Condition t -> l)
+  -> JsonFormula t
   -> l
 foldLattice f (DNF xss) = S.foldl' (\z w ->
-  z \/ M.foldlWithKey' (\x y t -> x /\ f (traced t y)) top w) bottom xss
+  z \/ S.foldl' (\x y -> x /\ f y) top w) bottom xss
 
-satisfiesFormula :: TypedValue t -> JsonFormula r t -> Bool
-satisfiesFormula val = foldLattice (satisfiesTyped val . extract)
+satisfiesFormula :: TypedValue t -> JsonFormula t -> Bool
+satisfiesFormula val = foldLattice (satisfiesTyped val)
 
 data ForeachType (f :: JsonType -> Type) = ForeachType
   { forNull :: f 'Null
@@ -242,7 +241,7 @@ data ForeachType (f :: JsonType -> Type) = ForeachType
   , forObject :: f 'Object
   }
 
-satisfies :: A.Value -> ForeachType (JsonFormula r) -> Bool
+satisfies :: A.Value -> ForeachType JsonFormula -> Bool
 satisfies val p = case val of
   A.Null -> satisfiesFormula TNull $ forNull p
   A.Bool b -> satisfiesFormula (TBool b) $ forBoolean p
@@ -257,27 +256,27 @@ deriving stock instance (forall x. Typeable x => Show (f x)) => Show (ForeachTyp
 
 foldType
   :: Monoid m
-  => (forall x. Typeable x => (ForeachType f -> f x) -> m)
+  => (forall x. Typeable x => JsonType -> (ForeachType f -> f x) -> m)
   -> m
 foldType k =
-  k forNull <>
-  k forBoolean <>
-  k forNumber <>
-  k forString <>
-  k forArray <>
-  k forObject
+  k Null forNull <>
+  k Boolean forBoolean <>
+  k Number forNumber <>
+  k String forString <>
+  k Array forArray <>
+  k Object forObject
 
 forType_
   :: Applicative m
-  => (forall x. Typeable x => (ForeachType f -> f x) -> m ())
+  => (forall x. Typeable x => JsonType -> (ForeachType f -> f x) -> m ())
   -> m ()
 forType_ k = do
-  k forNull
-  k forBoolean
-  k forNumber
-  k forString
-  k forArray
-  k forObject
+  k Null forNull
+  k Boolean forBoolean
+  k Number forNumber
+  k String forString
+  k Array forArray
+  k Object forObject
   pure ()
 
 instance (forall x. Lattice (f x)) => Lattice (ForeachType f) where
@@ -320,6 +319,7 @@ instance (forall x. BoundedMeetSemiLattice (f x))
     , forObject = top
     }
 
+{- TODO: remove
 instance Typeable t => Steppable Schema (Condition t) where
   data Step Schema (Condition t)
     = EnumField
@@ -340,6 +340,11 @@ instance Typeable t => Steppable Schema (Condition t) where
     | NullableField
     | IntegerType -- type=integer
     deriving (Eq, Ord, Show)
+-}
+
+instance Behavable 'SchemaLevel 'SchemaLevel where
+  data Behave 'SchemaLevel 'SchemaLevel
+    deriving (Eq, Ord, Show)
 
 instance Steppable Schema (Referenced Schema) where
   data Step Schema (Referenced Schema)
@@ -352,44 +357,42 @@ instance Steppable Schema (Referenced Schema) where
     | PropertiesStep Text
     deriving (Eq, Ord, Show)
 
-type ProcessM = ReaderT (Definitions Schema) (Writer (T.TracePrefixTree SubtreeCheckIssue OpenApi))
+type ProcessM = ReaderT (Traced (Definitions Schema)) (Writer (P.PathsPrefixTree Behave AnIssue 'SchemaLevel))
 
-warn
-  :: (Subtree t, ComonadEnv (Trace OpenApi t) w)
-  => w x -> CheckIssue t -> ProcessM ()
-warn t issue = tell $ T.singleton $ AnItem (ask t) $ SubtreeCheckIssue issue
+warn :: Issue 'SchemaLevel -> ProcessM ()
+warn issue = tell $ P.singleton $ AnItem Root $ AnIssue issue
 
 processRefSchema
-  :: Traced OpenApi (Referenced Schema)
-  -> ProcessM (ForeachType (JsonFormula OpenApi))
+  :: Traced (Referenced Schema)
+  -> ProcessM (ForeachType JsonFormula)
 processRefSchema x = do
   defs <- R.ask
   processSchema $ dereference defs x
 
-tracedAllOf :: Traced r Schema -> Maybe [Traced r (Referenced Schema)]
+tracedAllOf :: Traced Schema -> Maybe [Traced (Referenced Schema)]
 tracedAllOf sch = _schemaAllOf (extract sch) <&> \xs ->
     [ traced (ask sch >>> step (AllOfStep i)) x | (i, x) <- zip [0..] xs ]
 
-tracedAnyOf :: Traced r Schema -> Maybe [Traced r (Referenced Schema)]
+tracedAnyOf :: Traced Schema -> Maybe [Traced (Referenced Schema)]
 tracedAnyOf sch = _schemaAnyOf (extract sch) <&> \xs ->
     [ traced (ask sch >>> step (AnyOfStep i)) x | (i, x) <- zip [0..] xs ]
 
-tracedOneOf :: Traced r Schema -> Maybe [Traced r (Referenced Schema)]
+tracedOneOf :: Traced Schema -> Maybe [Traced (Referenced Schema)]
 tracedOneOf sch = _schemaOneOf (extract sch) <&> \xs ->
     [ traced (ask sch >>> step (OneOfStep i)) x | (i, x) <- zip [0..] xs ]
 
-tracedItems :: Traced r Schema -> Maybe (Either (Traced r (Referenced Schema)) [Traced r (Referenced Schema)])
+tracedItems :: Traced Schema -> Maybe (Either (Traced (Referenced Schema)) [Traced (Referenced Schema)])
 tracedItems sch = _schemaItems (extract sch) <&> \case
   OpenApiItemsObject x -> Left $ traced (ask sch >>> step ItemsObjectStep) x
   OpenApiItemsArray xs -> Right
     [ traced (ask sch >>> step (ItemsArrayStep i)) x | (i, x) <- zip [0..] xs ]
 
-tracedAdditionalProperties :: Traced r Schema -> Maybe (Either Bool (Traced r (Referenced Schema)))
+tracedAdditionalProperties :: Traced Schema -> Maybe (Either Bool (Traced (Referenced Schema)))
 tracedAdditionalProperties sch = _schemaAdditionalProperties (extract sch) <&> \case
   AdditionalPropertiesAllowed b -> Left b
   AdditionalPropertiesSchema x -> Right $ traced (ask sch >>> step AdditionalPropertiesStep) x
 
-tracedProperties :: Traced r Schema -> IOHM.InsOrdHashMap Text (Traced r (Referenced Schema))
+tracedProperties :: Traced Schema -> IOHM.InsOrdHashMap Text (Traced (Referenced Schema))
 tracedProperties sch = IOHM.mapWithKey (\k -> traced (ask sch >>> step (PropertiesStep k)))
   $ _schemaProperties $ extract sch
 
@@ -397,35 +400,35 @@ tracedProperties sch = IOHM.mapWithKey (\k -> traced (ask sch >>> step (Properti
 -- for every possible type of a JSON value. The conditions are independent, and
 -- are thus checked independently.
 processSchema
-  :: Traced OpenApi Schema
-  -> ProcessM (ForeachType (JsonFormula OpenApi))
+  :: Traced Schema
+  -> ProcessM (ForeachType JsonFormula)
 processSchema sch@(extract -> Schema{..}) = do
   let
-    singletonFormula :: Typeable t => Step Schema (Condition t) -> Condition t -> JsonFormula OpenApi t
-    singletonFormula t f = SingleConjunct [traced (ask sch >>> step t) f]
+    singletonFormula :: Condition t -> JsonFormula t
+    singletonFormula f = SingleConjunct [f]
 
   allClauses <- case tracedAllOf sch of
     Nothing -> pure []
-    Just [] -> [] <$ warn sch (InvalidSchema "no items in allOf")
+    Just [] -> [] <$ warn (InvalidSchema "no items in allOf")
     Just xs -> mapM processRefSchema xs
 
   anyClause <- case tracedAnyOf sch of
     Nothing -> pure top
-    Just [] -> bottom <$ warn sch (InvalidSchema "no items in anyOf")
+    Just [] -> bottom <$ warn (InvalidSchema "no items in anyOf")
     Just xs -> joins <$> mapM processRefSchema xs
 
   oneClause <- case tracedOneOf sch of
     Nothing -> pure top
-    Just [] -> bottom <$ warn sch (InvalidSchema "no items in oneOf")
+    Just [] -> bottom <$ warn (InvalidSchema "no items in oneOf")
     Just xs -> do
       checkOneOfDisjoint xs >>= \case
         True -> pure ()
-        False -> warn sch (NotSupported "Could not determine that oneOf branches are disjoint")
+        False -> warn (NotSupported "Could not determine that oneOf branches are disjoint")
       joins <$> mapM processRefSchema xs
 
   case _schemaNot of
     Nothing -> pure ()
-    Just _ -> warn sch (NotSupported "not clause is unsupported")
+    Just _ -> warn (NotSupported "not clause is unsupported")
 
   let
     typeClause = case _schemaType of
@@ -437,7 +440,7 @@ processSchema sch@(extract -> Schema{..}) = do
       Just OpenApiNumber -> bottom
         { forBoolean = top }
       Just OpenApiInteger -> bottom
-        { forNumber = singletonFormula IntegerType $ MultipleOf 1 }
+        { forNumber = singletonFormula $ MultipleOf 1 }
       Just OpenApiString -> bottom
         { forString = top }
       Just OpenApiArray -> bottom
@@ -447,27 +450,27 @@ processSchema sch@(extract -> Schema{..}) = do
 
   let
     valueEnum A.Null = bottom
-      { forNull = singletonFormula EnumField $ Exactly TNull }
+      { forNull = singletonFormula $ Exactly TNull }
     valueEnum (A.Bool b) = bottom
-      { forBoolean = singletonFormula EnumField $ Exactly $ TBool b }
+      { forBoolean = singletonFormula $ Exactly $ TBool b }
     valueEnum (A.Number n) = bottom
-      { forNumber = singletonFormula EnumField $ Exactly $ TNumber n }
+      { forNumber = singletonFormula $ Exactly $ TNumber n }
     valueEnum (A.String s) = bottom
-      { forString = singletonFormula EnumField $ Exactly $ TString s }
+      { forString = singletonFormula $ Exactly $ TString s }
     valueEnum (A.Array a) = bottom
-      { forArray = singletonFormula EnumField $ Exactly $ TArray a }
+      { forArray = singletonFormula $ Exactly $ TArray a }
     valueEnum (A.Object o) = bottom
-      { forObject = singletonFormula EnumField $ Exactly $ TObject o }
+      { forObject = singletonFormula $ Exactly $ TObject o }
   enumClause <- case _schemaEnum of
     Nothing -> pure top
-    Just [] -> bottom <$ warn sch (InvalidSchema "no items in enum")
+    Just [] -> bottom <$ warn (InvalidSchema "no items in enum")
     Just xs -> pure $ joins (valueEnum <$> xs)
 
   let
     maximumClause = case _schemaMaximum of
       Nothing -> top
       Just n -> top
-        { forNumber = singletonFormula MaximumFields $ Maximum $
+        { forNumber = singletonFormula $ Maximum $
           case _schemaExclusiveMaximum of
             Just True -> Exclusive n
             _ -> Inclusive n }
@@ -475,7 +478,7 @@ processSchema sch@(extract -> Schema{..}) = do
     minimumClause = case _schemaMinimum of
       Nothing -> top
       Just n -> top
-        { forNumber = singletonFormula MinimumFields $ Minimum $ Down $
+        { forNumber = singletonFormula $ Minimum $ Down $
           case _schemaExclusiveMinimum of
             Just True -> Exclusive $ Down n
             _ -> Inclusive $ Down n }
@@ -483,53 +486,53 @@ processSchema sch@(extract -> Schema{..}) = do
     multipleOfClause = case _schemaMultipleOf of
       Nothing -> top
       Just n -> top
-        { forNumber = singletonFormula MultipleOfField $ MultipleOf n }
+        { forNumber = singletonFormula $ MultipleOf n }
 
   formatClause <- case _schemaFormat of
     Nothing -> pure top
     Just f | f `elem` ["int32", "int64", "float", "double"] -> pure top
-      { forNumber = singletonFormula FormatField $ NumberFormat f }
+      { forNumber = singletonFormula $ NumberFormat f }
     Just f | f `elem` ["byte", "binary", "date", "date-time", "password"] -> pure top
-      { forString = singletonFormula FormatField $ StringFormat f }
-    Just f -> top <$ warn sch (NotSupported $ "Unknown format: " <> f)
+      { forString = singletonFormula $ StringFormat f }
+    Just f -> top <$ warn (NotSupported $ "Unknown format: " <> f)
 
   let
     maxLengthClause = case _schemaMaxLength of
       Nothing -> top
       Just n -> top
-        { forString = singletonFormula MaxLengthField $ MaxLength n }
+        { forString = singletonFormula $ MaxLength n }
 
     minLengthClause = case _schemaMinLength of
       Nothing -> top
       Just n -> top
-        { forString = singletonFormula MinLengthField $ MinLength n }
+        { forString = singletonFormula $ MinLength n }
 
     patternClause = case _schemaPattern of
       Nothing -> top
       Just p -> top
-        { forString = singletonFormula PatternField $ Pattern p }
+        { forString = singletonFormula $ Pattern p }
 
   itemsClause <- case tracedItems sch of
     Nothing -> pure top
     Just (Left rs) -> do
       f <- processRefSchema rs
-      pure top { forArray = singletonFormula ItemsField $ Items f rs }
-    Just (Right _) -> top <$ warn sch (NotSupported "array in items is not supported")
+      pure top { forArray = singletonFormula $ Items f rs }
+    Just (Right _) -> top <$ warn (NotSupported "array in items is not supported")
 
   let
     maxItemsClause = case _schemaMaxItems of
       Nothing -> top
       Just n -> top
-        { forArray = singletonFormula MaxItemsField $ MaxItems n }
+        { forArray = singletonFormula $ MaxItems n }
 
     minItemsClause = case _schemaMinItems of
       Nothing -> top
       Just n -> top
-        { forArray = singletonFormula MinItemsField $ MinItems n }
+        { forArray = singletonFormula $ MinItems n }
 
     uniqueItemsClause = case _schemaUniqueItems of
       Just True -> top
-        { forArray = singletonFormula UniqueItemsField UniqueItems }
+        { forArray = singletonFormula UniqueItems }
       _ -> top
 
   (addProps, addPropSchema) <- case tracedAdditionalProperties sch of
@@ -546,10 +549,10 @@ processSchema sch@(extract -> Schema{..}) = do
         in pure (addProps, fromMaybe fakeSchema addPropSchema)
     pure (k, Property (k `elem` _schemaRequired) f psch)
   let
-    allBottom f = getAll $ foldType $ \ty -> case ty f of
+    allBottom f = getAll $ foldType $ \_ ty -> case ty f of
       BottomFormula -> All True
       _ -> All False
-    allTop f = getAll $ foldType $ \ty -> case ty f of
+    allTop f = getAll $ foldType $ \_ ty -> case ty f of
       TopFormula -> All True
       _ -> All False
     -- remove optional fields whose schemata match that of additional props
@@ -561,21 +564,21 @@ processSchema sch@(extract -> Schema{..}) = do
       = top -- if all fields are optional and have trivial schemata
       | otherwise
       = top
-        { forObject = singletonFormula PropertiesFields $ Properties propMap addProps addPropSchema }
+        { forObject = singletonFormula $ Properties propMap addProps addPropSchema }
 
     maxPropertiesClause = case _schemaMaxProperties of
       Nothing -> top
       Just n -> top
-        { forObject = singletonFormula MaxPropertiesField $ MaxProperties n }
+        { forObject = singletonFormula $ MaxProperties n }
 
     minPropertiesClause = case _schemaMinProperties of
       Nothing -> top
       Just n -> top
-        { forObject = singletonFormula MinPropertiesField $ MinProperties n }
+        { forObject = singletonFormula $ MinProperties n }
 
     nullableClause
       | Just True <- _schemaNullable = bottom
-        { forNull = singletonFormula NullableField $ Exactly TNull }
+        { forNull = singletonFormula $ Exactly TNull }
       | otherwise = bottom
 
   pure $ nullableClause \/ meets (allClauses <>
@@ -585,24 +588,24 @@ processSchema sch@(extract -> Schema{..}) = do
     , uniqueItemsClause, propertiesClause, maxPropertiesClause, minPropertiesClause])
 {- TODO: ReadOnly/WriteOnly -}
 
-checkOneOfDisjoint :: [Traced OpenApi (Referenced Schema)] -> ProcessM Bool
+checkOneOfDisjoint :: [Traced (Referenced Schema)] -> ProcessM Bool
 checkOneOfDisjoint = const $ pure True -- TODO
 
 schemaToFormula
-  :: Definitions Schema
-  -> Traced OpenApi Schema
-  -> (ForeachType (JsonFormula OpenApi), T.TracePrefixTree SubtreeCheckIssue OpenApi)
+  :: Traced (Definitions Schema)
+  -> Traced Schema
+  -> (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
 schemaToFormula defs rs = runWriter . (`runReaderT` defs) $ processSchema rs
 
 checkFormulas
   :: HasAll (CheckEnv Schema) xs
   => HList xs
-  -> Trace OpenApi Schema
-  -> ProdCons (ForeachType (JsonFormula OpenApi), T.TracePrefixTree SubtreeCheckIssue OpenApi)
+  -> Behavior 'SchemaLevel
+  -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
   -> CompatFormula ()
-checkFormulas env tr (ProdCons (fp, ep) (fc, ec)) =
-  case T.toList ep ++ T.toList ec of
-    issues@(_:_) -> F.for_ issues $ \(AnItem t (SubtreeCheckIssue e)) -> issueAtTrace t e
+checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
+  case P.toList ep ++ P.toList ec of
+    issues@(_:_) -> F.for_ issues $ \(AnItem t (AnIssue e)) -> issueAt (beh >>> t) e
     [] -> do
       -- We have the following isomorphisms:
       --   (A ⊂ X ∪ Y) = (A ⊂ X) \/ (A ⊂ Y)
@@ -631,120 +634,122 @@ checkFormulas env tr (ProdCons (fp, ep) (fc, ec)) =
       --   (⋃_i ⋂_j A[i,j]) ⊂ ∅ = /\_i (⋂_j A[i,j]) ⊂ ∅
       -- where we again delegate (⋂_j A[j]) ⊂ ∅ to a heuristic, though here the
       -- shortcut of \/_j A[j] ⊂ ∅ hardly helps.
-      forType_ $ \ty ->
+      forType_ $ \tyName ty -> do
+        let beh' = beh >>> step (OfType tyName)
         case (ty fp, ty fc) of
-          (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction tr ps
+          (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
-            F.for_ cs $ checkImplication env ps -- avoid disjuntion if there's only one conjunct
+            F.for_ cs $ checkImplication env beh' ps -- avoid disjuntion if there's only one conjunct
           (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
-            anyOfM tr (NoMatchingCondition $ SomeCondition <$> ps)
-              [F.for_ cs $ checkImplication env ps | Conjunct cs <- S.toList css]
+            anyOfAt beh' (NoMatchingCondition $ SomeCondition <$> ps)
+              [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
 
 checkContradiction
-  :: Trace OpenApi Schema
-  -> [Traced OpenApi (Condition t)]
+  :: Behavior 'TypedSchemaLevel
+  -> [Condition t]
   -> CompatFormula ()
-checkContradiction tr _ = issueAtTrace tr NoContradiction -- TODO
+checkContradiction beh _ = issueAt beh NoContradiction -- TODO
 
 checkImplication
-  :: (HasAll (CheckEnv Schema) xs, Typeable t)
+  :: (HasAll (CheckEnv Schema) xs)
   => HList xs
-  -> [Traced OpenApi (Condition t)]
-  -> Traced OpenApi (Condition t)
+  -> Behavior 'TypedSchemaLevel
+  -> [Condition t]
+  -> Condition t
   -> CompatFormula ()
-checkImplication env prods cons = case findExactly prods of
+checkImplication env beh prods cons = case findExactly prods of
   Just e
-    | all (satisfiesTyped e) (extract <$> prods) ->
-      if satisfiesTyped e $ extract cons then pure ()
-        else issueAt cons (EnumDoesntSatisfy e)
+    | all (satisfiesTyped e) prods ->
+      if satisfiesTyped e cons then pure ()
+        else issueAt beh (EnumDoesntSatisfy $ untypeValue e)
     | otherwise -> pure () -- vacuously true
-  Nothing -> case extract cons of
+  Nothing -> case cons of
     -- the above code didn't catch it, so there's no Exactly condition on the lhs
-    Exactly e -> issueAt cons (NoMatchingEnum e)
+    Exactly e -> issueAt beh (NoMatchingEnum $ untypeValue e)
     Maximum m -> case findRelevant min (\case Maximum m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' <= m then pure ()
-        else issueAt cons (MatchingMaximumWeak m m')
-      Nothing -> issueAt cons (NoMatchingMaximum m)
+        else issueAt beh (MatchingMaximumWeak m m')
+      Nothing -> issueAt beh (NoMatchingMaximum m)
     Minimum m -> case findRelevant max (\case Minimum m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' >= m then pure ()
-        else issueAt cons (MatchingMinimumWeak (coerce m) (coerce m'))
-      Nothing -> issueAt cons (NoMatchingMinimum (coerce m))
+        else issueAt beh (MatchingMinimumWeak (coerce m) (coerce m'))
+      Nothing -> issueAt beh (NoMatchingMinimum (coerce m))
     MultipleOf m -> case findRelevant lcmScientific (\case MultipleOf m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if lcmScientific m m' == m' then pure ()
-        else issueAt cons (MatchingMultipleOfWeak m m')
-      Nothing -> issueAt cons (NoMatchingMultipleOf m)
-    NumberFormat f -> if any (\case NumberFormat f' -> f == f'; _ -> False) $ extract <$> prods
-      then pure () else issueAt cons (NoMatchingFormat f)
+        else issueAt beh (MatchingMultipleOfWeak m m')
+      Nothing -> issueAt beh (NoMatchingMultipleOf m)
+    NumberFormat f -> if any (\case NumberFormat f' -> f == f'; _ -> False) prods
+      then pure () else issueAt beh (NoMatchingFormat f)
     MaxLength m -> case findRelevant min (\case MaxLength m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' <= m then pure ()
-        else issueAt cons (MatchingMaxLengthWeak m m')
-      Nothing -> issueAt cons (NoMatchingMaxLength m)
+        else issueAt beh (MatchingMaxLengthWeak m m')
+      Nothing -> issueAt beh (NoMatchingMaxLength m)
     MinLength m -> case findRelevant max (\case MinLength m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' >= m then pure ()
-        else issueAt cons (MatchingMinLengthWeak m m')
-      Nothing -> issueAt cons (NoMatchingMinLength m)
-    Pattern p -> if any (\case Pattern p' -> p == p'; _ -> False) $ extract <$> prods
-      then pure () else issueAt cons (NoMatchingPattern p)
-    StringFormat f -> if any (\case StringFormat f' -> f == f'; _ -> False) $ extract <$> prods
-      then pure () else issueAt cons (NoMatchingFormat f)
+        else issueAt beh (MatchingMinLengthWeak m m')
+      Nothing -> issueAt beh (NoMatchingMinLength m)
+    Pattern p -> if any (\case Pattern p' -> p == p'; _ -> False) prods
+      then pure () else issueAt beh (NoMatchingPattern p) -- TODO: regex comparison
+    StringFormat f -> if any (\case StringFormat f' -> f == f'; _ -> False) prods
+      then pure () else issueAt beh (NoMatchingFormat f)
     Items _ cons' -> case findRelevant (<>) (\case Items _ rs -> Just (rs NE.:| []); _ -> Nothing) prods of
-      Just (rs NE.:| []) -> checkCompatibility env $ ProdCons rs cons'
+      Just (rs NE.:| []) -> checkCompatibility env (beh >>> step InItems) $ ProdCons rs cons'
       Just rs -> do
         let sch = Inline mempty { _schemaAllOf = Just . NE.toList $ extract <$> rs }
-        checkCompatibility env $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
-      Nothing -> issueAt cons NoMatchingItems
+        checkCompatibility env (beh >>> step InItems) $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
+      Nothing -> issueAt beh NoMatchingItems
     MaxItems m -> case findRelevant min (\case MaxItems m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' <= m then pure ()
-        else issueAt cons (MatchingMaxItemsWeak m m')
-      Nothing -> issueAt cons (NoMatchingMaxItems m)
+        else issueAt beh (MatchingMaxItemsWeak m m')
+      Nothing -> issueAt beh (NoMatchingMaxItems m)
     MinItems m -> case findRelevant max (\case MinItems m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' >= m then pure ()
-        else issueAt cons (MatchingMinItemsWeak m m')
-      Nothing -> issueAt cons (NoMatchingMinItems m)
-    UniqueItems -> if any (== UniqueItems) $ extract <$> prods then pure ()
-      else issueAt cons NoMatchingUniqueItems
+        else issueAt beh (MatchingMinItemsWeak m m')
+      Nothing -> issueAt beh (NoMatchingMinItems m)
+    UniqueItems -> if any (== UniqueItems) $ prods then pure ()
+      else issueAt beh NoMatchingUniqueItems
     Properties props _ madd -> case findRelevant (<>) (\case Properties props' _ madd' -> Just $ (props', madd') NE.:| []; _ -> Nothing) prods of
       Just ((props', madd') NE.:| []) -> do
         F.for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
-          let go sch sch' = checkCompatibility env (ProdCons sch sch')
+          let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
           case (M.lookup k props', madd', M.lookup k props, madd) of
             (Nothing, Nothing, _, _) -> pure () -- vacuously
-            (_, _, Nothing, Nothing) -> issueAt cons (UnexpectedProperty k)
+            (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
             (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
             (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
             (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
             (Nothing, Just _, Nothing, Just _) -> pure ()
           case (maybe False propRequired $ M.lookup k props', maybe False propRequired $ M.lookup k props) of
-            (False, True) -> issueAt cons (PropertyNowRequired k)
+            (False, True) -> issueAt beh (PropertyNowRequired k)
             _ -> pure ()
           pure ()
         case (madd', madd) of
           (Nothing, _) -> pure () -- vacuously
-          (_, Nothing) -> issueAt cons NoAdditionalProperties
-          (Just add', Just add) -> checkCompatibility env (ProdCons add' add)
+          (_, Nothing) -> issueAt beh NoAdditionalProperties
+          (Just add', Just add) -> checkCompatibility env (beh >>> step InAdditionalProperty) (ProdCons add' add)
         pure ()
-      Nothing -> issueAt cons NoMatchingProperties
+      Nothing -> issueAt beh NoMatchingProperties
     MaxProperties m -> case findRelevant min (\case MaxProperties m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' <= m then pure ()
-        else issueAt cons (MatchingMaxPropertiesWeak m m')
-      Nothing -> issueAt cons (NoMatchingMaxProperties m)
+        else issueAt beh (MatchingMaxPropertiesWeak m m')
+      Nothing -> issueAt beh (NoMatchingMaxProperties m)
     MinProperties m -> case findRelevant max (\case MinProperties m' -> Just m'; _ -> Nothing) prods of
       Just m' -> if m' >= m then pure ()
-        else issueAt cons (MatchingMinPropertiesWeak m m')
-      Nothing -> issueAt cons (NoMatchingMinProperties m)
+        else issueAt beh (MatchingMinPropertiesWeak m m')
+      Nothing -> issueAt beh (NoMatchingMinProperties m)
   where
-    findExactly ((extract -> Exactly x):_) = Just x
+    findExactly (Exactly x:_) = Just x
     findExactly (_:xs) = findExactly xs
     findExactly [] = Nothing
     findRelevant combine extr
-      = fmap (foldr1 combine) . NE.nonEmpty . mapMaybe (extr . extract)
+      = fmap (foldr1 combine) . NE.nonEmpty . mapMaybe extr
     lcmScientific (toRational -> a) (toRational -> b)
       = fromRational $ lcm (numerator a) (numerator b) % gcd (denominator a) (denominator b)
 
-instance Typeable t => Subtree (Condition t) where
-  data CheckIssue (Condition t)
-    = EnumDoesntSatisfy (TypedValue t)
-    | NoMatchingEnum (TypedValue t)
+instance Issuable 'TypedSchemaLevel where
+  data Issue 'TypedSchemaLevel
+    = EnumDoesntSatisfy A.Value
+    | NoMatchingEnum A.Value
     | NoMatchingMaximum (Bound Scientific)
     | MatchingMaximumWeak (Bound Scientific) (Bound Scientific)
     | NoMatchingMinimum (Bound Scientific)
@@ -771,29 +776,42 @@ instance Typeable t => Subtree (Condition t) where
     | MatchingMaxPropertiesWeak Integer Integer
     | NoMatchingMinProperties Integer
     | MatchingMinPropertiesWeak Integer Integer
-    deriving stock (Eq, Ord, Show)
-  type CheckEnv (Condition t) = CheckEnv Schema
-  normalizeTrace = undefined
-  checkCompatibility env pc = checkImplication env [producer pc] (consumer pc)
-
-instance Subtree Schema where
-  data CheckIssue Schema
-    = NotSupported Text
-    | InvalidSchema Text
     | NoMatchingCondition [SomeCondition]
     | NoContradiction
     deriving stock (Eq, Ord, Show)
-  type CheckEnv Schema = '[ProdCons (Definitions Schema)]
-  checkCompatibility env schs = do
+  issueIsUnsupported _ = False
+
+instance Issuable 'SchemaLevel where
+  data Issue 'SchemaLevel
+    = NotSupported Text
+    | InvalidSchema Text
+    deriving stock (Eq, Ord, Show)
+  issueIsUnsupported _ = True
+
+instance Behavable 'SchemaLevel 'TypedSchemaLevel where
+  data Behave 'SchemaLevel 'TypedSchemaLevel
+    = OfType JsonType
+    deriving stock (Eq, Ord, Show)
+
+instance Behavable 'TypedSchemaLevel 'SchemaLevel where
+  data Behave 'TypedSchemaLevel 'SchemaLevel
+    = InItems
+    | InProperty Text
+    | InAdditionalProperty
+    deriving stock (Eq, Ord, Show)
+
+instance Subtree Schema where
+  type SubtreeLevel Schema = 'SchemaLevel
+  type CheckEnv Schema = '[ProdCons (Traced (Definitions Schema))]
+  checkCompatibility env beh schs = do
     let defs = getH env
-    checkFormulas env (ask $ producer schs) $ schemaToFormula <$> defs <*> schs
+    checkFormulas env beh $ schemaToFormula <$> defs <*> schs
 
 instance Subtree (Referenced Schema) where
-  data CheckIssue (Referenced Schema)
-    deriving stock (Eq, Ord, Show)
+  type SubtreeLevel (Referenced Schema) = 'SchemaLevel
   type CheckEnv (Referenced Schema) = CheckEnv Schema
-  checkCompatibility env refs = do
+  checkCompatibility env beh refs = do
     let
       defs = getH env
       schs = dereference <$> defs <*> refs
-    checkFormulas env (ask $ producer schs) $ schemaToFormula <$> defs <*> schs
+    checkFormulas env beh $ schemaToFormula <$> defs <*> schs

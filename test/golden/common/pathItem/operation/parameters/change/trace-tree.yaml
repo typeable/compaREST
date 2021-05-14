@@ -1,8 +1,6 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationParamsStep 0:
-          InlineStep:
-            ParamSchema:
-              InlineStep: NoContradiction
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      InParam "test":
+        InParamSchema:
+          OfType String: NoContradiction

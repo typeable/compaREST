@@ -2,17 +2,18 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module OpenAPI.Checker.Validate.Param
-  ( CheckIssue (..)
+  ( Behave (..)
+  , Issue (..)
   ) where
 
 import Control.Lens
 import Control.Monad
 import Data.Maybe
 import Data.OpenApi
-import Data.Text
-import OpenAPI.Checker.Orphans
+import Data.Text as T
+import OpenAPI.Checker.Behavior
+import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Schema ()
 
 -- | The type is normalized encoding style of the parameter. If two encoding
@@ -42,14 +43,12 @@ paramEncoding p = EncodingStyle
       ParamQuery -> Just $ fromMaybe False $ _paramAllowReserved p
       _ -> Nothing
 
-tracedSchema :: Traced r Param -> Maybe (Traced r (Referenced Schema))
+tracedSchema :: Traced Param -> Maybe (Traced (Referenced Schema))
 tracedSchema par = _paramSchema (extract par) <&> traced (ask par >>> step ParamSchema)
 
-instance Subtree Param where
-  type CheckEnv Param = '[ProdCons (Definitions Schema)]
-  data CheckIssue Param
-    = ParamNotMatched Text
-    | ParamNameMismatch
+instance Issuable 'PathFragmentLevel where
+  data Issue 'PathFragmentLevel
+    = ParamNameMismatch
     -- ^ Params have different names
     | ParamEmptinessIncompatible
     -- ^ Consumer requires non-empty param, but producer gives emptyable
@@ -60,28 +59,39 @@ instance Subtree Param where
     -- ^ Params encoded in different styles
     | ParamSchemaMismatch
     -- ^ One of schemas not presented
+    | PathFragmentsDontMatch Text Text
     deriving (Eq, Ord, Show)
-  checkCompatibility env pc@(ProdCons p c) = do
+  issueIsUnsupported _ = False
+
+instance Behavable 'PathFragmentLevel 'SchemaLevel where
+  data Behave 'PathFragmentLevel 'SchemaLevel
+    = InParamSchema
+    deriving (Eq, Ord, Show)
+
+instance Subtree Param where
+  type SubtreeLevel Param = 'PathFragmentLevel
+  type CheckEnv Param = '[ProdCons (Traced (Definitions Schema))]
+  checkCompatibility env beh pc@(ProdCons p c) = do
     when (_paramName (extract p) /= _paramName (extract c))
-      $ issueAt p ParamNameMismatch
+      $ issueAt beh ParamNameMismatch
     when ((fromMaybe False . _paramRequired . extract $ c) &&
           not (fromMaybe False . _paramRequired . extract $ p))
-      $ issueAt p ParamRequired
+      $ issueAt beh ParamRequired
     case (_paramIn . extract $ p, _paramIn . extract $ c) of
       (ParamQuery, ParamQuery) -> do
         -- Emptiness is only for query params
         when ((fromMaybe False . _paramAllowEmptyValue . extract $ p)
               && not (fromMaybe False . _paramAllowEmptyValue . extract $ c))
-          $ issueAt p ParamEmptinessIncompatible
+          $ issueAt beh ParamEmptinessIncompatible
       (a, b) | a == b -> pure ()
-      _ -> issueAt p ParamPlaceIncompatible
+      _ -> issueAt beh ParamPlaceIncompatible
     unless (paramEncoding (extract p) == paramEncoding (extract c))
-      $ issueAt p ParamStyleMismatch
+      $ issueAt beh ParamStyleMismatch
     case tracedSchema <$> pc of
       ProdCons (Just prodSchema) (Just consSchema) -> do
-        checkCompatibility env $ ProdCons prodSchema consSchema
+        checkCompatibility env (beh >>> step InParamSchema) $ ProdCons prodSchema consSchema
       ProdCons Nothing Nothing -> pure ()
-      ProdCons Nothing (Just _consSchema) -> issueAt p ParamSchemaMismatch
+      ProdCons Nothing (Just _consSchema) -> issueAt beh ParamSchemaMismatch
       ProdCons (Just _prodSchema) Nothing -> pure ()
       -- If consumer doesn't care then why we should?
     pure ()

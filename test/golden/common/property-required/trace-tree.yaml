@@ -1,10 +1,7 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationRequestBodyStep:
-          InlineStep:
-            RequestMediaTypeObject application/json:
-              MediaTypeSchema:
-                ReferencedStep (Reference {getReference = "Test"}):
-                  PropertiesFields: PropertyNowRequired "property2"
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Object: PropertyNowRequired "property2"

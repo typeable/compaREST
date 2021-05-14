@@ -1,10 +1,7 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationRequestBodyStep:
-          InlineStep:
-            RequestMediaTypeObject application/json:
-              MediaTypeSchema:
-                ReferencedStep (Reference {getReference = "Test"}):
-                  MaximumFields: MatchingMaximumWeak (Inclusive 2.0) (Inclusive 3.0)
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Number: MatchingMaximumWeak (Inclusive 2.0) (Inclusive 3.0)

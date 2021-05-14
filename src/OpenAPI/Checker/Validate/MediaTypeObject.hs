@@ -1,7 +1,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module OpenAPI.Checker.Validate.MediaTypeObject
-  ( CheckIssue(..)
+  ( Issue(..)
+  , Behave(..)
   ) where
 
 import Control.Lens
@@ -12,30 +13,42 @@ import Data.Map.Strict as M
 import Data.OpenApi
 import Data.Text (Text)
 import Network.HTTP.Media (MediaType, mainType, subType)
+import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
 
-tracedSchema :: Traced r MediaTypeObject -> Maybe (Traced r (Referenced Schema))
+tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
 
-tracedEncoding :: Traced r MediaTypeObject -> InsOrdHashMap Text (Traced r Encoding)
+tracedEncoding :: Traced MediaTypeObject -> InsOrdHashMap Text (Traced Encoding)
 tracedEncoding mto = IOHM.mapWithKey (\k -> traced (ask mto >>> step (MediaTypeParamEncoding k)))
   $ _mediaTypeObjectEncoding $ extract mto
 
-instance Subtree MediaTypeObject where
-  type CheckEnv MediaTypeObject =
-    '[ MediaType
-     , ProdCons (Definitions Schema)
-     ]
-  data CheckIssue MediaTypeObject
-    = RequestMediaTypeNotFound
-    | ResponseMediaTypeMissing
+instance Issuable 'PayloadLevel where
+  data Issue 'PayloadLevel
+    = PayloadMediaTypeNotFound
     | MediaEncodingIncompat
     | MediaTypeSchemaRequired
+    | MediaEncodingMissing Text
+    | EncodingNotSupported
     deriving (Eq, Ord, Show)
-  checkCompatibility env prodCons@(ProdCons p c) = do
+  issueIsUnsupported = \case
+    EncodingNotSupported -> True
+    _ -> False
+
+instance Behavable 'PayloadLevel 'SchemaLevel where
+  data Behave 'PayloadLevel 'SchemaLevel
+    = PayloadSchema
+    deriving (Eq, Ord, Show)
+
+instance Subtree MediaTypeObject where
+  type SubtreeLevel MediaTypeObject = 'PayloadLevel
+  type CheckEnv MediaTypeObject =
+    '[ MediaType
+     , ProdCons (Traced (Definitions Schema))
+     ]
+  checkCompatibility env beh prodCons@(ProdCons p c) = do
     if | "multipart" == mainType mediaType -> checkEncoding
        | "application" == mainType mediaType &&
          "x-www-form-urlencoded" == subType mediaType -> checkEncoding
@@ -44,8 +57,9 @@ instance Subtree MediaTypeObject where
     -- request
     for_ (tracedSchema c) $ \consRef ->
         case tracedSchema p of
-          Nothing -> issueAt p MediaTypeSchemaRequired
-          Just prodRef -> checkCompatibility env $ ProdCons prodRef consRef
+          Nothing -> issueAt beh MediaTypeSchemaRequired
+          Just prodRef -> checkCompatibility env (beh >>> step PayloadSchema)
+            $ ProdCons prodRef consRef
     pure ()
     where
       mediaType = getH @MediaType env
@@ -56,22 +70,19 @@ instance Subtree MediaTypeObject where
             $ (IOHM.toList $ tracedEncoding mt) <&> \(k, enc) ->
             ( k
             , ProductLike
-              { tracedValue = enc
+              { productValue = enc
               , required = True } )
           encProdCons = getEncoding <$> prodCons
-        in checkProducts (const MediaEncodingMissing)
-           (const $ checkCompatibility HNil) encProdCons
+        in checkProducts beh MediaEncodingMissing
+           (const $ checkCompatibility HNil beh) encProdCons
 
 instance Subtree Encoding where
+  type SubtreeLevel Encoding = 'PayloadLevel
   type CheckEnv Encoding = '[]
-  data CheckIssue Encoding
-    = MediaEncodingMissing
-    | EncodingNotSupported
     --  FIXME: Support only JSON body for now. Then Encoding is checked only for
     --  multipart/form-url-encoded
-    deriving (Eq, Ord, Show)
-  checkCompatibility _env pc =
-    issueAt (producer pc) EncodingNotSupported
+  checkCompatibility _env beh _pc =
+    issueAt beh EncodingNotSupported
 
 instance Steppable MediaTypeObject (Referenced Schema) where
   data Step MediaTypeObject (Referenced Schema) = MediaTypeSchema
@@ -80,3 +91,20 @@ instance Steppable MediaTypeObject (Referenced Schema) where
 instance Steppable MediaTypeObject Encoding where
   data Step MediaTypeObject Encoding = MediaTypeParamEncoding Text
     deriving (Eq, Ord, Show)
+
+instance Behavable 'OperationLevel 'ResponseLevel where
+  data Behave 'OperationLevel 'ResponseLevel
+    = WithStatusCode HttpStatusCode
+    deriving stock (Eq, Ord, Show)
+
+instance Issuable 'OperationLevel where
+  data Issue 'OperationLevel
+    = ResponseCodeNotFound HttpStatusCode
+    | CallbacksNotSupported
+    | ParamNotMatched Text
+    | PathFragmentNotMatched Int
+    | NoRequestBody
+    deriving stock (Eq, Ord, Show)
+  issueIsUnsupported = \case
+    CallbacksNotSupported -> True
+    _ -> False

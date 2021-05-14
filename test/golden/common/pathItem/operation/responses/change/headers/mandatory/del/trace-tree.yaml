@@ -1,9 +1,4 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationResponsesStep:
-          ResponseCodeStep 200:
-            InlineStep:
-              ResponseHeader "Test2":
-                InlineStep: ResponseHeaderMissing
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      WithStatusCode 200: ResponseHeaderMissing "Test2"

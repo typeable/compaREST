@@ -2,7 +2,6 @@ module OpenAPI.Checker.Validate.PathFragment
   ( parsePath
   , PathFragment (..)
   , PathFragmentParam
-  , CheckIssue (..)
   )
 where
 
@@ -11,9 +10,9 @@ import Data.OpenApi
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable
+import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
-import OpenAPI.Checker.Trace
-import OpenAPI.Checker.Validate.Param ()
+import OpenAPI.Checker.Validate.Param
 
 -- TODO: templates can be only part of the PathFragment. Currently only supports templates as full PathFragment.
 -- https://github.com/typeable/openapi-diff/issues/23
@@ -35,13 +34,13 @@ data PathFragment param
   | DynamicPath param
   deriving stock (Eq, Ord)
 
-type PathFragmentParam = PathFragment (Traced OpenApi Param)
+type PathFragmentParam = PathFragment (Traced Param)
 
 instance (Typeable param) => Steppable (PathFragment param) Param where
   data Step (PathFragment param) Param = StaticPathParam Text
     deriving (Eq, Ord, Show)
 
-tracedPathFragmentParam :: Traced OpenApi PathFragmentParam -> Traced OpenApi Param
+tracedPathFragmentParam :: Traced PathFragmentParam -> Traced Param
 tracedPathFragmentParam pfp = case extract pfp of
   StaticPath s -> traced (ask pfp >>> step (StaticPathParam s))
     $ mempty
@@ -61,16 +60,13 @@ staticStringSchema t =
     }
 
 instance Subtree PathFragmentParam where
+  type SubtreeLevel PathFragmentParam = 'PathFragmentLevel
   type CheckEnv PathFragmentParam =
-    '[ ProdCons (Definitions Schema) ]
-  data CheckIssue PathFragmentParam
-    = PathFragmentNotMatched
-    | PathFragmentsDontMatch Text Text
-    deriving (Eq, Ord, Show)
+    '[ ProdCons (Traced (Definitions Schema)) ]
   -- This case isn't strictly needed. It is here for optimization.
-  checkCompatibility _ (ProdCons (extract -> StaticPath x) c@(extract -> StaticPath y))
+  checkCompatibility _ beh (ProdCons (extract -> StaticPath x) (extract -> StaticPath y))
     = if x == y
       then pure ()
-      else issueAt c (PathFragmentsDontMatch x y)
-  checkCompatibility env prodCons = do
-    checkCompatibility env (tracedPathFragmentParam <$> prodCons)
+      else issueAt beh (PathFragmentsDontMatch x y)
+  checkCompatibility env beh prodCons = do
+    checkCompatibility env beh (tracedPathFragmentParam <$> prodCons)

@@ -1,10 +1,7 @@
 Left:
-  OpenApiPathsStep:
-    MatchedPathStep "/test":
-      OperationMethodStep PostMethod:
-        OperationResponsesStep:
-          ResponseCodeStep 200:
-            InlineStep:
-              ResponseMediaObject application/json:
-                MediaTypeSchema:
-                  InlineStep: NoContradiction
+  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Boolean: NoContradiction
