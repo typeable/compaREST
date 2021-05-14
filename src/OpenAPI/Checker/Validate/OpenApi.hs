@@ -46,6 +46,8 @@ tracedSchemas oa = traced (ask oa >>> step ComponentsSchema)
 instance Subtree OpenApi where
   type SubtreeLevel OpenApi = 'APILevel
   type CheckEnv OpenApi = '[]
+  -- There is no real reason to do a proper implementation
+  checkStructuralCompatibility _ _ = structuralIssue
   checkSemanticCompatibility _ beh prodCons = do
     checkCompatibility @ProcessedPathItems
       ((tracedRequestBodies <$> prodCons)

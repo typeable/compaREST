@@ -17,6 +17,8 @@ import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
+import OpenAPI.Checker.Validate.Header ()
+
 
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
@@ -47,7 +49,13 @@ instance Subtree MediaTypeObject where
   type CheckEnv MediaTypeObject =
     '[ MediaType
      , ProdCons (Traced (Definitions Schema))
+     , ProdCons (Traced (Definitions Header))
      ]
+  checkStructuralCompatibility env pc = do
+    structuralMaybe env $ _mediaTypeObjectSchema <$> pc
+    structuralEq $ _mediaTypeObjectExample <$> pc
+    iohmStructuralCompatibility env $ _mediaTypeObjectEncoding <$> pc
+    pure ()
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) = do
     if | "multipart" == mainType mediaType -> checkEncoding
        | "application" == mainType mediaType &&
@@ -74,14 +82,26 @@ instance Subtree MediaTypeObject where
               , required = True } )
           encProdCons = getEncoding <$> prodCons
         in checkProducts beh MediaEncodingMissing
-           (const $ checkCompatibility HNil beh) encProdCons
+           (const $ checkCompatibility env beh) encProdCons
 
 instance Subtree Encoding where
   type SubtreeLevel Encoding = 'PayloadLevel
-  type CheckEnv Encoding = '[]
-    --  FIXME: Support only JSON body for now. Then Encoding is checked only for
-    --  multipart/form-url-encoded
-    --  https://github.com/typeable/openapi-diff/issues/54
+  type
+    CheckEnv Encoding =
+      '[ ProdCons (Traced (Definitions Header))
+       , ProdCons (Traced (Definitions Schema))
+       ]
+  checkStructuralCompatibility env pc = do
+    structuralEq $ _encodingContentType <$> pc
+    iohmStructuralCompatibility env $ _encodingHeaders <$> pc
+    structuralEq $ _encodingStyle <$> pc
+    structuralEq $ _encodingExplode <$> pc
+    structuralEq $ _encodingAllowReserved <$> pc
+    pure ()
+
+  --  FIXME: Support only JSON body for now. Then Encoding is checked only for
+  --  multipart/form-url-encoded
+  --  https://github.com/typeable/openapi-diff/issues/54
   checkSemanticCompatibility _env beh _pc =
     issueAt beh EncodingNotSupported
 

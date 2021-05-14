@@ -45,7 +45,6 @@ import OpenAPI.Checker.References
 import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
 import OpenAPI.Checker.Subtree
-import qualified Data.OpenApi.Schema.Generator as G
 
 -- | Type of a JSON value
 data JsonType
@@ -807,14 +806,4 @@ instance Subtree Schema where
   checkStructuralCompatibility _ pc = eqStructuralCompatibility HNil pc
   checkSemanticCompatibility env beh schs = do
     let defs = getH env
-    checkFormulas env beh $ schemaToFormula <$> defs <*> schs
-
-instance Subtree (Referenced Schema) where
-  type SubtreeLevel (Referenced Schema) = 'SchemaLevel
-  type CheckEnv (Referenced Schema) = CheckEnv Schema
-  checkStructuralCompatibility env pc = checkStructuralCompatibility env $ G.dereference . extract <$> getH @(ProdCons (Traced (Definitions Schema))) env <*> pc
-  checkSemanticCompatibility env beh refs = do
-    let
-      defs = getH env
-      schs = dereference <$> defs <*> refs
     checkFormulas env beh $ schemaToFormula <$> defs <*> schs

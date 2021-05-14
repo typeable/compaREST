@@ -53,6 +53,7 @@ common common-options
                      , unordered-containers
                      , vector
                      , yaml
+                     , hashable
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -122,6 +123,7 @@ library
                   , OpenAPI.Checker.Validate.SecurityRequirement
                   , OpenAPI.Checker.Validate.Server
                   , OpenAPI.Checker.Validate.Sums
+                  , OpenAPI.Checker.Validate.Header
                   , OpenAPI.Checker.Common
 
 executable openapi-diff

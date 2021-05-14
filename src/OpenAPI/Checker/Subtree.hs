@@ -23,6 +23,11 @@ module OpenAPI.Checker.Subtree
   , structuralIssue
   , memo
 
+    -- * Structural helpers
+  , structuralMaybe
+  , structuralEq
+  , iohmStructuralCompatibility
+
     -- * Reexports
   , (>>>)
   , (<<<)
@@ -36,11 +41,15 @@ where
 import Control.Comonad.Env
 import Control.Monad.Identity
 import Control.Monad.State
+import Data.Foldable
 import Data.Functor.Compose
 import Data.HList
+import qualified Data.HashMap.Strict.InsOrd as IOHM
+import Data.Hashable
 import Data.Kind
 import Data.Monoid
 import Data.OpenApi
+import qualified Data.Set as S
 import Data.Typeable
 import Network.HTTP.Media
 import OpenAPI.Checker.Behavior
@@ -139,6 +148,34 @@ checkCompatibility e bhv pc =
   case runCompatFormula $ checkStructuralCompatibility e $ fmap extract pc of
     Left _ -> checkSemanticCompatibility e bhv pc
     Right () -> pure ()
+
+structuralMaybe
+  :: (Subtree a, HasAll (CheckEnv a) xs, ProdConsEqHList xs)
+  => HList xs
+  -> ProdCons (Maybe a)
+  -> StructuralCompatFormula ()
+structuralMaybe e (ProdCons (Just a) (Just b)) = checkStructuralCompatibility e $ ProdCons a b
+structuralMaybe _ (ProdCons Nothing Nothing) = pure ()
+structuralMaybe _ _ = structuralIssue
+
+structuralEq :: Eq a => ProdCons a -> StructuralCompatFormula ()
+structuralEq (ProdCons a b) = if a == b then pure () else structuralIssue
+
+iohmStructuralCompatibility
+  :: (HasAll (CheckEnv v) xs, Ord k, Subtree v, ProdConsEqHList xs, Hashable k)
+  => HList xs
+  -> ProdCons (IOHM.InsOrdHashMap k v)
+  -> StructuralCompatFormula ()
+iohmStructuralCompatibility e pc = do
+  let ProdCons pEKeys cEKeys = S.fromList . IOHM.keys <$> pc
+  if pEKeys == cEKeys
+    then
+      for_
+        pEKeys
+        (\eKey ->
+           checkStructuralCompatibility e $
+             IOHM.lookupDefault (error "impossible") eKey <$> pc)
+    else structuralIssue
 
 eqStructuralCompatibility :: (Eq t, ProdConsEqHList xs) => HList xs -> ProdCons t -> StructuralCompatFormula ()
 eqStructuralCompatibility e (ProdCons p c) = unless (pcHListEq e && p == c) structuralIssue

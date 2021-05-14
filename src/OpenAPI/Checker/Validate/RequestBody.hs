@@ -17,8 +17,9 @@ import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.Sums
 
 tracedContent :: Traced RequestBody -> IOHM.InsOrdHashMap MediaType (Traced MediaTypeObject)
-tracedContent resp = IOHM.mapWithKey (\k -> traced (ask resp >>> step (RequestMediaTypeObject k)))
-  $ _requestBodyContent $ extract resp
+tracedContent resp =
+  IOHM.mapWithKey (\k -> traced (ask resp >>> step (RequestMediaTypeObject k))) $
+    _requestBodyContent $ extract resp
 
 instance Issuable 'RequestLevel where
   data Issue 'RequestLevel
@@ -34,19 +35,21 @@ instance Behavable 'RequestLevel 'PayloadLevel where
 
 instance Subtree RequestBody where
   type SubtreeLevel RequestBody = 'RequestLevel
-  type CheckEnv RequestBody =
-    '[ ProdCons (Traced (Definitions Schema)) ]
+  type
+    CheckEnv RequestBody =
+      '[ ProdCons (Traced (Definitions Schema))
+       , ProdCons (Traced (Definitions Header))
+       ]
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) =
     if not (fromMaybe False . _requestBodyRequired . extract $ p)
-        && (fromMaybe False . _requestBodyRequired . extract $ c)
-    then issueAt beh RequestBodyRequired
-    else
-      -- Media type object are sums-like entities.
-      let
-        check mediaType pc = checkCompatibility @MediaTypeObject (HCons mediaType env) (beh >>> step InPayload) pc
-        sumElts = getSum <$> prodCons
-        getSum rb = M.fromList . IOHM.toList $ tracedContent rb
-      in checkSums beh RequestMediaTypeNotFound check sumElts
+      && (fromMaybe False . _requestBodyRequired . extract $ c)
+      then issueAt beh RequestBodyRequired
+      else -- Media type object are sums-like entities.
+
+        let check mediaType pc = checkCompatibility @MediaTypeObject (HCons mediaType env) (beh >>> step InPayload) pc
+            sumElts = getSum <$> prodCons
+            getSum rb = M.fromList . IOHM.toList $ tracedContent rb
+         in checkSums beh RequestMediaTypeNotFound check sumElts
 
 instance Steppable RequestBody MediaTypeObject where
   data Step RequestBody MediaTypeObject = RequestMediaTypeObject MediaType
