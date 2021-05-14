@@ -598,7 +598,7 @@ schemaToFormula
 schemaToFormula defs rs = runWriter . (`runReaderT` defs) $ processSchema rs
 
 checkFormulas
-  :: (HasAll (CheckEnv Schema) xs, ProdConsEqHList xs)
+  :: (HasAll (CheckEnv Schema) xs)
   => HList xs
   -> Behavior 'SchemaLevel
   -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
@@ -651,7 +651,7 @@ checkContradiction
 checkContradiction beh _ = issueAt beh NoContradiction -- TODO
 
 checkImplication
-  :: (HasAll (CheckEnv Schema) xs, ProdConsEqHList xs)
+  :: (HasAll (CheckEnv Schema) xs)
   => HList xs
   -> Behavior 'TypedSchemaLevel
   -> [Condition t]
@@ -803,7 +803,7 @@ instance Behavable 'TypedSchemaLevel 'SchemaLevel where
 instance Subtree Schema where
   type SubtreeLevel Schema = 'SchemaLevel
   type CheckEnv Schema = '[ProdCons (Traced (Definitions Schema))]
-  checkStructuralCompatibility _ pc = eqStructuralCompatibility HNil pc
+  checkStructuralCompatibility _ = structuralEq -- TODO: This is really not right.
   checkSemanticCompatibility env beh schs = do
     let defs = getH env
     checkFormulas env beh $ schemaToFormula <$> defs <*> schs

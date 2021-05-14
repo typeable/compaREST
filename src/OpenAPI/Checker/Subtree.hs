@@ -9,11 +9,9 @@ module OpenAPI.Checker.Subtree
   , traced
   , Subtree (..)
   , checkCompatibility
-  , eqStructuralCompatibility
   , CompatM (..)
   , CompatFormula'
   , SemanticCompatFormula
-  , ProdConsEqHList
   , ProdCons (..)
   , HasUnsupportedFeature (..)
   , swapProdCons
@@ -50,9 +48,7 @@ import Data.Kind
 import Data.Monoid
 import Data.OpenApi
 import qualified Data.Set as S
-import qualified Data.Text as T
 import Data.Typeable
-import Network.HTTP.Media
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Formula
 import OpenAPI.Checker.Memo
@@ -124,23 +120,20 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   type SubtreeLevel t :: BehaviorLevel
 
   checkStructuralCompatibility
-    :: (HasAll (CheckEnv t) xs, ProdConsEqHList xs)
+    :: (HasAll (CheckEnv t) xs)
     => HList xs
     -> ProdCons t
     -> StructuralCompatFormula ()
-  default checkStructuralCompatibility
-    :: (Eq t, ProdConsEqHList xs) => HList xs -> ProdCons t -> StructuralCompatFormula ()
-  checkStructuralCompatibility = eqStructuralCompatibility
 
   checkSemanticCompatibility
-    :: (HasAll (CheckEnv t) xs, ProdConsEqHList xs)
+    :: (HasAll (CheckEnv t) xs)
     => HList xs
     -> Behavior (SubtreeLevel t)
     -> ProdCons (Traced t)
     -> SemanticCompatFormula ()
 
 checkCompatibility
-  :: (HasAll (CheckEnv t) xs, Subtree t, ProdConsEqHList xs)
+  :: (HasAll (CheckEnv t) xs, Subtree t)
   => HList xs
   -> Behavior (SubtreeLevel t)
   -> ProdCons (Traced t)
@@ -151,7 +144,7 @@ checkCompatibility e bhv pc =
     Right () -> pure ()
 
 structuralMaybe
-  :: (Subtree a, HasAll (CheckEnv a) xs, ProdConsEqHList xs)
+  :: (Subtree a, HasAll (CheckEnv a) xs)
   => HList xs
   -> ProdCons (Maybe a)
   -> StructuralCompatFormula ()
@@ -163,7 +156,7 @@ structuralEq :: Eq a => ProdCons a -> StructuralCompatFormula ()
 structuralEq (ProdCons a b) = if a == b then pure () else structuralIssue
 
 iohmStructuralCompatibility
-  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, ProdConsEqHList (k ': xs), Hashable k)
+  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, Hashable k)
   => HList xs
   -> ProdCons (IOHM.InsOrdHashMap k v)
   -> StructuralCompatFormula ()
@@ -177,29 +170,6 @@ iohmStructuralCompatibility e pc = do
            checkStructuralCompatibility (eKey `HCons` e) $
              IOHM.lookupDefault (error "impossible") eKey <$> pc)
     else structuralIssue
-
-eqStructuralCompatibility :: (Eq t, ProdConsEqHList xs) => HList xs -> ProdCons t -> StructuralCompatFormula ()
-eqStructuralCompatibility e (ProdCons p c) = unless (pcHListEq e && p == c) structuralIssue
-
-class ProdConsEqHList xs where
-  pcHListEq :: HList xs -> Bool
-
-instance ProdConsEqHList '[] where
-  pcHListEq HNil = True
-
-instance (Eq x, ProdConsEqHList xs) => ProdConsEqHList (ProdCons x ': xs) where
-  pcHListEq (HCons (ProdCons a b) xs) = a == b && pcHListEq xs
-
-instance ProdConsEqHList xs => ProdConsEqHList (MediaType ': xs) where
-  pcHListEq (HCons _ xs) = pcHListEq xs
-
-instance ProdConsEqHList xs => ProdConsEqHList (T.Text ': xs) where
-  pcHListEq (HCons _ xs) = pcHListEq xs
-
-instance ProdConsEqHList xs => ProdConsEqHList (HttpStatusCode ': xs) where
-  pcHListEq (HCons _ xs) = pcHListEq xs
-
-
 
 class HasUnsupportedFeature x where
   hasUnsupportedFeature :: x -> Bool
