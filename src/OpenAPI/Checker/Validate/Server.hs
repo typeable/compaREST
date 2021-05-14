@@ -59,7 +59,7 @@ instance Subtree [Server] where
     sequenceA_ cErrs
     for_ pUrls $ \(bhv, pUrl) -> do
       let potentiallyCompatible = P.filter ((staticCompatible `on` extract) pUrl) $ fmap snd cUrls
-      anyOfSubtreeAt
+      anyOfAt
         bhv
         ServerNotMatched
         [ checkCompatibility env bhv (ProdCons pUrl cUrl)

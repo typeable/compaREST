@@ -15,7 +15,6 @@ module OpenAPI.Checker.Subtree
   , runCompatFormula
   , issueAt
   , anyOfAt
-  , anyOfSubtreeAt
   , memo
 
     -- * Reexports
@@ -144,17 +143,9 @@ anyOfAt
   -> Issue l
   -> [CompatFormula' q AnIssue r a]
   -> CompatFormula' q AnIssue r a
+anyOfAt _ _ [x] = x
 anyOfAt xs issue fs =
   Compose $ (`eitherOf` AnItem xs (AnIssue issue)) <$> sequenceA (getCompose <$> fs)
-
-anyOfSubtreeAt
-  :: Issuable l
-  => Paths q r l
-  -> Issue l
-  -> [CompatFormula' q AnIssue r a]
-  -> CompatFormula' q AnIssue r a
-anyOfSubtreeAt _ _ [x] = x
-anyOfSubtreeAt f i fs = anyOfAt f i fs
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m
