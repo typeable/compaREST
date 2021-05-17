@@ -43,10 +43,16 @@ tracedSchemas :: Traced OpenApi -> Traced (Definitions Schema)
 tracedSchemas oa = traced (ask oa >>> step ComponentsSchema)
   (_componentsSchemas . _openApiComponents . extract $ oa)
 
+tracedLinks :: Traced OpenApi -> Traced (Definitions Link)
+tracedLinks oa = traced (ask oa >>> step ComponentsLink)
+  (_componentsLinks . _openApiComponents . extract $ oa)
+
 instance Subtree OpenApi where
   type SubtreeLevel OpenApi = 'APILevel
   type CheckEnv OpenApi = '[]
-  checkCompatibility _ beh prodCons = do
+  -- There is no real reason to do a proper implementation
+  checkStructuralCompatibility _ _ = structuralIssue
+  checkSemanticCompatibility _ beh prodCons = do
     checkCompatibility @ProcessedPathItems
       ((tracedRequestBodies <$> prodCons)
          `HCons` (tracedParameters <$> prodCons)
@@ -55,6 +61,7 @@ instance Subtree OpenApi where
          `HCons` (tracedHeaders <$> prodCons)
          `HCons` (tracedSchemas <$> prodCons)
          `HCons` (_openApiServers . extract <$> prodCons)
+         `HCons` (tracedLinks <$> prodCons)
          `HCons` HNil)
       beh (tracedPaths <$> prodCons)
 
@@ -84,4 +91,8 @@ instance Steppable OpenApi (Definitions Header) where
 
 instance Steppable OpenApi (Definitions Schema) where
   data Step OpenApi (Definitions Schema) = ComponentsSchema
+    deriving (Eq, Ord, Show)
+
+instance Steppable OpenApi (Definitions Link) where
+  data Step OpenApi (Definitions Link) = ComponentsLink
     deriving (Eq, Ord, Show)

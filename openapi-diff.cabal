@@ -53,6 +53,7 @@ common common-options
                      , unordered-containers
                      , vector
                      , yaml
+                     , hashable
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -93,6 +94,7 @@ common common-options
                     , UndecidableInstances
                     , ViewPatterns
                     , QuantifiedConstraints
+                    , DefaultSignatures
 
 library
   import:              common-options
@@ -121,6 +123,9 @@ library
                   , OpenAPI.Checker.Validate.SecurityRequirement
                   , OpenAPI.Checker.Validate.Server
                   , OpenAPI.Checker.Validate.Sums
+                  , OpenAPI.Checker.Validate.Header
+                  , OpenAPI.Checker.Validate.Link
+                  , OpenAPI.Checker.Common
 
 executable openapi-diff
   import:              common-options

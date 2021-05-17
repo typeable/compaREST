@@ -26,6 +26,7 @@ data BehaviorLevel
     PayloadLevel
   | SchemaLevel
   | TypedSchemaLevel
+  | LinkLevel
 
 class (Ord (Behave a b), Show (Behave a b))
   => Behavable (a :: BehaviorLevel) (b :: BehaviorLevel) where

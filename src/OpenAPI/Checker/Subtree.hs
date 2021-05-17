@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module OpenAPI.Checker.Subtree
   ( Steppable (..)
   , Trace
@@ -6,16 +8,26 @@ module OpenAPI.Checker.Subtree
   , pattern Traced
   , traced
   , Subtree (..)
+  , checkCompatibility
   , CompatM (..)
   , CompatFormula'
-  , CompatFormula
+  , SemanticCompatFormula
   , ProdCons (..)
   , HasUnsupportedFeature (..)
   , swapProdCons
   , runCompatFormula
   , issueAt
   , anyOfAt
+  , structuralIssue
   , memo
+
+    -- * Structural helpers
+  , structuralMaybe
+  , structuralMaybeWith
+  , structuralEq
+  , iohmStructural
+  , iohmStructuralWith
+  , structuralList
 
     -- * Reexports
   , (>>>)
@@ -30,11 +42,15 @@ where
 import Control.Comonad.Env
 import Control.Monad.Identity
 import Control.Monad.State
+import Data.Foldable
 import Data.Functor.Compose
 import Data.HList
+import qualified Data.HashMap.Strict.InsOrd as IOHM
+import Data.Hashable
 import Data.Kind
 import Data.Monoid
 import Data.OpenApi
+import qualified Data.Set as S
 import Data.Typeable
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Formula
@@ -89,18 +105,97 @@ newtype CompatM a = CompatM
 
 type CompatFormula' q f r = Compose CompatM (FormulaF q f r)
 
-type CompatFormula = CompatFormula' Behave AnIssue 'APILevel
+type SemanticCompatFormula = CompatFormula' Behave AnIssue 'APILevel
+
+type StructuralCompatFormula = CompatFormula' UnitQuiver Proxy ()
+
+data UnitQuiver a b where
+  UnitQuiver :: UnitQuiver () ()
+
+deriving stock instance Eq (UnitQuiver a b)
+
+deriving stock instance Ord (UnitQuiver a b)
+
+deriving stock instance Show (UnitQuiver a b)
 
 class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   type CheckEnv t :: [Type]
   type SubtreeLevel t :: BehaviorLevel
 
-  checkCompatibility
-    :: HasAll (CheckEnv t) xs
+  checkStructuralCompatibility
+    :: (HasAll (CheckEnv t) xs)
+    => HList xs
+    -> ProdCons t
+    -> StructuralCompatFormula ()
+
+  checkSemanticCompatibility
+    :: (HasAll (CheckEnv t) xs)
     => HList xs
     -> Behavior (SubtreeLevel t)
     -> ProdCons (Traced t)
-    -> CompatFormula ()
+    -> SemanticCompatFormula ()
+
+checkCompatibility
+  :: (HasAll (CheckEnv t) xs, Subtree t)
+  => HList xs
+  -> Behavior (SubtreeLevel t)
+  -> ProdCons (Traced t)
+  -> SemanticCompatFormula ()
+checkCompatibility e bhv pc =
+  case runCompatFormula $ checkStructuralCompatibility e $ fmap extract pc of
+    Left _ -> checkSemanticCompatibility e bhv pc
+    Right () -> pure ()
+
+structuralMaybe
+  :: (Subtree a, HasAll (CheckEnv a) xs)
+  => HList xs
+  -> ProdCons (Maybe a)
+  -> StructuralCompatFormula ()
+structuralMaybe e = structuralMaybeWith (checkStructuralCompatibility e)
+
+structuralMaybeWith
+  :: (ProdCons a -> StructuralCompatFormula ())
+  -> ProdCons (Maybe a)
+  -> StructuralCompatFormula ()
+structuralMaybeWith f (ProdCons (Just a) (Just b)) = f $ ProdCons a b
+structuralMaybeWith _ (ProdCons Nothing Nothing) = pure ()
+structuralMaybeWith _ _ = structuralIssue
+
+structuralList
+  :: (Subtree a, HasAll (CheckEnv a) xs)
+  => HList xs -> ProdCons [a] -> StructuralCompatFormula ()
+structuralList _ (ProdCons [] []) = pure ()
+structuralList e (ProdCons (a:aa) (b:bb)) = do
+  checkStructuralCompatibility e $ ProdCons a b
+  structuralList e $ ProdCons aa bb
+  pure ()
+structuralList _ _ = structuralIssue
+
+structuralEq :: Eq a => ProdCons a -> StructuralCompatFormula ()
+structuralEq (ProdCons a b) = if a == b then pure () else structuralIssue
+
+iohmStructural
+  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, Hashable k)
+  => HList xs
+  -> ProdCons (IOHM.InsOrdHashMap k v)
+  -> StructuralCompatFormula ()
+iohmStructural e =
+  iohmStructuralWith (\k -> checkStructuralCompatibility (k `HCons` e))
+
+iohmStructuralWith
+  :: (Ord k, Hashable k)
+  => (k -> ProdCons v -> StructuralCompatFormula ())
+  -> ProdCons (IOHM.InsOrdHashMap k v)
+  -> StructuralCompatFormula ()
+iohmStructuralWith f pc = do
+  let ProdCons pEKeys cEKeys = S.fromList . IOHM.keys <$> pc
+  if pEKeys == cEKeys
+    then
+      for_
+        pEKeys
+        (\eKey ->
+           f eKey $ IOHM.lookupDefault (error "impossible") eKey <$> pc)
+    else structuralIssue
 
 class HasUnsupportedFeature x where
   hasUnsupportedFeature :: x -> Bool
@@ -136,6 +231,9 @@ runCompatFormula (Compose f) =
 
 issueAt :: Issuable l => Paths q r l -> Issue l -> CompatFormula' q AnIssue r a
 issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ AnIssue issue
+
+structuralIssue :: StructuralCompatFormula a
+structuralIssue = Compose $ pure $ anError $ AnItem (step UnitQuiver) Proxy
 
 anyOfAt
   :: Issuable l

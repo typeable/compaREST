@@ -2,7 +2,8 @@
 
 module OpenAPI.Checker.Validate.SecurityRequirement
   ( Issue (..)
-  ) where
+  )
+where
 
 import Data.OpenApi
 import OpenAPI.Checker.Behavior
@@ -20,4 +21,5 @@ instance Subtree SecurityRequirement where
     CheckEnv SecurityRequirement =
       '[ ProdCons (Traced (Definitions SecurityScheme))
        ]
-  checkCompatibility = undefined
+  checkStructuralCompatibility = undefined
+  checkSemanticCompatibility = undefined
