@@ -39,7 +39,7 @@ instance Subtree Responses where
 
   checkStructuralCompatibility env pc = do
     structuralMaybe env $ _responsesDefault <$> pc
-    iohmStructuralCompatibility env $ _responsesResponses <$> pc
+    iohmStructural env $ _responsesResponses <$> pc
     pure ()
 
   -- Roles are already swapped. Producer is a server and consumer is a
@@ -90,9 +90,9 @@ instance Subtree Response where
        , ProdCons (Traced (Definitions Link))
        ]
   checkStructuralCompatibility env pc = do
-    iohmStructuralCompatibility env $ _responseContent <$> pc
-    iohmStructuralCompatibility env $ _responseHeaders <$> pc
-    iohmStructuralCompatibility env $ _responseLinks <$> pc
+    iohmStructural env $ _responseContent <$> pc
+    iohmStructural env $ _responseHeaders <$> pc
+    iohmStructural env $ _responseLinks <$> pc
     pure ()
   checkSemanticCompatibility env beh prodCons = do
     -- Roles are already swapped. Producer is a server and consumer is a client

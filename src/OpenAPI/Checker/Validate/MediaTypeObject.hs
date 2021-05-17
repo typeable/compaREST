@@ -54,7 +54,7 @@ instance Subtree MediaTypeObject where
   checkStructuralCompatibility env pc = do
     structuralMaybe env $ _mediaTypeObjectSchema <$> pc
     structuralEq $ _mediaTypeObjectExample <$> pc
-    iohmStructuralCompatibility env $ _mediaTypeObjectEncoding <$> pc
+    iohmStructural env $ _mediaTypeObjectEncoding <$> pc
     pure ()
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) = do
     if | "multipart" == mainType mediaType -> checkEncoding
@@ -93,7 +93,7 @@ instance Subtree Encoding where
        ]
   checkStructuralCompatibility env pc = do
     structuralEq $ _encodingContentType <$> pc
-    iohmStructuralCompatibility env $ _encodingHeaders <$> pc
+    iohmStructural env $ _encodingHeaders <$> pc
     structuralEq $ _encodingStyle <$> pc
     structuralEq $ _encodingExplode <$> pc
     structuralEq $ _encodingAllowReserved <$> pc

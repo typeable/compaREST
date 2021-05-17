@@ -38,6 +38,7 @@ import Data.Scientific
 import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T hiding (singleton)
+import qualified Data.Text.Encoding as T
 import Data.Typeable
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Orphans ()
@@ -45,6 +46,7 @@ import OpenAPI.Checker.References
 import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
 import OpenAPI.Checker.Subtree
+import Debug.Trace
 
 -- | Type of a JSON value
 data JsonType
@@ -803,7 +805,62 @@ instance Behavable 'TypedSchemaLevel 'SchemaLevel where
 instance Subtree Schema where
   type SubtreeLevel Schema = 'SchemaLevel
   type CheckEnv Schema = '[ProdCons (Traced (Definitions Schema))]
-  checkStructuralCompatibility _ = structuralEq -- TODO: This is really not right.
+  checkStructuralCompatibility env pc = do
+    traceShowM pc
+    structuralEq $ _schemaRequired <$> pc
+    structuralMaybeWith structuralEq $ _schemaNullable <$> pc
+    structuralMaybeWith (structuralList env) $ _schemaAllOf <$> pc
+    structuralMaybeWith (structuralList env) $ _schemaOneOf <$> pc
+    structuralMaybe env $ _schemaNot <$> pc
+    structuralMaybeWith (structuralList env) $ _schemaAnyOf <$> pc
+    iohmStructural env $ _schemaProperties <$> pc
+    structuralMaybeWith structuralAdditionalProperties $ _schemaAdditionalProperties <$> pc
+    structuralMaybeWith structuralDiscriminator $ _schemaDiscriminator <$> pc
+    structuralEq $ _schemaReadOnly <$> pc
+    structuralEq $ _schemaWriteOnly <$> pc
+    structuralEq $ _schemaXml <$> pc
+    structuralEq $ _schemaMaxProperties <$> pc
+    structuralEq $ _schemaMinProperties <$> pc
+    structuralEq $ _schemaDefault <$> pc
+    structuralEq $ _schemaType <$> pc
+    structuralEq $ _schemaFormat <$> pc
+    structuralMaybeWith structuralItems $ _schemaItems <$> pc
+    structuralEq $ _schemaMaximum <$> pc
+    structuralEq $ _schemaExclusiveMaximum <$> pc
+    structuralEq $ _schemaMinimum <$> pc
+    structuralEq $ _schemaExclusiveMinimum <$> pc
+    structuralEq $ _schemaMaxLength <$> pc
+    structuralEq $ _schemaMinLength <$> pc
+    structuralEq $ _schemaPattern <$> pc
+    structuralEq $ _schemaMaxItems <$> pc
+    structuralEq $ _schemaMinItems <$> pc
+    structuralEq $ _schemaUniqueItems <$> pc
+    structuralEq $ _schemaEnum <$> pc
+    structuralEq $ _schemaMultipleOf <$> pc
+    pure ()
+    where
+      structuralAdditionalProperties
+        (ProdCons (AdditionalPropertiesAllowed x) (AdditionalPropertiesAllowed y)) =
+          structuralEq $ ProdCons x y
+      structuralAdditionalProperties
+        (ProdCons (AdditionalPropertiesSchema x) (AdditionalPropertiesSchema y)) =
+          checkStructuralCompatibility env $ ProdCons x y
+      structuralAdditionalProperties _ = structuralIssue
+      structuralDiscriminator pc' = do
+        structuralEq $ _discriminatorPropertyName <$> pc'
+        iohmStructuralWith
+          (\_ mappingPC -> case A.decodeStrict @(Referenced Schema) . T.encodeUtf8 <$> mappingPC of
+            ProdCons (Just a) (Just b) -> checkStructuralCompatibility env $ ProdCons a b
+            ProdCons Nothing Nothing -> structuralEq mappingPC
+            _ -> structuralIssue
+          )
+          (_discriminatorMapping <$> pc')
+        pure ()
+      structuralItems (ProdCons (OpenApiItemsObject a) (OpenApiItemsObject b)) =
+        checkStructuralCompatibility env $ ProdCons a b
+      structuralItems (ProdCons (OpenApiItemsArray a) (OpenApiItemsArray b)) =
+        structuralList env $ ProdCons a b
+      structuralItems _ = structuralIssue
   checkSemanticCompatibility env beh schs = do
     let defs = getH env
     checkFormulas env beh $ schemaToFormula <$> defs <*> schs

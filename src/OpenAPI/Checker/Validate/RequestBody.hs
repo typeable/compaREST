@@ -42,7 +42,7 @@ instance Subtree RequestBody where
        ]
   checkStructuralCompatibility env pc = do
     structuralEq $ _requestBodyRequired <$> pc
-    iohmStructuralCompatibility env $ _requestBodyContent <$> pc
+    iohmStructural env $ _requestBodyContent <$> pc
     pure ()
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) =
     if not (fromMaybe False . _requestBodyRequired . extract $ p)

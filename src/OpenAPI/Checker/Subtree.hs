@@ -23,8 +23,11 @@ module OpenAPI.Checker.Subtree
 
     -- * Structural helpers
   , structuralMaybe
+  , structuralMaybeWith
   , structuralEq
-  , iohmStructuralCompatibility
+  , iohmStructural
+  , iohmStructuralWith
+  , structuralList
 
     -- * Reexports
   , (>>>)
@@ -148,27 +151,50 @@ structuralMaybe
   => HList xs
   -> ProdCons (Maybe a)
   -> StructuralCompatFormula ()
-structuralMaybe e (ProdCons (Just a) (Just b)) = checkStructuralCompatibility e $ ProdCons a b
-structuralMaybe _ (ProdCons Nothing Nothing) = pure ()
-structuralMaybe _ _ = structuralIssue
+structuralMaybe e = structuralMaybeWith (checkStructuralCompatibility e)
+
+structuralMaybeWith
+  :: (ProdCons a -> StructuralCompatFormula ())
+  -> ProdCons (Maybe a)
+  -> StructuralCompatFormula ()
+structuralMaybeWith f (ProdCons (Just a) (Just b)) = f $ ProdCons a b
+structuralMaybeWith _ (ProdCons Nothing Nothing) = pure ()
+structuralMaybeWith _ _ = structuralIssue
+
+structuralList
+  :: (Subtree a, HasAll (CheckEnv a) xs)
+  => HList xs -> ProdCons [a] -> StructuralCompatFormula ()
+structuralList _ (ProdCons [] []) = pure ()
+structuralList e (ProdCons (a:aa) (b:bb)) = do
+  checkStructuralCompatibility e $ ProdCons a b
+  structuralList e $ ProdCons aa bb
+  pure ()
+structuralList _ _ = structuralIssue
 
 structuralEq :: Eq a => ProdCons a -> StructuralCompatFormula ()
 structuralEq (ProdCons a b) = if a == b then pure () else structuralIssue
 
-iohmStructuralCompatibility
+iohmStructural
   :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, Hashable k)
   => HList xs
   -> ProdCons (IOHM.InsOrdHashMap k v)
   -> StructuralCompatFormula ()
-iohmStructuralCompatibility e pc = do
+iohmStructural e =
+  iohmStructuralWith (\k -> checkStructuralCompatibility (k `HCons` e))
+
+iohmStructuralWith
+  :: (Ord k, Hashable k)
+  => (k -> ProdCons v -> StructuralCompatFormula ())
+  -> ProdCons (IOHM.InsOrdHashMap k v)
+  -> StructuralCompatFormula ()
+iohmStructuralWith f pc = do
   let ProdCons pEKeys cEKeys = S.fromList . IOHM.keys <$> pc
   if pEKeys == cEKeys
     then
       for_
         pEKeys
         (\eKey ->
-           checkStructuralCompatibility (eKey `HCons` e) $
-             IOHM.lookupDefault (error "impossible") eKey <$> pc)
+           f eKey $ IOHM.lookupDefault (error "impossible") eKey <$> pc)
     else structuralIssue
 
 class HasUnsupportedFeature x where
