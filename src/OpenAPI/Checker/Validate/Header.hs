@@ -18,10 +18,10 @@ instance Subtree Header where
   type SubtreeLevel Header = 'HeaderLevel
   type CheckEnv Header = '[ProdCons (Traced (Definitions Schema))]
   checkStructuralCompatibility env pc = do
-    structuralEq $ _headerRequired <$> pc
-    structuralEq $ _headerAllowEmptyValue <$> pc
-    structuralEq $ _headerExplode <$> pc
-    structuralMaybe env $ _headerSchema <$> pc
+    structuralEq $ fmap _headerRequired <$> pc
+    structuralEq $ fmap _headerAllowEmptyValue <$> pc
+    structuralEq $ fmap _headerExplode <$> pc
+    structuralMaybe env $ tracedSchema <$> pc
     pure ()
   checkSemanticCompatibility env beh (ProdCons p c) = do
     if (fromMaybe False $ _headerRequired $ extract c) && not (fromMaybe False $ _headerRequired $ extract p)

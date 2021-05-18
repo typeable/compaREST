@@ -49,7 +49,7 @@ instance Subtree [Server] where
   type SubtreeLevel [Server] = 'OperationLevel
   type CheckEnv [Server] = '[]
   checkStructuralCompatibility _ pc =
-    structuralEq $ S.fromList . fmap reduceServer <$> pc
+    structuralEq $ fmap S.fromList . (fmap . fmap) reduceServer <$> pc
     where
       reducerServerVariable =
         fmap IOHM.toHashSet . _serverVariableEnum &&& _serverVariableDefault
@@ -136,7 +136,7 @@ instance Subtree ProcessedServer where
   type SubtreeLevel ProcessedServer = 'ServerLevel
   type CheckEnv ProcessedServer = '[]
   checkStructuralCompatibility _ pc =
-    structuralEq $ (fmap . fmap . fmap) reducerServerVariable pc
+    structuralEq $ (fmap . fmap . fmap . fmap) reducerServerVariable pc
     where
       reducerServerVariable =
         fmap IOHM.toHashSet . _serverVariableEnum &&& _serverVariableDefault

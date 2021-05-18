@@ -23,6 +23,7 @@ import OpenAPI.Checker.Validate.Header ()
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
 
+-- FIXME: This should be done through 'MediaTypeEncodingMapping'
 tracedEncoding :: Traced MediaTypeObject -> InsOrdHashMap Text (Traced Encoding)
 tracedEncoding mto = IOHM.mapWithKey (\k -> traced (ask mto >>> step (MediaTypeParamEncoding k)))
   $ _mediaTypeObjectEncoding $ extract mto
@@ -52,9 +53,9 @@ instance Subtree MediaTypeObject where
      , ProdCons (Traced (Definitions Header))
      ]
   checkStructuralCompatibility env pc = do
-    structuralMaybe env $ _mediaTypeObjectSchema <$> pc
-    structuralEq $ _mediaTypeObjectExample <$> pc
-    iohmStructural env $ _mediaTypeObjectEncoding <$> pc
+    structuralMaybe env $ tracedSchema <$> pc
+    structuralEq $ fmap _mediaTypeObjectExample <$> pc
+    iohmStructural env $ stepTraced MediaTypeEncodingMapping . fmap _mediaTypeObjectEncoding <$> pc
     pure ()
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) = do
     if | "multipart" == mainType mediaType -> checkEncoding
@@ -92,11 +93,11 @@ instance Subtree Encoding where
        , ProdCons (Traced (Definitions Schema))
        ]
   checkStructuralCompatibility env pc = do
-    structuralEq $ _encodingContentType <$> pc
-    iohmStructural env $ _encodingHeaders <$> pc
-    structuralEq $ _encodingStyle <$> pc
-    structuralEq $ _encodingExplode <$> pc
-    structuralEq $ _encodingAllowReserved <$> pc
+    structuralEq $ fmap _encodingContentType <$> pc
+    iohmStructural env $ stepTraced EncodingHeaderStep . fmap _encodingHeaders <$> pc
+    structuralEq $ fmap _encodingStyle <$> pc
+    structuralEq $ fmap _encodingExplode <$> pc
+    structuralEq $ fmap _encodingAllowReserved <$> pc
     pure ()
 
   --  FIXME: Support only JSON body for now. Then Encoding is checked only for
@@ -109,8 +110,16 @@ instance Steppable MediaTypeObject (Referenced Schema) where
   data Step MediaTypeObject (Referenced Schema) = MediaTypeSchema
     deriving (Eq, Ord, Show)
 
+instance Steppable MediaTypeObject (Definitions Encoding) where
+  data Step MediaTypeObject (Definitions Encoding) = MediaTypeEncodingMapping
+    deriving (Eq, Ord, Show)
+
 instance Steppable MediaTypeObject Encoding where
   data Step MediaTypeObject Encoding = MediaTypeParamEncoding Text
+    deriving (Eq, Ord, Show)
+
+instance Steppable Encoding (Definitions (Referenced Header)) where
+  data Step Encoding (Definitions (Referenced Header)) = EncodingHeaderStep
     deriving (Eq, Ord, Show)
 
 instance Behavable 'OperationLevel 'ResponseLevel where

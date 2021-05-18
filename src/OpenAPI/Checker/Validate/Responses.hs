@@ -38,8 +38,8 @@ instance Subtree Responses where
        ]
 
   checkStructuralCompatibility env pc = do
-    structuralMaybe env $ _responsesDefault <$> pc
-    iohmStructural env $ _responsesResponses <$> pc
+    structuralMaybe env $ sequence . stepTraced ResponseDefaultStep . fmap _responsesDefault <$> pc
+    iohmStructural env $ stepTraced ResponsesStep . fmap _responsesResponses <$> pc
     pure ()
 
   -- Roles are already swapped. Producer is a server and consumer is a
@@ -90,9 +90,9 @@ instance Subtree Response where
        , ProdCons (Traced (Definitions Link))
        ]
   checkStructuralCompatibility env pc = do
-    iohmStructural env $ _responseContent <$> pc
-    iohmStructural env $ _responseHeaders <$> pc
-    iohmStructural env $ _responseLinks <$> pc
+    iohmStructural env $ stepTraced ResponseMediaObjects . fmap _responseContent <$> pc
+    iohmStructural env $ stepTraced ResponseHeaders . fmap _responseHeaders <$> pc
+    iohmStructural env $ stepTraced ResponseLinks . fmap _responseLinks <$> pc
     pure ()
   checkSemanticCompatibility env beh prodCons = do
     -- Roles are already swapped. Producer is a server and consumer is a client
@@ -127,13 +127,31 @@ instance Subtree Response where
       headerDefs = getH @(ProdCons (Traced (Definitions Header))) env
 
 instance Steppable Responses (Referenced Response) where
-  data Step Responses (Referenced Response) = ResponseCodeStep HttpStatusCode
+  data Step Responses (Referenced Response)
+    = ResponseCodeStep HttpStatusCode
+    | ResponseDefaultStep
     deriving stock (Eq, Ord, Show)
 
 instance Steppable Response MediaTypeObject where
   data Step Response MediaTypeObject = ResponseMediaObject MediaType
     deriving stock (Eq, Ord, Show)
 
+instance Steppable Response (IOHM.InsOrdHashMap MediaType MediaTypeObject) where
+  data Step Response (IOHM.InsOrdHashMap MediaType MediaTypeObject) = ResponseMediaObjects
+    deriving stock (Eq, Ord, Show)
+
+instance Steppable Response (Definitions (Referenced Header)) where
+  data Step Response (Definitions (Referenced Header)) = ResponseHeaders
+    deriving stock (Eq, Ord, Show)
+
+instance Steppable Response (Definitions (Referenced Link)) where
+  data Step Response (Definitions (Referenced Link)) = ResponseLinks
+    deriving stock (Eq, Ord, Show)
+
 instance Steppable Response (Referenced Header) where
   data Step Response (Referenced Header) = ResponseHeader HeaderName
+    deriving stock (Eq, Ord, Show)
+
+instance Steppable Responses (IOHM.InsOrdHashMap HttpStatusCode (Referenced Response)) where
+  data Step Responses (IOHM.InsOrdHashMap HttpStatusCode (Referenced Response)) = ResponsesStep
     deriving stock (Eq, Ord, Show)
