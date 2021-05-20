@@ -24,6 +24,7 @@ import Control.Monad.Writer
 import qualified Data.Aeson as A
 import Data.Coerce
 import qualified Data.Foldable as F
+import Data.Functor.Compose
 import Data.HList
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict.InsOrd as IOHM
@@ -41,6 +42,7 @@ import Data.Text (Text)
 import qualified Data.Text as T hiding (singleton)
 import Data.Typeable
 import OpenAPI.Checker.Behavior
+import OpenAPI.Checker.Formula
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
@@ -406,17 +408,17 @@ parseDiscriminatorValue v = case A.fromJSON @(Referenced Schema) $ A.object ["$r
   A.Success x -> x
   A.Error _ -> Ref $ Reference v
 
-type ProcessM = ReaderT (Traced (Definitions Schema)) (Writer (P.PathsPrefixTree Behave AnIssue 'SchemaLevel))
+type SchemaCompatFormula = Compose (Reader (Traced (Definitions Schema))) (CompatFormula' Behave AnIssue 'SchemaLevel)
 
-warn :: Issue 'SchemaLevel -> ProcessM ()
-warn issue = tell $ P.singleton $ AnItem Root $ AnIssue issue
+warn :: Issue 'SchemaLevel -> SchemaCompatFormula a
+warn issue = Compose $ pure $ issueAt Root issue
 
 processRefSchema
   :: Traced (Referenced Schema)
-  -> ProcessM (ForeachType JsonFormula)
-processRefSchema x = do
+  -> SchemaCompatFormula (ForeachType JsonFormula)
+processRefSchema x = Compose $ do
   defs <- R.ask
-  processSchema $ dereference defs x
+  getCompose $ processSchema $ dereference defs x
 
 tracedAllOf :: Traced Schema -> Maybe [Traced (Referenced Schema)]
 tracedAllOf sch =
@@ -461,35 +463,11 @@ tracedProperties sch =
 -- are thus checked independently.
 processSchema
   :: Traced Schema
-  -> ProcessM (ForeachType JsonFormula)
+  -> SchemaCompatFormula (ForeachType JsonFormula)
 processSchema sch@(extract -> Schema {..}) = do
   let singletonFormula :: Condition t -> JsonFormula t
       singletonFormula f = SingleConjunct [f]
-
-  allClauses <- case tracedAllOf sch of
-    Nothing -> pure []
-    Just [] -> [] <$ warn (InvalidSchema "no items in allOf")
-    Just xs -> mapM processRefSchema xs
-
-  anyClause <- case tracedAnyOf sch of
-    Nothing -> pure top
-    Just [] -> bottom <$ warn (InvalidSchema "no items in anyOf")
-    Just xs -> joins <$> mapM processRefSchema xs
-
-  oneClause <- case tracedOneOf sch of
-    Nothing -> pure top
-    Just [] -> bottom <$ warn (InvalidSchema "no items in oneOf")
-    Just xs -> do
-      checkOneOfDisjoint xs >>= \case
-        True -> pure ()
-        False -> warn (NotSupported "Could not determine that oneOf branches are disjoint")
-      joins <$> mapM processRefSchema xs
-
-  case _schemaNot of
-    Nothing -> pure ()
-    Just _ -> warn (NotSupported "not clause is unsupported")
-
-  let typeClause = case _schemaType of
+      typeClause = case _schemaType of
         Nothing -> top
         Just OpenApiNull ->
           bottom
@@ -520,7 +498,7 @@ processSchema sch@(extract -> Schema {..}) = do
             { forObject = top
             }
 
-  let valueEnum A.Null =
+      valueEnum A.Null =
         bottom
           { forNull = singletonFormula $ Exactly TNull
           }
@@ -544,12 +522,7 @@ processSchema sch@(extract -> Schema {..}) = do
         bottom
           { forObject = singletonFormula $ Exactly $ TObject o
           }
-  enumClause <- case _schemaEnum of
-    Nothing -> pure top
-    Just [] -> bottom <$ warn (InvalidSchema "no items in enum")
-    Just xs -> pure $ joins (valueEnum <$> xs)
-
-  let maximumClause = case _schemaMaximum of
+      maximumClause = case _schemaMaximum of
         Nothing -> top
         Just n ->
           top
@@ -578,24 +551,7 @@ processSchema sch@(extract -> Schema {..}) = do
           top
             { forNumber = singletonFormula $ MultipleOf n
             }
-
-  formatClause <- case _schemaFormat of
-    Nothing -> pure top
-    Just f
-      | f `elem` ["int32", "int64", "float", "double"] ->
-        pure
-          top
-            { forNumber = singletonFormula $ NumberFormat f
-            }
-    Just f
-      | f `elem` ["byte", "binary", "date", "date-time", "password"] ->
-        pure
-          top
-            { forString = singletonFormula $ StringFormat f
-            }
-    Just f -> top <$ warn (NotSupported $ "Unknown format: " <> f)
-
-  let maxLengthClause = case _schemaMaxLength of
+      maxLengthClause = case _schemaMaxLength of
         Nothing -> top
         Just n ->
           top
@@ -615,15 +571,7 @@ processSchema sch@(extract -> Schema {..}) = do
           top
             { forString = singletonFormula $ Pattern p
             }
-
-  itemsClause <- case tracedItems sch of
-    Nothing -> pure top
-    Just (Left rs) -> do
-      f <- processRefSchema rs
-      pure top {forArray = singletonFormula $ Items f rs}
-    Just (Right _) -> top <$ warn (NotSupported "array in items is not supported")
-
-  let maxItemsClause = case _schemaMaxItems of
+      maxItemsClause = case _schemaMaxItems of
         Nothing -> top
         Just n ->
           top
@@ -643,22 +591,22 @@ processSchema sch@(extract -> Schema {..}) = do
             { forArray = singletonFormula UniqueItems
             }
         _ -> top
-
-  (addProps, addPropSchema) <- case tracedAdditionalProperties sch of
-    Just (Right rs) -> (,Just rs) <$> processRefSchema rs
-    Just (Left False) -> pure (bottom, Nothing)
-    _ -> pure (top, Just $ traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty)
-  propList <- forM (S.toList . S.fromList $ IOHM.keys _schemaProperties <> _schemaRequired) $ \k -> do
-    (f, psch) <- case IOHM.lookup k $ tracedProperties sch of
-      Just rs -> (,rs) <$> processRefSchema rs
-      Nothing ->
-        let fakeSchema = traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty
-         in -- The mempty here is incorrect, but if addPropSchema was Nothing, then
-            -- addProps is bottom, and k is in _schemaRequired. We handle this situation
-            -- below and short-circuit the entire Properties condition to bottom
-            pure (addProps, fromMaybe fakeSchema addPropSchema)
-    pure (k, Property (k `elem` _schemaRequired) f psch)
-  let allBottom f = getAll $
+      (addProps, addPropSchema) = case tracedAdditionalProperties sch of
+        Just (Right rs) -> (processRefSchema rs, Just rs)
+        Just (Left False) -> (pure bottom, Nothing)
+        _ -> (pure top, Just $ traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty)
+      propList =
+        (S.toList . S.fromList $ IOHM.keys _schemaProperties <> _schemaRequired) <&> \k ->
+          let (f, psch) = case IOHM.lookup k $ tracedProperties sch of
+                Just rs -> (processRefSchema rs, rs)
+                Nothing ->
+                  let fakeSchema = traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty
+                   in -- The mempty here is incorrect, but if addPropSchema was Nothing, then
+                      -- addProps is bottom, and k is in _schemaRequired. We handle this situation
+                      -- below and short-circuit the entire Properties condition to bottom
+                      (addProps, fromMaybe fakeSchema addPropSchema)
+           in (k, Property (k `elem` _schemaRequired) <$> f <*> pure psch)
+      allBottom f = getAll $
         foldType $ \_ ty -> case ty f of
           BottomFormula -> All True
           _ -> All False
@@ -667,39 +615,88 @@ processSchema sch@(extract -> Schema {..}) = do
           TopFormula -> All True
           _ -> All False
       -- remove optional fields whose schemata match that of additional props
-      propMap = M.filter (\p -> propRequired p || propFormula p /= addProps) $ M.fromList propList
-      propertiesClause
-        | any (\p -> propRequired p && allBottom (propFormula p)) propMap =
-          bottom -- if any required field has unsatisfiable schema
-        | M.null propMap
-          , allTop addProps =
-          top -- if all fields are optional and have trivial schemata
-        | otherwise =
-          top
-            { forObject = singletonFormula $ Properties propMap addProps addPropSchema
-            }
-
+      -- _ (properties map, additional properties)
+      props :: SchemaCompatFormula (M.Map Text Property, ForeachType JsonFormula)
+      props = do
+        addProps' <- addProps
+        propList' <- traverse sequenceA propList
+        pure (M.filter (\p -> propRequired p || propFormula p /= addProps') $ M.fromList propList', addProps')
       maxPropertiesClause = case _schemaMaxProperties of
         Nothing -> top
         Just n ->
           top
             { forObject = singletonFormula $ MaxProperties n
             }
-
       minPropertiesClause = case _schemaMinProperties of
         Nothing -> top
         Just n ->
           top
             { forObject = singletonFormula $ MinProperties n
             }
-
       nullableClause
         | Just True <- _schemaNullable =
           bottom
             { forNull = singletonFormula $ Exactly TNull
             }
         | otherwise = bottom
+  allClauses <- case tracedAllOf sch of
+    Nothing -> pure []
+    Just [] -> [] <$ warn (InvalidSchema "no items in allOf")
+    Just xs -> traverse processRefSchema xs
 
+  anyClause <- case tracedAnyOf sch of
+    Nothing -> pure top
+    Just [] -> bottom <$ warn (InvalidSchema "no items in anyOf")
+    Just xs -> joins <$> traverse processRefSchema xs
+
+  oneClause <- case tracedOneOf sch of
+    Nothing -> pure top
+    Just [] -> bottom <$ warn (InvalidSchema "no items in oneOf")
+    Just xs ->
+      checkOneOfDisjoint xs
+        *> (joins <$> traverse processRefSchema xs)
+  propertiesClause <-
+    props <&> \case
+      (x, _)
+        | any (\p -> propRequired p && allBottom (propFormula p)) x ->
+          bottom -- if any required field has unsatisfiable schema
+      (x, y)
+        | M.null x
+          , allTop y ->
+          top -- if all fields are optional and have trivial schemata
+      (x, y)
+        | otherwise ->
+          top
+            { forObject = singletonFormula $ Properties x y addPropSchema
+            }
+  itemsClause <- case tracedItems sch of
+    Nothing -> pure top
+    Just (Left rs) -> do
+      f <- processRefSchema rs
+      pure top {forArray = singletonFormula $ Items f rs}
+    Just (Right _) -> top <$ warn (NotSupported "array in items is not supported")
+  formatClause <- case _schemaFormat of
+    Nothing -> pure top
+    Just f
+      | f `elem` ["int32", "int64", "float", "double"] ->
+        pure
+          top
+            { forNumber = singletonFormula $ NumberFormat f
+            }
+    Just f
+      | f `elem` ["byte", "binary", "date", "date-time", "password"] ->
+        pure
+          top
+            { forString = singletonFormula $ StringFormat f
+            }
+    Just f -> top <$ warn (NotSupported $ "Unknown format: " <> f)
+  enumClause <- case _schemaEnum of
+    Nothing -> pure top
+    Just [] -> bottom <$ warn (InvalidSchema "no items in enum")
+    Just xs -> pure $ joins (valueEnum <$> xs)
+  case _schemaNot of
+    Nothing -> pure ()
+    Just _ -> warn (NotSupported "not clause is unsupported")
   pure $
     nullableClause
       \/ meets
@@ -726,63 +723,62 @@ processSchema sch@(extract -> Schema {..}) = do
 
 {- TODO: ReadOnly/WriteOnly -}
 
-checkOneOfDisjoint :: [Traced (Referenced Schema)] -> ProcessM Bool
-checkOneOfDisjoint = const $ pure True -- TODO
+checkOneOfDisjoint :: [Traced (Referenced Schema)] -> SchemaCompatFormula ()
+checkOneOfDisjoint _ = warn (NotSupported "Could not determine that oneOf branches are disjoint")
 
 schemaToFormula
   :: Traced (Definitions Schema)
   -> Traced Schema
-  -> (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
-schemaToFormula defs rs = runWriter . (`runReaderT` defs) $ processSchema rs
+  -> CompatM (Either (P.PathsPrefixTree Behave AnIssue 'SchemaLevel) (ForeachType JsonFormula))
+schemaToFormula defs rs = do
+  x <- getCompose . runIdentity . (`runReaderT` defs) . getCompose $ processSchema rs
+  return $ calculate x
 
 checkFormulas
   :: (HasAll (CheckEnv Schema) xs)
   => HList xs
   -> Behavior 'SchemaLevel
-  -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
+  -> ProdCons (ForeachType JsonFormula)
   -> SemanticCompatFormula ()
-checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
-  case P.toList ep ++ P.toList ec of
-    issues@(_ : _) -> F.for_ issues $ \(AnItem t (AnIssue e)) -> issueAt (beh >>> t) e
-    [] -> do
-      -- We have the following isomorphisms:
-      --   (A ⊂ X ∪ Y) = (A ⊂ X) \/ (A ⊂ Y)
-      --   (A ⊂ X ∩ Y) = (A ⊂ X) /\ (A ⊂ Y)
-      --   (A ⊂ ⊤) = 1
-      --   (X ∪ Y ⊂ B) = (X ⊂ B) /\ (Y ⊂ B)
-      --   (∅ ⊂ B) = 1
-      -- The remaining cases are, notably, not isomorphisms:
-      --   1) (A ⊂ ∅) <= 0
-      --   2) (X ∩ Y ⊂ B) <= (X ⊂ B) \/ (Y ⊂ B)
-      --   3) (⊤ ⊂ B) <= 0
-      -- Therefore we have the isomorphisms:
-      --   (⋃_i ⋂_j A[i,j]) ⊂ (⋃_k ⋂_l B[k,l])
-      --   = \/_k /\_l /\_i (⋂_j A[i,j]) ⊂ B[k,l]
-      --   = /\_i \/_k /\_l (⋂_j A[i,j]) ⊂ B[k,l]
-      -- with the caveat that the the set over which k ranges is nonempty.
-      -- This is because 1) is not an isomorphism.
-      -- Our disjunction loses information, so it makes sense to nest it as
-      -- deeply as possible, hence we choose the latter representation.
-      --
-      -- We delegate the verification of (⋂_j A[j]) ⊂ B to a separate heuristic
-      -- function, with the understanding that \/_j A[j] ⊂ B is a sufficient,
-      -- but not necessary condition (because of 2) and 3)).
-      --
-      -- If k ranges over an empty set, we have the isomorphism:
-      --   (⋃_i ⋂_j A[i,j]) ⊂ ∅ = /\_i (⋂_j A[i,j]) ⊂ ∅
-      -- where we again delegate (⋂_j A[j]) ⊂ ∅ to a heuristic, though here the
-      -- shortcut of \/_j A[j] ⊂ ∅ hardly helps.
-      forType_ $ \tyName ty -> do
-        let beh' = beh >>> step (OfType tyName)
-        case (ty fp, ty fc) of
-          (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
-          (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
-            F.for_ cs $ checkImplication env beh' ps -- avoid disjuntion if there's only one conjunct
-          (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
-            anyOfAt
-              beh'
-              (NoMatchingCondition $ SomeCondition <$> ps)
-              [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
+checkFormulas env beh (ProdCons fp fc) = do
+  -- We have the following isomorphisms:
+  --   (A ⊂ X ∪ Y) = (A ⊂ X) \/ (A ⊂ Y)
+  --   (A ⊂ X ∩ Y) = (A ⊂ X) /\ (A ⊂ Y)
+  --   (A ⊂ ⊤) = 1
+  --   (X ∪ Y ⊂ B) = (X ⊂ B) /\ (Y ⊂ B)
+  --   (∅ ⊂ B) = 1
+  -- The remaining cases are, notably, not isomorphisms:
+  --   1) (A ⊂ ∅) <= 0
+  --   2) (X ∩ Y ⊂ B) <= (X ⊂ B) \/ (Y ⊂ B)
+  --   3) (⊤ ⊂ B) <= 0
+  -- Therefore we have the isomorphisms:
+  --   (⋃_i ⋂_j A[i,j]) ⊂ (⋃_k ⋂_l B[k,l])
+  --   = \/_k /\_l /\_i (⋂_j A[i,j]) ⊂ B[k,l]
+  --   = /\_i \/_k /\_l (⋂_j A[i,j]) ⊂ B[k,l]
+  -- with the caveat that the the set over which k ranges is nonempty.
+  -- This is because 1) is not an isomorphism.
+  -- Our disjunction loses information, so it makes sense to nest it as
+  -- deeply as possible, hence we choose the latter representation.
+  --
+  -- We delegate the verification of (⋂_j A[j]) ⊂ B to a separate heuristic
+  -- function, with the understanding that \/_j A[j] ⊂ B is a sufficient,
+  -- but not necessary condition (because of 2) and 3)).
+  --
+  -- If k ranges over an empty set, we have the isomorphism:
+  --   (⋃_i ⋂_j A[i,j]) ⊂ ∅ = /\_i (⋂_j A[i,j]) ⊂ ∅
+  -- where we again delegate (⋂_j A[j]) ⊂ ∅ to a heuristic, though here the
+  -- shortcut of \/_j A[j] ⊂ ∅ hardly helps.
+  forType_ $ \tyName ty -> do
+    let beh' = beh >>> step (OfType tyName)
+    case (ty fp, ty fc) of
+      (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
+      (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
+        F.for_ cs $ checkImplication env beh' ps -- avoid disjuntion if there's only one conjunct
+      (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
+        anyOfAt
+          beh'
+          (NoMatchingCondition $ SomeCondition <$> ps)
+          [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
 
 checkContradiction
   :: Behavior 'TypedSchemaLevel
@@ -1019,6 +1015,10 @@ instance Subtree Schema where
       structuralItems (ProdCons (Right a) (Right b)) =
         structuralList env $ ProdCons a b
       structuralItems _ = structuralIssue
-  checkSemanticCompatibility env beh schs = do
+  checkSemanticCompatibility env beh schs = Compose $ do
     let defs = getH env
-    checkFormulas env beh $ schemaToFormula <$> defs <*> schs
+    sequenceA (schemaToFormula <$> defs <*> schs) >>= \case
+      (ProdCons (Right a) (Right b)) -> getCompose $ checkFormulas env beh $ ProdCons a b
+      (ProdCons (Right _) (Left e)) -> pure $ errors $ P.embed beh e
+      (ProdCons (Left e) (Right _)) -> pure $ errors $ P.embed beh e
+      (ProdCons (Left e) (Left e')) -> pure $ errors $ P.embed beh $ e <> e'
