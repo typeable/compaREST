@@ -2,13 +2,17 @@
 
 module OpenAPI.Checker.Subtree
   ( Steppable (..)
+  , Step (..)
   , Trace
   , Traced
   , Traced'
   , pattern Traced
   , traced
+  , retraced
+  , stepTraced
   , Subtree (..)
   , checkCompatibility
+  , checkSubstructure
   , CompatM (..)
   , CompatFormula'
   , SemanticCompatFormula
@@ -19,7 +23,6 @@ module OpenAPI.Checker.Subtree
   , issueAt
   , anyOfAt
   , structuralIssue
-  , memo
 
     -- * Structural helpers
   , structuralMaybe
@@ -59,7 +62,7 @@ import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
 
 class
-  (Typeable a, Typeable b, Ord (Step a b), Show (Step a b)) =>
+  NiceQuiver Step a b =>
   Steppable (a :: Type) (b :: Type)
   where
   -- | How to get from an @a@ node to a @b@ node
@@ -78,6 +81,12 @@ pattern Traced t x = EnvT t (Identity x)
 
 traced :: Trace a -> a -> Traced a
 traced = env
+
+retraced :: (Trace a -> Trace a') -> Traced' a b -> Traced' a' b
+retraced f (Traced a b) = Traced (f a) b
+
+stepTraced :: Steppable a a' => Step a a' -> Traced' a b -> Traced' a' b
+stepTraced s = retraced (>>> step s)
 
 data ProdCons a = ProdCons
   { producer :: a
@@ -125,7 +134,7 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   checkStructuralCompatibility
     :: (HasAll (CheckEnv t) xs)
     => HList xs
-    -> ProdCons t
+    -> ProdCons (Traced t)
     -> StructuralCompatFormula ()
 
   checkSemanticCompatibility
@@ -135,23 +144,34 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
     -> ProdCons (Traced t)
     -> SemanticCompatFormula ()
 
+{-# WARNING checkStructuralCompatibility "You should not be calling this directly. Use 'checkSubstructure'" #-}
+
+{-# WARNING checkSemanticCompatibility "You should not be calling this directly. Use 'checkCompatibility'" #-}
+
 checkCompatibility
   :: (HasAll (CheckEnv t) xs, Subtree t)
   => HList xs
   -> Behavior (SubtreeLevel t)
   -> ProdCons (Traced t)
   -> SemanticCompatFormula ()
-checkCompatibility e bhv pc =
-  case runCompatFormula $ checkStructuralCompatibility e $ fmap extract pc of
+checkCompatibility e bhv = memo SemanticMemoKey $ \pc ->
+  case runCompatFormula $ checkSubstructure e pc of
     Left _ -> checkSemanticCompatibility e bhv pc
     Right () -> pure ()
+
+checkSubstructure
+  :: (HasAll (CheckEnv t) xs, Subtree t)
+  => HList xs
+  -> ProdCons (Traced t)
+  -> StructuralCompatFormula ()
+checkSubstructure e = memo SemanticMemoKey $ checkStructuralCompatibility e
 
 structuralMaybe
   :: (Subtree a, HasAll (CheckEnv a) xs)
   => HList xs
-  -> ProdCons (Maybe a)
+  -> ProdCons (Maybe (Traced a))
   -> StructuralCompatFormula ()
-structuralMaybe e = structuralMaybeWith (checkStructuralCompatibility e)
+structuralMaybe e = structuralMaybeWith (checkSubstructure e)
 
 structuralMaybeWith
   :: (ProdCons a -> StructuralCompatFormula ())
@@ -163,38 +183,44 @@ structuralMaybeWith _ _ = structuralIssue
 
 structuralList
   :: (Subtree a, HasAll (CheckEnv a) xs)
-  => HList xs -> ProdCons [a] -> StructuralCompatFormula ()
+  => HList xs
+  -> ProdCons [Traced a]
+  -> StructuralCompatFormula ()
 structuralList _ (ProdCons [] []) = pure ()
-structuralList e (ProdCons (a:aa) (b:bb)) = do
-  checkStructuralCompatibility e $ ProdCons a b
+structuralList e (ProdCons (a : aa) (b : bb)) = do
+  checkSubstructure e $ ProdCons a b
   structuralList e $ ProdCons aa bb
   pure ()
 structuralList _ _ = structuralIssue
 
-structuralEq :: Eq a => ProdCons a -> StructuralCompatFormula ()
-structuralEq (ProdCons a b) = if a == b then pure () else structuralIssue
+structuralEq :: (Eq a, Comonad w) => ProdCons (w a) -> StructuralCompatFormula ()
+structuralEq (ProdCons a b) = if extract a == extract b then pure () else structuralIssue
 
 iohmStructural
-  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, Hashable k)
+  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, Hashable k, Typeable k, Show k)
   => HList xs
-  -> ProdCons (IOHM.InsOrdHashMap k v)
+  -> ProdCons (Traced (IOHM.InsOrdHashMap k v))
   -> StructuralCompatFormula ()
 iohmStructural e =
-  iohmStructuralWith (\k -> checkStructuralCompatibility (k `HCons` e))
+  iohmStructuralWith (\k -> checkSubstructure (k `HCons` e))
+
+instance (Typeable k, Typeable v, Ord k, Show k) => Steppable (IOHM.InsOrdHashMap k v) v where
+  data Step (IOHM.InsOrdHashMap k v) v = InsOrdHashMapKeyStep k
+    deriving (Eq, Ord, Show)
 
 iohmStructuralWith
-  :: (Ord k, Hashable k)
-  => (k -> ProdCons v -> StructuralCompatFormula ())
-  -> ProdCons (IOHM.InsOrdHashMap k v)
+  :: (Ord k, Hashable k, Typeable k, Typeable v, Show k)
+  => (k -> ProdCons (Traced v) -> StructuralCompatFormula ())
+  -> ProdCons (Traced (IOHM.InsOrdHashMap k v))
   -> StructuralCompatFormula ()
 iohmStructuralWith f pc = do
-  let ProdCons pEKeys cEKeys = S.fromList . IOHM.keys <$> pc
+  let ProdCons pEKeys cEKeys = S.fromList . IOHM.keys . extract <$> pc
   if pEKeys == cEKeys
     then
       for_
         pEKeys
         (\eKey ->
-           f eKey $ IOHM.lookupDefault (error "impossible") eKey <$> pc)
+           f eKey $ stepTraced (InsOrdHashMapKeyStep eKey) . fmap (IOHM.lookupDefault (error "impossible") eKey) <$> pc)
     else structuralIssue
 
 class HasUnsupportedFeature x where
@@ -256,8 +282,11 @@ fixpointKnot =
     }
 
 memo
-  :: (Typeable q, Typeable f, NiceQuiver p r t)
-  => (ProdCons (Env (Paths p r t) t) -> CompatFormula' q f r ())
-  -> (ProdCons (Env (Paths p r t) t) -> CompatFormula' q f r ())
-memo f pc = Compose $ do
-  memoWithKnot fixpointKnot (getCompose $ f pc) (ask <$> pc)
+  :: (Typeable (r :: k), Typeable q, Typeable f, Typeable k, Typeable a)
+  => MemoKey
+  -> (ProdCons (Traced a) -> CompatFormula' q f r ())
+  -> (ProdCons (Traced a) -> CompatFormula' q f r ())
+memo k f pc = Compose $ memoWithKnot fixpointKnot (getCompose $ f pc) (k, ask <$> pc)
+
+data MemoKey = SemanticMemoKey | StructuralMemoKey
+  deriving stock (Eq, Ord)

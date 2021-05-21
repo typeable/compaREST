@@ -15,10 +15,8 @@ import qualified Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
-import qualified Data.OpenApi.Schema.Generator as G
 import Data.Text (Text)
 import OpenAPI.Checker.Behavior
-import OpenAPI.Checker.Common
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
@@ -97,26 +95,27 @@ instance Subtree MatchedOperation where
        , ProdCons (Traced (Definitions Link))
        ]
   checkStructuralCompatibility env pc = do
-    let pParams :: ProdCons [Param]
+    let pParams :: ProdCons [Traced Param]
         pParams = do
-          defs <- extract <$> getH @(ProdCons (Traced (Definitions Param))) env
-          op' <- _operationParameters . operation <$> pc
-          pp <- fmap extract . pathParams <$> pc
+          defs <- getH @(ProdCons (Traced (Definitions Param))) env
+          op' <- tracedParameters <$> pc
+          pp <- pathParams . extract <$> pc
           pure $
             let o = M.fromList $ do
-                  param <- G.dereference defs <$> op'
-                  let key = paramKey param
+                  param <- dereference defs <$> op'
+                  let key = paramKey . extract $ param
                   pure (key, param)
                 p = M.fromList $ do
                   param <- pp
-                  pure (paramKey param, param)
+                  pure (paramKey . extract $ param, param)
              in M.elems $ o <> p
-    case zipAll (producer pParams) (consumer pParams) of
-      Nothing -> structuralIssue
-      Just xs -> for_ xs $ \(p, c) -> checkStructuralCompatibility env $ ProdCons p c
-    structuralMaybe env $ _operationRequestBody . operation <$> pc
-    checkStructuralCompatibility env $ _operationResponses . operation <$> pc
-    checkStructuralCompatibility env $ getServers <$> getH env <*> pc
+    structuralList env pParams
+    structuralMaybe env $ tracedRequestBody <$> pc
+    checkSubstructure env $ tracedResponses <$> pc
+    checkSubstructure env $ do
+      x <- pc
+      se <- getH @(ProdCons [Server]) env
+      pure $ Traced (ask x >>> step OperationServersStep) (getServers se (extract x))
     -- TODO: Callbacks
     -- TODO: Security
     pure ()

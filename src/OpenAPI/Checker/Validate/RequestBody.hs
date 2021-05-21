@@ -16,6 +16,7 @@ import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.Sums
 
+-- TODO: Use RequestMediaTypeObjectMapping
 tracedContent :: Traced RequestBody -> IOHM.InsOrdHashMap MediaType (Traced MediaTypeObject)
 tracedContent resp =
   IOHM.mapWithKey (\k -> traced (ask resp >>> step (RequestMediaTypeObject k))) $
@@ -41,8 +42,9 @@ instance Subtree RequestBody where
        , ProdCons (Traced (Definitions Header))
        ]
   checkStructuralCompatibility env pc = do
-    structuralEq $ _requestBodyRequired <$> pc
-    iohmStructural env $ _requestBodyContent <$> pc
+    structuralEq $ fmap _requestBodyRequired <$> pc
+    iohmStructural env $
+      stepTraced RequestMediaTypeObjectMapping . fmap _requestBodyContent <$> pc
     pure ()
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) =
     if not (fromMaybe False . _requestBodyRequired . extract $ p)
@@ -57,4 +59,8 @@ instance Subtree RequestBody where
 
 instance Steppable RequestBody MediaTypeObject where
   data Step RequestBody MediaTypeObject = RequestMediaTypeObject MediaType
+    deriving (Eq, Ord, Show)
+
+instance Steppable RequestBody (IOHM.InsOrdHashMap MediaType MediaTypeObject) where
+  data Step RequestBody (IOHM.InsOrdHashMap MediaType MediaTypeObject) = RequestMediaTypeObjectMapping
     deriving (Eq, Ord, Show)
