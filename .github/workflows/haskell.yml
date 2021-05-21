@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  linux-build:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,3 +34,22 @@ jobs:
         with:
           name: openapi-diff-linux
           path: out/openapi-diff
+  release:
+    name: "Release"
+    if: github.ref == 'refs/heads/master'
+    runs-on: "ubuntu-latest"
+    needs: [linux-build]
+    steps:
+      - uses: actions/download-artifact@v2
+      - name: Zip
+        run: |
+          chmod +x openapi-diff-linux/openapi-diff
+          zip openapi-diff-linux openapi-diff-linux/openapi-diff
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Pre-Release"
+          files: |
+            *.zip
