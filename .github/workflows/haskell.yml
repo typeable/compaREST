@@ -26,8 +26,11 @@ jobs:
             ${{ runner.os }}-build-stack-${{ hashFiles('**/stack.yaml') }}
             ${{ runner.os }}-build-stack-
       - name: Build
-        run: stack build
+        run: stack build --ghc-options="-O3 -j" --local-bin-path out --copy-bins --flag openapi-diff:Static
       - name: Test
         run: stack test --test-arguments='--hide-successes --no-create'
-#     - name: Test
-#       run: stack test
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: openapi-diff-linux
+          path: out/openapi-diff
