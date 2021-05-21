@@ -14,7 +14,15 @@ extra-doc-files:     README.md
                      CHANGELOG.md
 tested-with:         GHC == 8.10.4
 
+Flag static
+  Default:     False
+  Manual:      True
+
 common common-options
+  if flag(static)
+    cc-options: -static
+    ld-options: -static -pthread
+    ghc-options: -static
   ghc-options:         -Wall
                        -Wcompat
                        -Widentities
