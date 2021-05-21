@@ -154,7 +154,7 @@ checkCompatibility
   -> Behavior (SubtreeLevel t)
   -> ProdCons (Traced t)
   -> SemanticCompatFormula ()
-checkCompatibility e bhv = memo $ \pc ->
+checkCompatibility e bhv = memo SemanticMemoKey $ \pc ->
   case runCompatFormula $ checkSubstructure e pc of
     Left _ -> checkSemanticCompatibility e bhv pc
     Right () -> pure ()
@@ -164,7 +164,7 @@ checkSubstructure
   => HList xs
   -> ProdCons (Traced t)
   -> StructuralCompatFormula ()
-checkSubstructure e = memo $ checkStructuralCompatibility e
+checkSubstructure e = memo SemanticMemoKey $ checkStructuralCompatibility e
 
 structuralMaybe
   :: (Subtree a, HasAll (CheckEnv a) xs)
@@ -283,6 +283,10 @@ fixpointKnot =
 
 memo
   :: (Typeable (r :: k), Typeable q, Typeable f, Typeable k, Typeable a)
-  => (ProdCons (Traced a) -> CompatFormula' q f r ())
+  => MemoKey
   -> (ProdCons (Traced a) -> CompatFormula' q f r ())
-memo f pc = Compose $ memoWithKnot fixpointKnot (getCompose $ f pc) (ask <$> pc)
+  -> (ProdCons (Traced a) -> CompatFormula' q f r ())
+memo k f pc = Compose $ memoWithKnot fixpointKnot (getCompose $ f pc) (k, ask <$> pc)
+
+data MemoKey = SemanticMemoKey | StructuralMemoKey
+  deriving stock (Eq, Ord)
