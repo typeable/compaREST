@@ -33,7 +33,7 @@ runChecker = do
         FileMode f -> BSC.writeFile f
   case report of
     Right () -> do
-      output "No breaking changes found ✨"
+      output "No breaking changes found"
       exitSuccess
     Left e -> do
       output $ Yaml.encode e
