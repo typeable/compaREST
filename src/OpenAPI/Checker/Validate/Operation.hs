@@ -20,6 +20,7 @@ import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
+import OpenAPI.Checker.Validate.OAuth2Flows
 import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.RequestBody ()
@@ -84,7 +85,7 @@ instance Behavable 'OperationLevel 'RequestLevel where
 
 instance Behavable 'OperationLevel 'SecurityRequirementLevel where
   data Behave 'OperationLevel 'SecurityRequirementLevel
-    = SecuritySchemeStep Int
+    = SecurityRequirementStep Int
     deriving stock (Eq, Ord, Show)
 
 instance Subtree MatchedOperation where
@@ -122,8 +123,8 @@ instance Subtree MatchedOperation where
       x <- pc
       se <- getH @(ProdCons [Server]) env
       pure $ Traced (ask x >>> step OperationServersStep) (getServers se (extract x))
+    structuralList env $ fmap snd . tracedSecurity <$> pc
     -- TODO: Callbacks
-    -- TODO: Security
     pure ()
   checkSemanticCompatibility env beh prodCons = do
     checkParameters
@@ -220,9 +221,10 @@ instance Subtree MatchedOperation where
       checkOperationSecurity = do
         let ProdCons pSecs cSecs = tracedSecurity <$> prodCons
         for_ pSecs $ \(i, pSec) -> do
-          anyOfAt beh undefined $
+          let beh' = beh >>> step (SecurityRequirementStep i)
+          anyOfAt beh' SecurityRequirementNotMet $
             cSecs <&> \(_, cSec) ->
-              checkCompatibility env (beh >>> step (SecuritySchemeStep i)) $ ProdCons pSec cSec
+              checkCompatibility env beh' $ ProdCons pSec cSec
       checkServers =
         checkCompatibility env beh $ do
           x <- prodCons

@@ -1,0 +1,110 @@
+openapi: 3.0.0
+info:
+  version: ""
+  title: ""
+paths:
+  /oauth/sign_out:
+    get:
+      parameters:
+        - required: false
+          schema:
+            type: string
+          in: query
+          name: redirect
+      responses:
+        "302":
+          content:
+            application/x-www-form-urlencoded: {}
+          headers:
+            Location:
+              schema:
+                type: string
+            set-cookie:
+              schema:
+                type: string
+          description: ""
+        "400":
+          description: Invalid `redirect`
+      security:
+        - sign-out-oauth: []
+  /oauth/authorize:
+    get:
+      responses:
+        "302":
+          content:
+            application/x-www-form-urlencoded: {}
+          headers:
+            Location:
+              schema:
+                type: string
+          description: ""
+      security:
+        - get-oauth: []
+        - spa-oauth: []
+  /oauth/token:
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: string
+      responses:
+        "200":
+          content:
+            application/json;charset=utf-8:
+              schema:
+                type: string
+          description: ""
+        "400":
+          description: Invalid `body`
+      security:
+        - oauth: []
+  /oauth/check:
+    post:
+      requestBody:
+        content:
+          application/json;charset=utf-8:
+            schema:
+              type: string
+      responses:
+        "200":
+          content:
+            application/json;charset=utf-8:
+              schema:
+                example: []
+                items: {}
+                maxItems: 0
+                type: array
+          description: ""
+        "400":
+          description: Invalid `body`
+      security:
+        - spa-oauth: []
+components:
+  securitySchemes:
+    sign-out-oauth:
+      in: cookie
+      name: _SESSION
+      type: apiKey
+      description: Session cookie
+    get-oauth:
+      in: cookie
+      name: _SESSION
+      type: apiKey
+      description: Session cookie
+    oauth:
+      scheme: Basic
+      type: http
+    oauth-token:
+      scheme: Bearer
+      type: http
+      description: Bearer token
+    oauth-token-client-only:
+      scheme: Bearer
+      type: http
+      description: Bearer token
+    spa-oauth:
+      in: cookie
+      name: _SESSION
+      type: apiKey
+      description: Session cookie

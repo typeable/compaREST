@@ -1,9 +1,10 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module OpenAPI.Checker.Validate.MediaTypeObject
-  ( Issue(..)
-  , Behave(..)
-  ) where
+  ( Issue (..)
+  , Behave (..)
+  )
+where
 
 import Control.Lens
 import Data.Foldable as F
@@ -15,18 +16,18 @@ import Data.Text (Text)
 import Network.HTTP.Media (MediaType, mainType, subType)
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
+import OpenAPI.Checker.Validate.Header ()
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
-import OpenAPI.Checker.Validate.Header ()
-
 
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
 
 -- FIXME: This should be done through 'MediaTypeEncodingMapping'
 tracedEncoding :: Traced MediaTypeObject -> InsOrdHashMap Text (Traced Encoding)
-tracedEncoding mto = IOHM.mapWithKey (\k -> traced (ask mto >>> step (MediaTypeParamEncoding k)))
-  $ _mediaTypeObjectEncoding $ extract mto
+tracedEncoding mto =
+  IOHM.mapWithKey (\k -> traced (ask mto >>> step (MediaTypeParamEncoding k))) $
+    _mediaTypeObjectEncoding $ extract mto
 
 instance Issuable 'PayloadLevel where
   data Issue 'PayloadLevel
@@ -47,43 +48,52 @@ instance Behavable 'PayloadLevel 'SchemaLevel where
 
 instance Subtree MediaTypeObject where
   type SubtreeLevel MediaTypeObject = 'PayloadLevel
-  type CheckEnv MediaTypeObject =
-    '[ MediaType
-     , ProdCons (Traced (Definitions Schema))
-     , ProdCons (Traced (Definitions Header))
-     ]
+  type
+    CheckEnv MediaTypeObject =
+      '[ MediaType
+       , ProdCons (Traced (Definitions Schema))
+       , ProdCons (Traced (Definitions Header))
+       ]
   checkStructuralCompatibility env pc = do
     structuralMaybe env $ tracedSchema <$> pc
     structuralEq $ fmap _mediaTypeObjectExample <$> pc
     iohmStructural env $ stepTraced MediaTypeEncodingMapping . fmap _mediaTypeObjectEncoding <$> pc
     pure ()
   checkSemanticCompatibility env beh prodCons@(ProdCons p c) = do
-    if | "multipart" == mainType mediaType -> checkEncoding
-       | "application" == mainType mediaType &&
-         "x-www-form-urlencoded" == subType mediaType -> checkEncoding
-       | otherwise -> pure ()
+    if
+        | "multipart" == mainType mediaType -> checkEncoding
+        | "application" == mainType mediaType
+            && "x-www-form-urlencoded" == subType mediaType ->
+          checkEncoding
+        | otherwise -> pure ()
     -- If consumer requires schema then producer must produce compatible
     -- request
     for_ (tracedSchema c) $ \consRef ->
-        case tracedSchema p of
-          Nothing -> issueAt beh MediaTypeSchemaRequired
-          Just prodRef -> checkCompatibility env (beh >>> step PayloadSchema)
-            $ ProdCons prodRef consRef
+      case tracedSchema p of
+        Nothing -> issueAt beh MediaTypeSchemaRequired
+        Just prodRef ->
+          checkCompatibility env (beh >>> step PayloadSchema) $
+            ProdCons prodRef consRef
     pure ()
     where
       mediaType = getH @MediaType env
       checkEncoding =
-        let
-          -- Parameters of the media type are product-like entities
-          getEncoding mt = M.fromList
-            $ (IOHM.toList $ tracedEncoding mt) <&> \(k, enc) ->
-            ( k
-            , ProductLike
-              { productValue = enc
-              , required = True } )
-          encProdCons = getEncoding <$> prodCons
-        in checkProducts beh MediaEncodingMissing
-           (const $ checkCompatibility env beh) encProdCons
+        let -- Parameters of the media type are product-like entities
+            getEncoding mt =
+              M.fromList $
+                (IOHM.toList $ tracedEncoding mt) <&> \(k, enc) ->
+                  ( k
+                  , ProductLike
+                      { productValue = enc
+                      , required = True
+                      }
+                  )
+            encProdCons = getEncoding <$> prodCons
+         in checkProducts
+              beh
+              MediaEncodingMissing
+              (const $ checkCompatibility env beh)
+              encProdCons
 
 instance Subtree Encoding where
   type SubtreeLevel Encoding = 'PayloadLevel
