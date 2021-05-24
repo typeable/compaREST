@@ -588,7 +588,7 @@ processSchema sch@(extract -> Schema {..}) = do
             { forNumber = singletonFormula $ NumberFormat f
             }
     Just f
-      | f `elem` ["byte", "binary", "date", "date-time", "password"] ->
+      | f `elem` ["byte", "binary", "date", "date-time", "password", "uuid"] ->
         pure
           top
             { forString = singletonFormula $ StringFormat f
