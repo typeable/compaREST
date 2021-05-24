@@ -4,7 +4,8 @@ module OpenAPI.Checker.Behavior
   , Issuable (..)
   , Behavior
   , AnIssue (..)
-  ) where
+  )
+where
 
 import Data.Aeson
 import Data.Kind
@@ -16,6 +17,7 @@ data BehaviorLevel
   = APILevel
   | ServerLevel
   | SecurityRequirementLevel
+  | SecuritySchemeLevel
   | PathLevel
   | OperationLevel
   | PathFragmentLevel
@@ -28,8 +30,10 @@ data BehaviorLevel
   | TypedSchemaLevel
   | LinkLevel
 
-class (Ord (Behave a b), Show (Behave a b))
-  => Behavable (a :: BehaviorLevel) (b :: BehaviorLevel) where
+class
+  (Ord (Behave a b), Show (Behave a b)) =>
+  Behavable (a :: BehaviorLevel) (b :: BehaviorLevel)
+  where
   data Behave a b
 
 class (Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
@@ -48,6 +52,7 @@ data AnIssue (l :: BehaviorLevel) where
   AnIssue :: Issuable l => Issue l -> AnIssue l
 
 deriving stock instance Eq (AnIssue l)
+
 deriving stock instance Ord (AnIssue l)
 
 instance ToJSON (AnIssue l) where

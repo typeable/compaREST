@@ -24,6 +24,7 @@ import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.RequestBody ()
 import OpenAPI.Checker.Validate.Responses ()
+import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
 
 data MatchedOperation = MatchedOperation
@@ -54,9 +55,9 @@ tracedResponses oper =
   traced (ask oper >>> step OperationResponsesStep) $
     _operationResponses . operation $ extract oper
 
-tracedSecurity :: Traced MatchedOperation -> [Traced SecurityRequirement]
+tracedSecurity :: Traced MatchedOperation -> [(Int, Traced SecurityRequirement)]
 tracedSecurity oper =
-  [ traced (ask oper >>> step (OperationSecurityRequirementStep i)) x
+  [ (i, traced (ask oper >>> step (OperationSecurityRequirementStep i)) x)
   | (i, x) <- zip [0 ..] $ _operationSecurity . operation $ extract oper
   ]
 
@@ -79,6 +80,11 @@ instance Behavable 'OperationLevel 'PathFragmentLevel where
 instance Behavable 'OperationLevel 'RequestLevel where
   data Behave 'OperationLevel 'RequestLevel
     = InRequest
+    deriving stock (Eq, Ord, Show)
+
+instance Behavable 'OperationLevel 'SecurityRequirementLevel where
+  data Behave 'OperationLevel 'SecurityRequirementLevel
+    = SecuritySchemeStep Int
     deriving stock (Eq, Ord, Show)
 
 instance Subtree MatchedOperation where
@@ -211,7 +217,12 @@ instance Subtree MatchedOperation where
       -- FIXME: https://github.com/typeable/openapi-diff/issues/27
       checkCallbacks = pure () -- (error "FIXME: not implemented")
       -- FIXME: https://github.com/typeable/openapi-diff/issues/28
-      checkOperationSecurity = pure () -- (error "FIXME: not implemented")
+      checkOperationSecurity = do
+        let ProdCons pSecs cSecs = tracedSecurity <$> prodCons
+        for_ pSecs $ \(i, pSec) -> do
+          anyOfAt beh undefined $
+            cSecs <&> \(_, cSec) ->
+              checkCompatibility env (beh >>> step (SecuritySchemeStep i)) $ ProdCons pSec cSec
       checkServers =
         checkCompatibility env beh $ do
           x <- prodCons

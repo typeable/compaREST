@@ -134,6 +134,8 @@ library
                   , OpenAPI.Checker.Validate.Header
                   , OpenAPI.Checker.Validate.Link
                   , OpenAPI.Checker.Common
+                  , OpenAPI.Checker.Validate.SecurityScheme
+                  , OpenAPI.Checker.Validate.OAuth2Flows
 
 executable openapi-diff
   import:              common-options
