@@ -39,6 +39,7 @@ module OpenAPI.Checker.Subtree
   , ask
   , local
   , step
+  , Typeable
   )
 where
 

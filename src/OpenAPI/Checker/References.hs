@@ -3,6 +3,7 @@
 module OpenAPI.Checker.References
   ( Step (..)
   , dereference
+  , Typeable
   )
 where
 
