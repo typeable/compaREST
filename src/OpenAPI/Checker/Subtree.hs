@@ -164,7 +164,7 @@ checkSubstructure
   => HList xs
   -> ProdCons (Traced t)
   -> StructuralCompatFormula ()
-checkSubstructure e = memo SemanticMemoKey $ checkStructuralCompatibility e
+checkSubstructure e = memo StructuralMemoKey $ checkStructuralCompatibility e
 
 structuralMaybe
   :: (Subtree a, HasAll (CheckEnv a) xs)
