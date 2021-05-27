@@ -1,21 +1,34 @@
 {-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 
 module OpenAPI.Checker.Validate.Operation
-  ( MatchedOperation (..)
+  ( -- * Operation
+    MatchedOperation (..)
   , OperationMethod (..)
   , pathItemMethod
+
+    -- * ProcessedPathItem
+  , ProcessedPathItem (..)
+  , ProcessedPathItems (..)
+  , processPathItems
+  , Step (..)
   )
 where
 
+import Control.Arrow
+import Control.Comonad.Env
+import Control.Monad
 import Data.Foldable as F
 import Data.Functor
 import Data.HList
+import qualified Data.HashMap.Strict.InsOrd as IOHM
 import qualified Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
 import Data.Text (Text)
+import qualified Data.Text as T
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
@@ -27,6 +40,7 @@ import OpenAPI.Checker.Validate.RequestBody ()
 import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
+import OpenAPI.Checker.Validate.Sums
 
 data MatchedOperation = MatchedOperation
   { operation :: !Operation
@@ -60,6 +74,12 @@ tracedSecurity :: Traced MatchedOperation -> [(Int, Traced SecurityRequirement)]
 tracedSecurity oper =
   [ (i, traced (ask oper >>> step (OperationSecurityRequirementStep i)) x)
   | (i, x) <- zip [0 ..] $ _operationSecurity . operation $ extract oper
+  ]
+
+tracedCallbacks :: Traced MatchedOperation -> [(Text, Traced (Referenced Callback))]
+tracedCallbacks (Traced t oper) =
+  [ (k, Traced (t >>> step (OperationCallbackStep k)) v)
+  | (k, v) <- IOHM.toList . _operationCallbacks . operation $ oper
   ]
 
 -- FIXME: https://github.com/typeable/openapi-diff/issues/28
@@ -100,6 +120,7 @@ instance Subtree MatchedOperation where
        , ProdCons (Traced (Definitions Schema))
        , ProdCons [Server]
        , ProdCons (Traced (Definitions Link))
+       , ProdCons (Traced (Definitions Callback))
        ]
   checkStructuralCompatibility env pc = do
     let pParams :: ProdCons [Traced Param]
@@ -216,7 +237,24 @@ instance Subtree MatchedOperation where
             resps = tracedResponses <$> prodCons
         checkCompatibility respEnv beh $ swapProdCons resps
       -- FIXME: https://github.com/typeable/openapi-diff/issues/27
-      checkCallbacks = pure () -- (error "FIXME: not implemented")
+      checkCallbacks = do
+        let env' =
+              HCons (swapProdCons respDefs) $
+                HCons (swapProdCons headerDefs) $
+                  HCons (swapProdCons schemaDefs) $
+                    HCons (swapProdCons securitySchemeDefs) $
+                      HCons (swapProdCons paramDefs) $
+                        HCons (swapProdCons serversDefs) $
+                          HCons (swapProdCons callbackDefs) $
+                            HCons (swapProdCons bodyDefs) $
+                              HCons (swapProdCons linkDefs) HNil
+        let ProdCons pCallbacks cCallbacks = swapProdCons $ tracedCallbacks <$> prodCons
+        for_ pCallbacks $ \(k, pCallback) -> do
+          let beh' = beh >>> step (OperationCallback k)
+          anyOfAt beh' CallbacksUnsupported $
+            cCallbacks <&> \(_, cCallback) -> do
+              checkCompatibility env' beh' $ ProdCons pCallback cCallback
+        pure ()
       -- FIXME: https://github.com/typeable/openapi-diff/issues/28
       checkOperationSecurity = do
         let ProdCons pSecs cSecs = tracedSecurity <$> prodCons
@@ -236,6 +274,9 @@ instance Subtree MatchedOperation where
       schemaDefs = getH @(ProdCons (Traced (Definitions Schema))) env
       paramDefs = getH @(ProdCons (Traced (Definitions Param))) env
       linkDefs = getH @(ProdCons (Traced (Definitions Link))) env
+      callbackDefs = getH @(ProdCons (Traced (Definitions Callback))) env
+      securitySchemeDefs = getH @(ProdCons (Traced (Definitions SecurityScheme))) env
+      serversDefs = getH @(ProdCons [Server]) env
 
 data OperationMethod
   = GetMethod
@@ -275,8 +316,249 @@ instance Steppable MatchedOperation SecurityRequirement where
   data Step MatchedOperation SecurityRequirement = OperationSecurityRequirementStep Int
     deriving stock (Eq, Ord, Show)
 
+instance Steppable MatchedOperation (Referenced Callback) where
+  data Step MatchedOperation (Referenced Callback) = OperationCallbackStep Text
+    deriving stock (Eq, Ord, Show)
+
 instance Steppable MatchedOperation [Server] where
   data Step MatchedOperation [Server]
     = OperationServersStep
     | EnvServerStep
     deriving (Eq, Ord, Show)
+
+-- * ProcessedPathItems
+
+-- FIXME: There's probably a better name for this, but `PathItem` is already taken ;(
+data ProcessedPathItem = ProcessedPathItem
+  { path :: FilePath
+  , item :: PathItem
+  }
+  deriving stock (Eq, Show)
+
+processPathItems :: [(FilePath, PathItem)] -> ProcessedPathItems
+processPathItems = ProcessedPathItems . fmap (uncurry ProcessedPathItem)
+
+newtype ProcessedPathItems = ProcessedPathItems {unProcessedPathItems :: [ProcessedPathItem]}
+  deriving newtype (Eq, Show)
+
+instance Issuable 'APILevel where
+  data Issue 'APILevel
+    = NoPathsMatched FilePath
+    | AllPathsFailed FilePath
+    -- When several paths match given but all checks failed
+    deriving stock (Eq, Ord, Show)
+  issueIsUnsupported _ = False
+
+instance Behavable 'APILevel 'PathLevel where
+  data Behave 'APILevel 'PathLevel
+    = AtPath (ProdCons FilePath) -- TODO: why are there two?
+    deriving stock (Eq, Ord, Show)
+
+instance Subtree ProcessedPathItems where
+  type SubtreeLevel ProcessedPathItems = 'APILevel
+  type
+    CheckEnv ProcessedPathItems =
+      '[ ProdCons (Traced (Definitions Param))
+       , ProdCons (Traced (Definitions RequestBody))
+       , ProdCons (Traced (Definitions SecurityScheme))
+       , ProdCons (Traced (Definitions Response))
+       , ProdCons (Traced (Definitions Header))
+       , ProdCons (Traced (Definitions Schema))
+       , ProdCons [Server]
+       , ProdCons (Traced (Definitions Link))
+       , ProdCons (Traced (Definitions Callback))
+       ]
+
+  -- No real way to check it at this level
+  checkStructuralCompatibility _ _ = structuralIssue
+  checkSemanticCompatibility env beh pc@(ProdCons p c) = do
+    -- Each path generated by producer must be handled by consumer with exactly
+    -- one way
+    for_ (unProcessedPathItems . extract $ p) $ \prodItem -> do
+      let prodPath = path prodItem
+          matchedItems = do
+            consItem <- unProcessedPathItems . extract $ c
+            F.toList $ matchingPathItems $ ProdCons prodItem consItem
+      case matchedItems of
+        [] -> issueAt beh $ NoPathsMatched prodPath
+        [match] -> checkCompatibility env (beh >>> step (AtPath $ matchedPath <$> match)) (retraced <$> pc <*> match)
+        matches -> anyOfAt beh (AllPathsFailed prodPath) $ do
+          match <- matches
+          pure $ checkCompatibility env (beh >>> step (AtPath $ matchedPath <$> match)) (retraced <$> pc <*> match)
+    where
+      retraced pc mpi = traced (ask pc >>> step (MatchedPathStep $ matchedPath mpi)) mpi
+
+-- | Preliminary checks two paths for compatibility.  Returns Nothing if two
+-- paths obviously do not match: static parts differ or count of path elements
+-- is not equal
+matchingPathItems :: ProdCons ProcessedPathItem -> Maybe (ProdCons MatchedPathItem)
+matchingPathItems prodCons = do
+  let frags = parsePath . path <$> prodCons
+  guard $ fragsMatch frags
+  let mkMatchedItems frag ppi =
+        MatchedPathItem
+          { pathItem = item ppi
+          , matchedPath = path ppi
+          , pathFragments = frag
+          }
+  return $ mkMatchedItems <$> frags <*> prodCons
+
+fragsMatch :: ProdCons [PathFragment Text] -> Bool
+fragsMatch (ProdCons p c) = maybe False and $ zipAllWith check p c
+  where
+    check (StaticPath s1) (StaticPath s2) = s1 == s2
+    check _ _ = True
+
+zipAllWith :: (a -> b -> c) -> [a] -> [b] -> Maybe [c]
+zipAllWith _ [] [] = Just []
+zipAllWith f (x : xs) (y : ys) = (f x y :) <$> zipAllWith f xs ys
+zipAllWith _ (_ : _) [] = Nothing
+zipAllWith _ [] (_ : _) = Nothing
+
+data MatchedPathItem = MatchedPathItem
+  { pathItem :: !PathItem
+  , matchedPath :: !FilePath
+  , -- | Pre-parsed path from PathItem
+    pathFragments :: ![PathFragment Text]
+  }
+  deriving stock (Eq)
+
+tracedMatchedPathItemParameters :: Traced MatchedPathItem -> [Traced (Referenced Param)]
+tracedMatchedPathItemParameters mpi =
+  [ traced (ask mpi >>> step (PathItemParam i)) x
+  | (i, x) <- L.zip [0 ..] $ _pathItemParameters . pathItem $ extract mpi
+  ]
+
+-- TODO: simplify?
+tracedFragments :: Traced MatchedPathItem -> [Env (Trace PathFragmentParam) (PathFragment Text)]
+tracedFragments mpi =
+  [ env (ask mpi >>> step (PathFragmentStep i)) x
+  | (i, x) <- L.zip [0 ..] $ pathFragments $ extract mpi
+  ]
+
+tracedMethod
+  :: OperationMethod
+  -> Traced MatchedPathItem
+  -> Maybe (Traced' MatchedOperation Operation)
+tracedMethod s mpi = env (ask mpi >>> step (OperationMethodStep s)) <$> (pathItemMethod s . pathItem . extract $ mpi)
+
+instance Issuable 'PathLevel where
+  data Issue 'PathLevel
+    = OperationMissing OperationMethod
+    deriving stock (Eq, Ord, Show)
+  issueIsUnsupported _ = False
+
+instance Behavable 'PathLevel 'OperationLevel where
+  data Behave 'PathLevel 'OperationLevel
+    = InOperation OperationMethod
+    deriving (Eq, Ord, Show)
+
+instance Subtree MatchedPathItem where
+  type SubtreeLevel MatchedPathItem = 'PathLevel
+  type
+    CheckEnv MatchedPathItem =
+      '[ ProdCons (Traced (Definitions Param))
+       , ProdCons (Traced (Definitions RequestBody))
+       , ProdCons (Traced (Definitions SecurityScheme))
+       , ProdCons (Traced (Definitions Response))
+       , ProdCons (Traced (Definitions Header))
+       , ProdCons (Traced (Definitions Schema))
+       , ProdCons [Server]
+       , ProdCons (Traced (Definitions Link))
+       , ProdCons (Traced (Definitions Callback))
+       ]
+  checkStructuralCompatibility _ _ = structuralIssue
+  checkSemanticCompatibility env beh prodCons = do
+    let paramDefs = getH @(ProdCons (Traced (Definitions Param))) env
+        pathTracedParams = getPathParams <$> paramDefs <*> prodCons
+        getPathParams
+          :: Traced (Definitions Param)
+          -> Traced MatchedPathItem
+          -> [Traced Param]
+        getPathParams defs mpi = do
+          paramRef <- tracedMatchedPathItemParameters mpi
+          pure $ dereference defs paramRef
+        pathTracedFragments = mkPathFragments <$> prodCons
+        mkPathFragments mpi operationParams =
+          --  operationParams will be known on Operation check stage, so we give a
+          --  function, returning fragments
+          let paramsMap :: Map Text (Traced Param)
+              paramsMap = M.fromList $ do
+                tracedParam <- operationParams
+                let pname = _paramName . extract $ tracedParam
+                pure (pname, tracedParam)
+              convertFragment = \case
+                StaticPath t -> StaticPath t
+                DynamicPath pname ->
+                  DynamicPath $
+                    fromMaybe (error $ "Param not found " <> T.unpack pname) $
+                      M.lookup pname paramsMap
+           in tracedFragments mpi <&> fmap convertFragment
+        operations = getOperations <$> pathTracedParams <*> pathTracedFragments <*> prodCons
+        getOperations pathParams getPathFragments mpi = M.fromList $ do
+          (name, getOp) <-
+            (id &&& tracedMethod)
+              <$> [GetMethod, PutMethod, PostMethod, DeleteMethod, OptionsMethod, HeadMethod, PatchMethod, DeleteMethod]
+          operation <- F.toList $ getOp mpi
+          -- Got only Justs here
+          let retraced = \op -> MatchedOperation {operation = op, pathParams, getPathFragments}
+          pure (name, retraced <$> operation)
+        check name pc = checkCompatibility @MatchedOperation env (beh >>> step (InOperation name)) pc
+    -- Operations are sum-like entities. Use step to operation as key because
+    -- why not
+    checkSums beh OperationMissing check operations
+
+instance Steppable ProcessedPathItems MatchedPathItem where
+  data Step ProcessedPathItems MatchedPathItem = MatchedPathStep FilePath
+    deriving (Eq, Ord, Show)
+
+instance Steppable MatchedPathItem MatchedOperation where
+  data Step MatchedPathItem MatchedOperation = OperationMethodStep OperationMethod
+    deriving (Eq, Ord, Show)
+
+instance Steppable MatchedPathItem (Referenced Param) where
+  data Step MatchedPathItem (Referenced Param) = PathItemParam Int
+    deriving (Eq, Ord, Show)
+
+instance Steppable MatchedPathItem PathFragmentParam where
+  data Step MatchedPathItem PathFragmentParam = PathFragmentStep Int
+    deriving (Eq, Ord, Show)
+
+-- * Callbacks
+
+instance Subtree Callback where
+  type SubtreeLevel Callback = 'CallbackLevel
+  type
+    CheckEnv Callback =
+      '[ ProdCons (Traced (Definitions Param))
+       , ProdCons (Traced (Definitions RequestBody))
+       , ProdCons (Traced (Definitions SecurityScheme))
+       , ProdCons (Traced (Definitions Response))
+       , ProdCons (Traced (Definitions Header))
+       , ProdCons (Traced (Definitions Schema))
+       , ProdCons (Traced (Definitions Link))
+       , ProdCons [Server]
+       , ProdCons (Traced (Definitions Callback))
+       ]
+  checkStructuralCompatibility env pc =
+    checkSubstructure env $ tracedCallbackPathItems <$> pc
+  checkSemanticCompatibility _ bhv _ = issueAt bhv CallbacksUnsupported
+
+instance Issuable 'CallbackLevel where
+  data Issue 'CallbackLevel
+    = CallbacksUnsupported
+    deriving (Eq, Ord, Show)
+  issueIsUnsupported = \case
+    CallbacksUnsupported -> True
+
+tracedCallbackPathItems :: Traced Callback -> Traced ProcessedPathItems
+tracedCallbackPathItems (Traced t (Callback x)) =
+  Traced (t >>> step CallbackPathsStep) (processPathItems . fmap (first T.unpack) . IOHM.toList $ x)
+
+instance Steppable Callback ProcessedPathItems where
+  data Step Callback ProcessedPathItems = CallbackPathsStep
+    deriving (Eq, Ord, Show)
+
+instance Behavable 'OperationLevel 'CallbackLevel where
+  data Behave 'OperationLevel 'CallbackLevel = OperationCallback Text
+    deriving stock (Eq, Ord, Show)
