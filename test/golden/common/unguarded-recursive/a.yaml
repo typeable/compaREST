@@ -1,0 +1,21 @@
+openapi: 3.0.0
+info:
+  title: ""
+  version: ""
+servers:
+  - url: /
+paths:
+  /api/foo:
+    get:
+      responses:
+        200:
+          description: ""
+          content:
+            application/json;charset=utf-8:
+              schema:
+                $ref: "#/components/schemas/Bad"
+components:
+  schemas:
+    Bad:
+      anyOf:
+        - $ref: "#/components/schemas/Bad"
