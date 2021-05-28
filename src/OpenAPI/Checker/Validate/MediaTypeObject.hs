@@ -12,6 +12,7 @@ import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
 import Data.OpenApi
+import Data.String
 import Data.Text (Text)
 import Network.HTTP.Media (MediaType, mainType, subType)
 import OpenAPI.Checker.Behavior
@@ -19,6 +20,7 @@ import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Header ()
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
+import Text.Pandoc.Builder.Extra
 
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
@@ -45,6 +47,7 @@ instance Behavable 'PayloadLevel 'SchemaLevel where
   data Behave 'PayloadLevel 'SchemaLevel
     = PayloadSchema
     deriving (Eq, Ord, Show)
+  describeBehaviour PayloadSchema = "JSON Schema"
 
 instance Subtree MediaTypeObject where
   type SubtreeLevel MediaTypeObject = 'PayloadLevel
@@ -136,6 +139,7 @@ instance Behavable 'OperationLevel 'ResponseLevel where
   data Behave 'OperationLevel 'ResponseLevel
     = WithStatusCode HttpStatusCode
     deriving stock (Eq, Ord, Show)
+  describeBehaviour (WithStatusCode c) = "Response code " <> (strong . fromString . show $ c)
 
 instance Issuable 'OperationLevel where
   data Issue 'OperationLevel

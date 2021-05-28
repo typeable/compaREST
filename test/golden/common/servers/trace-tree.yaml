@@ -1,5 +1,5 @@
 Left:
-  AtPath (ProdCons {producer = "/pets", consumer = "/pets"}):
+  AtPath "/pets":
     InOperation GetMethod:
       InServer "http://{x}variable.path/{y}/{openVariable1}/{openVariable2}":
       - EnumValueNotConsumed 1 "a"

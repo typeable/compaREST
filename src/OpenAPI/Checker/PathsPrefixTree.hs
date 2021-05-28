@@ -1,14 +1,14 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 
 module OpenAPI.Checker.PathsPrefixTree
-  ( PathsPrefixTree
+  ( PathsPrefixTree (PathsPrefixNode)
+  , AStep (..)
   , empty
   , singleton
   , fromList
   , null
   , foldWith
   , toList
-  , filter
   , embed
   )
 where
@@ -24,6 +24,7 @@ import qualified Data.Text as T
 import Data.Type.Equality
 import qualified Data.TypeRepMap as TRM
 import qualified Data.Vector as V
+import qualified GHC.Exts as Exts
 import qualified GHC.Exts as TRM
 import OpenAPI.Checker.Paths
 import Type.Reflection
@@ -34,6 +35,11 @@ data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPref
   { rootItems :: !(ASet (f r))
   , snocItems :: !(TRM.TypeRepMap (AStep q f r))
   }
+
+pattern PathsPrefixNode :: S.Set (f r) -> [TRM.WrapTypeable (AStep q f r)] -> PathsPrefixTree q f r
+pattern PathsPrefixNode s steps <- (\(PathsPrefixTree aset m) -> (toSet aset, Exts.toList m) -> (s, steps))
+
+{-# COMPLETE PathsPrefixNode #-}
 
 instance (forall a. ToJSON (f a)) => ToJSON (PathsPrefixTree q f r) where
   toJSON =
@@ -77,6 +83,10 @@ instance Ord (PathsPrefixTree q f a) where
 data ASet (a :: Type) where
   AnEmptySet :: ASet a
   ASet :: Ord a => S.Set a -> ASet a
+
+toSet :: ASet a -> S.Set a
+toSet AnEmptySet = S.empty
+toSet (ASet s) = s
 
 instance ToJSON a => ToJSON (ASet a) where
   toJSON =
@@ -123,6 +133,7 @@ instance Semigroup (PathsPrefixTree q f r) where
   PathsPrefixTree r1 s1 <> PathsPrefixTree r2 s2 =
     PathsPrefixTree (r1 <> r2) (TRM.unionWith joinSteps s1 s2)
     where
+      joinSteps :: AStep q f r a -> AStep q f r a -> AStep q f r a
       joinSteps (AStep m1) (AStep m2) = AStep $ M.unionWith (<>) m1 m2
 
 instance Monoid (PathsPrefixTree q f r) where
@@ -159,13 +170,6 @@ foldWith k = goTPT Root
 
 toList :: PathsPrefixTree q f r -> [AnItem q f r]
 toList t = appEndo (foldWith (\xs f -> Endo (AnItem xs f :)) t) []
-
--- | Select a subtree by prefix
-filter :: Paths q r a -> PathsPrefixTree q f r -> PathsPrefixTree q f a
-filter Root t = t
-filter (Snoc xs x) t =
-  foldMap (\(AStep m) -> fold $ M.lookup x m) $
-    TRM.lookup $ snocItems $ filter xs t
 
 -- | Embed a subtree in a larger tree with given prefix
 embed :: Paths q r a -> PathsPrefixTree q f a -> PathsPrefixTree q f r

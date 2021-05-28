@@ -1,9 +1,9 @@
 Left:
-  AtPath (ProdCons {producer = "/oauth/check", consumer = "/oauth/check"}):
-    InOperation PostMethod:
-      SecurityRequirementStep 0:
-        SecuritySchemeStep "oauth": SecuritySchemeNotMatched
-  AtPath (ProdCons {producer = "/oauth/sign_out", consumer = "/oauth/sign_out"}):
+  AtPath "/oauth/sign_out":
     InOperation GetMethod:
       SecurityRequirementStep 1:
+        SecuritySchemeStep "oauth": SecuritySchemeNotMatched
+  AtPath "/oauth/check":
+    InOperation PostMethod:
+      SecurityRequirementStep 0:
         SecuritySchemeStep "oauth": SecuritySchemeNotMatched

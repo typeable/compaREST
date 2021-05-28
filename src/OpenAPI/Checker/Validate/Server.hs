@@ -28,6 +28,7 @@ import OpenAPI.Checker.Common
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
+import Text.Pandoc.Builder.Extra
 import Prelude as P
 
 tracedParsedServerUrlParts
@@ -44,6 +45,8 @@ instance Behavable 'OperationLevel 'ServerLevel where
   data Behave 'OperationLevel 'ServerLevel
     = InServer Text
     deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (InServer n) = "Server " <> code n
 
 instance Subtree [Server] where
   type SubtreeLevel [Server] = 'OperationLevel

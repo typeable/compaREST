@@ -67,6 +67,8 @@ instance Behavable 'PathFragmentLevel 'SchemaLevel where
   data Behave 'PathFragmentLevel 'SchemaLevel
     = InParamSchema
     deriving (Eq, Ord, Show)
+  
+  describeBehaviour InParamSchema = "JSON Schema"
 
 instance Subtree Param where
   type SubtreeLevel Param = 'PathFragmentLevel

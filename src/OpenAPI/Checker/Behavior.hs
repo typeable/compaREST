@@ -12,6 +12,7 @@ import Data.Kind
 import Data.Text as T
 import Data.Typeable
 import OpenAPI.Checker.Paths
+import Text.Pandoc.Builder.Extra
 
 -- | Kind
 data BehaviorLevel
@@ -37,18 +38,22 @@ class
   Behavable (a :: BehaviorLevel) (b :: BehaviorLevel)
   where
   data Behave a b
+  describeBehaviour :: Behave a b -> Inlines
+  describeBehaviour bhv = strong "Not Implemented" <> code (T.pack . show $ bhv)
+
+type instance AdditionalQuiverConstraints Behave a b = Behavable a b
 
 class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
   data Issue l :: Type
-  describeIssue :: Issue l -> Text
-  describeIssue = T.pack . show -- TODO: remove this default
+  describeIssue :: Issue l -> Blocks
+  describeIssue i = para (strong "Not Implemented") <> (codeBlock . T.pack $ show i)
   issueIsUnsupported :: Issue l -> Bool
 
 -- | A set of interactions having common unifying features
 type Behavior = Paths Behave 'APILevel
 
 instance Issuable l => ToJSON (Issue l) where
-  toJSON = toJSON . describeIssue
+  toJSON = toJSON . show
 
 data AnIssue (l :: BehaviorLevel) where
   AnIssue :: Issuable l => Issue l -> AnIssue l

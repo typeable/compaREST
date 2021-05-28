@@ -18,6 +18,7 @@ import Data.Text (Text)
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Subtree
+import Text.Pandoc.Builder.Extra
 
 instance Subtree OAuth2Flows where
   type CheckEnv OAuth2Flows = '[]
@@ -130,3 +131,4 @@ instance Behavable 'SecurityRequirementLevel 'SecuritySchemeLevel where
   data Behave 'SecurityRequirementLevel 'SecuritySchemeLevel
     = SecuritySchemeStep Text
     deriving stock (Eq, Ord, Show)
+  describeBehaviour (SecuritySchemeStep s) = text s

@@ -63,6 +63,7 @@ common common-options
                      , vector
                      , yaml
                      , hashable
+                     , pandoc-types
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -136,6 +137,8 @@ library
                   , OpenAPI.Checker.Common
                   , OpenAPI.Checker.Validate.SecurityScheme
                   , OpenAPI.Checker.Validate.OAuth2Flows
+                  , Text.Pandoc.Builder.Extra
+                  , OpenAPI.Checker.Report
 
 executable openapi-diff
   import:              common-options
@@ -163,6 +166,8 @@ test-suite openapi-diff-test
     , yaml
     , directory
     , filepath
+    , pandoc
+    , data-default
   ghc-options:         -threaded
                        -rtsopts
                        -with-rtsopts=-N
