@@ -11,7 +11,7 @@ import qualified OpenAPI.Checker.PathsPrefixTree as P
 import Text.Pandoc.Builder.Extra
 
 generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pandoc
-generateReport (Right ()) = doc $ header0 "No breaking changes found ✨"
+generateReport (Right ()) = doc $ header1 "No breaking changes found ✨"
 generateReport (Left errs) = doc $ showErrs errs
 
 showErrs :: P.PathsPrefixTree Behave AnIssue a -> Blocks
@@ -21,7 +21,7 @@ showErrs (P.PathsPrefixNode currentIssues subIssues) =
       (\(WrapTypeable (AStep m)) ->
          M.foldMapWithKey
            (\bhv subErrors ->
-              header0 (describeBehaviour bhv)
+              header1 (describeBehaviour bhv)
                 <> sub (showErrs subErrors))
            m)
       subIssues

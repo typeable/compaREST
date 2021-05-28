@@ -1,5 +1,5 @@
 module Text.Pandoc.Builder.Extra
-  ( header0
+  ( header1
   , sub
   , module Text.Pandoc.Builder
   , IsString (..)
@@ -10,8 +10,8 @@ import Data.String
 import Text.Pandoc.Builder
 import Text.Pandoc.Walk
 
-header0 :: Inlines -> Blocks
-header0 = header 0
+header1 :: Inlines -> Blocks
+header1 = header 1
 
 -- Not super efficient but plays nicely with everything
 sub :: Blocks -> Blocks

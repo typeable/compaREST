@@ -1,14 +1,14 @@
- `/pets`
+# `/pets`
 
-# GET
+## GET
 
-## Server `http://missing.url`
+### Server `http://missing.url`
 
 **Not Implemented**
 
     ServerNotMatched
 
-## Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
+### Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
 
 **Not Implemented**
 

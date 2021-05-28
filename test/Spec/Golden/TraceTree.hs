@@ -52,8 +52,8 @@ runPandoc = either throwIO (pure . BSL.fromStrict . T.encodeUtf8) . runPure
 runChecker :: (OpenApi, OpenApi) -> Either (PathsPrefixTree Behave AnIssue 'APILevel) ()
 runChecker = runCompatFormula . checkCompatibility HNil Root . toPC
   where
-    toPC (client, server) =
+    toPC (c, s) =
       ProdCons
-        { producer = traced (step ClientSchema) client
-        , consumer = traced (step ServerSchema) server
+        { producer = traced (step ClientSchema) c
+        , consumer = traced (step ServerSchema) s
         }

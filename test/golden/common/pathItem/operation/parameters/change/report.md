@@ -1,12 +1,12 @@
- `/test`
+# `/test`
 
-# POST
+## POST
 
-## Parameter test
+### Parameter test
 
-### JSON Schema
+#### JSON Schema
 
-#### String
+##### String
 
 **Not Implemented**
 

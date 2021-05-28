@@ -1,22 +1,22 @@
- `/oauth/check`
+# `/oauth/check`
 
-# POST
+## POST
 
-## Security requirement 0
+### Security requirement 0
 
-### oauth
+#### oauth
 
 **Not Implemented**
 
     SecuritySchemeNotMatched
 
- `/oauth/sign_out`
+# `/oauth/sign_out`
 
-# GET
+## GET
 
-## Security requirement 1
+### Security requirement 1
 
-### oauth
+#### oauth
 
 **Not Implemented**
 

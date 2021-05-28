@@ -1,14 +1,14 @@
- `/test`
+# `/test`
 
-# POST
+## POST
 
-## Request
+### Request
 
-### Payload
+#### Payload
 
-#### JSON Schema
+##### JSON Schema
 
-##### String
+###### String
 
 **Not Implemented**
 

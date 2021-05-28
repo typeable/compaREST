@@ -1,14 +1,14 @@
- `/test`
+# `/test`
 
-# POST
+## POST
 
-## Response code **200**
+### Response code 200
 
-### Payload
+#### Payload
 
-#### JSON Schema
+##### JSON Schema
 
-##### Boolean
+###### Boolean
 
 **Not Implemented**
 

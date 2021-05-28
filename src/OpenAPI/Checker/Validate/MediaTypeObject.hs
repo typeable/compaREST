@@ -20,7 +20,7 @@ import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Header ()
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
-import Text.Pandoc.Builder.Extra
+import Text.Pandoc.Builder.Extra ()
 
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
@@ -139,7 +139,7 @@ instance Behavable 'OperationLevel 'ResponseLevel where
   data Behave 'OperationLevel 'ResponseLevel
     = WithStatusCode HttpStatusCode
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (WithStatusCode c) = "Response code " <> (strong . fromString . show $ c)
+  describeBehaviour (WithStatusCode c) = "Response code " <> (fromString . show $ c)
 
 instance Issuable 'OperationLevel where
   data Issue 'OperationLevel
