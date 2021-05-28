@@ -1,0 +1,43 @@
+openapi: 3.0.0
+info:
+  title: ""
+  version: ""
+servers:
+  - url: /
+paths:
+  /api/foo:
+    get:
+      responses:
+        200:
+          description: ""
+          content:
+            application/json;charset=utf-8:
+              schema:
+                $ref: "#/components/schemas/Tree"
+components:
+  schemas:
+    Tree:
+      type: object
+      properties:
+        node:
+          required:
+            - children
+          type: object
+          properties:
+            children:
+              type: array
+              items:
+                $ref: "#/components/schemas/Tree"
+        leaf:
+          required:
+            - value
+          type: object
+          properties:
+            value:
+              required:
+                - foo
+              type: object
+              properties:
+                foo:
+                  enum:
+                    - "a"
