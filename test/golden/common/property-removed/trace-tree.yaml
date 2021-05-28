@@ -8,4 +8,4 @@ Left:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType Object: UnexpectedProperty "property2"
+            OfType Object: PropertyNowRequired "property2"

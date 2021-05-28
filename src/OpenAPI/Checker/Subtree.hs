@@ -3,6 +3,7 @@
 module OpenAPI.Checker.Subtree
   ( Steppable (..)
   , Step (..)
+  , TraceRoot
   , Trace
   , Traced
   , Traced'
@@ -69,7 +70,15 @@ class
   -- | How to get from an @a@ node to a @b@ node
   data Step a b :: Type
 
-type Trace = Paths Step OpenApi
+data TraceRoot
+
+instance Steppable TraceRoot OpenApi where
+  data Step TraceRoot OpenApi
+    = ClientSchema
+    | ServerSchema
+    deriving stock (Eq, Ord, Show)
+
+type Trace = Paths Step TraceRoot
 
 type Traced' a b = Env (Trace a) b
 

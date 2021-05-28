@@ -25,8 +25,8 @@ runChecker = do
                 fail "Exiting"
               Right s -> pure s
           Right s -> pure s
-  a <- traced Root <$> parseSchema (clientFile opts)
-  b <- traced Root <$> parseSchema (serverFile opts)
+  a <- traced (step ClientSchema) <$> parseSchema (clientFile opts)
+  b <- traced (step ServerSchema) <$> parseSchema (serverFile opts)
   let report = runCompatFormula $ checkCompatibility HNil Root (ProdCons a b)
       output = case outputMode opts of
         StdoutMode -> BSC.putStrLn

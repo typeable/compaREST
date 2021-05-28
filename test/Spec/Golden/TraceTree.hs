@@ -21,4 +21,9 @@ tests =
     "trace-tree.yaml"
     ("a.yaml", "b.yaml")
     Yaml.decodeFileThrow
-    (runCompatFormula . checkCompatibility HNil Root . fmap (traced Root) . uncurry ProdCons)
+    (runCompatFormula . checkCompatibility HNil Root . toPC)
+    where
+      toPC (client, server) = ProdCons
+        { producer = traced (step ClientSchema) client
+        , consumer = traced (step ServerSchema) server
+        }
