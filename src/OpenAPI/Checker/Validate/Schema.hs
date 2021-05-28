@@ -40,6 +40,7 @@ import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T hiding (singleton)
 import Data.Typeable
+import Text.Regex.Pcre2
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Paths
@@ -131,16 +132,16 @@ satisfiesTyped (TNumber n) (Maximum (Exclusive m)) = n < m
 satisfiesTyped (TNumber n) (Maximum (Inclusive m)) = n <= m
 satisfiesTyped (TNumber n) (Minimum (Down (Exclusive (Down m)))) = n > m
 satisfiesTyped (TNumber n) (Minimum (Down (Inclusive (Down m)))) = n >= m
-satisfiesTyped (TNumber n) (MultipleOf m) = denominator (toRational n / toRational m) == 1 -- TODO: could be better
+satisfiesTyped (TNumber n) (MultipleOf m) = denominator (toRational n / toRational m) == 1 -- TODO: could be better #36
 satisfiesTyped (TNumber n) (NumberFormat f) = checkNumberFormat f n
 satisfiesTyped (TString s) (MaxLength m) = fromIntegral (T.length s) <= m
 satisfiesTyped (TString s) (MinLength m) = fromIntegral (T.length s) >= m
-satisfiesTyped (TString s) (Pattern p) = undefined s p -- TODO: regex stuff
-satisfiesTyped (TString s) (StringFormat f) = undefined s f -- TODO: string format
+satisfiesTyped (TString s) (Pattern p) = isJust $ match p s -- TODO: regex stuff #32
+satisfiesTyped (TString s) (StringFormat f) = checkStringFormat f s
 satisfiesTyped (TArray a) (Items f _) = all (`satisfies` f) a
 satisfiesTyped (TArray a) (MaxItems m) = fromIntegral (F.length a) <= m
 satisfiesTyped (TArray a) (MinItems m) = fromIntegral (F.length a) >= m
-satisfiesTyped (TArray a) UniqueItems = S.size (S.fromList $ F.toList a) == F.length a -- TODO: could be better
+satisfiesTyped (TArray a) UniqueItems = S.size (S.fromList $ F.toList a) == F.length a -- TODO: could be better #36
 satisfiesTyped (TObject o) (Properties props additional _) =
   all (`HM.member` o) (M.keys (M.filter propRequired props))
     && all (\(k, v) -> satisfies v $ maybe additional propFormula $ M.lookup k props) (HM.toList o)
@@ -159,6 +160,15 @@ checkNumberFormat "int64" (toRational -> n) =
 checkNumberFormat "float" _n = True
 checkNumberFormat "double" _n = True
 checkNumberFormat f _n = error $ "Invalid number format: " <> T.unpack f
+
+checkStringFormat :: Format -> Text -> Bool
+checkStringFormat "byte" _s = True -- TODO: regex stuff #32
+checkStringFormat "binary" _s = True
+checkStringFormat "date" _s = True
+checkStringFormat "date-time" _s = True
+checkStringFormat "password" _s = True
+checkStringFormat "uuid" _s = True
+checkStringFormat f _s = error $ "Invalid string format: " <> T.unpack f
 
 deriving stock instance Eq (Condition t)
 
@@ -350,29 +360,6 @@ instance
       , forArray = top
       , forObject = top
       }
-
-{- TODO: remove
-instance Typeable t => Steppable Schema (Condition t) where
-  data Step Schema (Condition t)
-    = EnumField
-    | MaximumFields -- maximum & exclusiveMaximum
-    | MinimumFields -- minimum & exclusiveMinimum
-    | MultipleOfField
-    | FormatField
-    | MaxLengthField
-    | MinLengthField
-    | PatternField
-    | ItemsField
-    | MaxItemsField
-    | MinItemsField
-    | UniqueItemsField
-    | PropertiesFields -- properties, additionalProperties & required
-    | MaxPropertiesField
-    | MinPropertiesField
-    | NullableField
-    | IntegerType -- type=integer
-    deriving (Eq, Ord, Show)
--}
 
 instance Behavable 'SchemaLevel 'SchemaLevel where
   data Behave 'SchemaLevel 'SchemaLevel
@@ -724,10 +711,10 @@ processSchema sch@(extract -> Schema {..}) = do
               , minPropertiesClause
               ])
 
-{- TODO: ReadOnly/WriteOnly -}
+{- TODO: ReadOnly/WriteOnly #68 -}
 
 checkOneOfDisjoint :: [Traced (Referenced Schema)] -> ProcessM Bool
-checkOneOfDisjoint = const $ pure True -- TODO
+checkOneOfDisjoint = const $ pure True -- TODO #69
 
 schemaToFormula
   :: Traced (Definitions Schema)
@@ -788,7 +775,7 @@ checkContradiction
   :: Behavior 'TypedSchemaLevel
   -> [Condition t]
   -> SemanticCompatFormula ()
-checkContradiction beh _ = issueAt beh NoContradiction -- TODO
+checkContradiction beh _ = issueAt beh NoContradiction -- TODO #70
 
 checkImplication
   :: (HasAll (CheckEnv Schema) xs)
@@ -844,7 +831,7 @@ checkImplication env beh prods cons = case findExactly prods of
     Pattern p ->
       if any (\case Pattern p' -> p == p'; _ -> False) prods
         then pure ()
-        else issueAt beh (NoMatchingPattern p) -- TODO: regex comparison
+        else issueAt beh (NoMatchingPattern p) -- TODO: regex comparison #32
     StringFormat f ->
       if any (\case StringFormat f' -> f == f'; _ -> False) prods
         then pure ()
@@ -872,7 +859,7 @@ checkImplication env beh prods cons = case findExactly prods of
         then pure ()
         else issueAt beh NoMatchingUniqueItems
     Properties props _ madd -> case findRelevant (<>) (\case Properties props' _ madd' -> Just $ (props', madd') NE.:| []; _ -> Nothing) prods of
-      Just ((props', madd') NE.:| []) -> do
+      Just pm -> anyOfAt beh NoMatchingProperties $ NE.toList pm <&> \(props', madd') -> do
         F.for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
           let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
           case (M.lookup k props', madd', M.lookup k props, madd) of
@@ -916,42 +903,74 @@ checkImplication env beh prods cons = case findExactly prods of
 instance Issuable 'TypedSchemaLevel where
   data Issue 'TypedSchemaLevel
     = EnumDoesntSatisfy A.Value
+    -- ^ producer produces a specific value ($1), consumer has a condition that is not satisfied by said value
     | NoMatchingEnum A.Value
+    -- ^ producer produces a specific value ($1) which is not listed in the consumer's list of specific values
     | NoMatchingMaximum (Bound Scientific)
+    -- ^ producer declares a maximum numeric value ($1), consumer doesnt
     | MatchingMaximumWeak (Bound Scientific) (Bound Scientific)
+    -- ^ producer declares a maximum numeric value ($1), consumer declares a weaker (higher) limit ($2)
     | NoMatchingMinimum (Bound Scientific)
+    -- ^ producer declares a minimum numeric value, consumer doesnt
     | MatchingMinimumWeak (Bound Scientific) (Bound Scientific)
+    -- ^ producer declares a minimum numeric value ($1), consumer declares a weaker (lower) limit ($2)
     | NoMatchingMultipleOf Scientific
+    -- ^ producer declares that the numeric value must be a multiple of $1, consumer doesn't
     | MatchingMultipleOfWeak Scientific Scientific
+    -- ^ producer declares that the numeric value must be a multiple of $1, consumer declares a weaker condition (multiple of $2)
     | NoMatchingFormat Format
+    -- ^ producer declares a string/number format, consumer declares none or a different format (TODO: improve via regex #32)
     | NoMatchingMaxLength Integer
+    -- ^ producer declares a maximum length of the string ($1), consumer doesn't.
     | MatchingMaxLengthWeak Integer Integer
+    -- ^ producer declares a maximum length of the string ($1), consumer declares a weaker (higher) limit ($2)
     | NoMatchingMinLength Integer
+    -- ^ producer declares a minimum length of the string ($1), consumer doesn't.
     | MatchingMinLengthWeak Integer Integer
+    -- ^ producer declares a minimum length of the string ($1), consumer declares a weaker (lower) limit ($2)
     | NoMatchingPattern Pattern
+    -- ^ producer declares the string value must matrix a regex ($1), consumer doesn't declare or declares different regex (TODO: #32)
     | NoMatchingItems
+    -- ^ producer declares the items of an array must satisfy some condition, consumer doesn't
     | NoMatchingMaxItems Integer
+    -- ^ producer declares a maximum length of the array ($1), consumer doesn't.
     | MatchingMaxItemsWeak Integer Integer
+    -- ^ producer declares a maximum length of the array ($1), consumer declares a weaker (higher) limit ($2)
     | NoMatchingMinItems Integer
+    -- ^ producer declares a minimum length of the array ($1), consumer doesn't.
     | MatchingMinItemsWeak Integer Integer
+    -- ^ producer declares a minimum length of the array ($1), consumer declares a weaker (lower) limit ($2)
     | NoMatchingUniqueItems
+    -- ^ producer declares that items must be unique, consumer doesn't
     | NoMatchingProperties
+    -- ^ producer declares the properties of an object must satisfy some condition, consumer doesn't
     | UnexpectedProperty Text
+    -- ^ producer allows a property that is not allowed in the consumer
     | PropertyNowRequired Text
+    -- ^ consumer requires a property that is not required/allowed in the consumer
     | NoAdditionalProperties
+    -- ^ producer allows additional properties, consumer doesn't
     | NoMatchingMaxProperties Integer
+    -- ^ producer declares a maximum number of properties in the object ($1), consumer doesn't.
     | MatchingMaxPropertiesWeak Integer Integer
+    -- ^ producer declares a maximum number of properties in the object ($1), consumer declares a weaker (higher) limit ($2)
     | NoMatchingMinProperties Integer
+    -- ^ producer declares a minimum number of properties in the object ($1), consumer doesn't.
     | MatchingMinPropertiesWeak Integer Integer
+    -- ^ producer declares a minimum number of properties in the object ($1), consumer declares a weaker (lower) limit ($2)
     | NoMatchingCondition [SomeCondition]
+    -- ^ consumer declares that the value must satisfy a disjunction of some conditions, but producer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
     | NoContradiction
+    -- ^ consumer indicates that values of this type are now allowed, but the producer does not do so (currently we only check immediate contradictions, c.f. #70)
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
 
 instance Issuable 'SchemaLevel where
   data Issue 'SchemaLevel
     = NotSupported Text
+    -- ^ Some (openapi-supported) feature that we do not support was encountered in the schema
     | InvalidSchema Text
+    -- ^ The schema is actually invalid
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = True
 
