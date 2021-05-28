@@ -9,6 +9,7 @@ module OpenAPI.Checker.PathsPrefixTree
   , null
   , foldWith
   , toList
+  , filter
   , embed
   )
 where
@@ -170,6 +171,13 @@ foldWith k = goTPT Root
 
 toList :: PathsPrefixTree q f r -> [AnItem q f r]
 toList t = appEndo (foldWith (\xs f -> Endo (AnItem xs f :)) t) []
+
+-- | Select a subtree by prefix
+filter :: forall q f r a. Paths q r a -> PathsPrefixTree q f r -> PathsPrefixTree q f a
+filter Root t = t
+filter (Snoc xs x) t =
+  foldMap (\(AStep m) -> fold $ M.lookup x m) $
+    TRM.lookup @a $ snocItems $ filter xs t
 
 -- | Embed a subtree in a larger tree with given prefix
 embed :: Paths q r a -> PathsPrefixTree q f a -> PathsPrefixTree q f r

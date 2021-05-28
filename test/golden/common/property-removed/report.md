@@ -2,6 +2,18 @@
 
 # POST
 
+## Response code **200**
+
+### Payload
+
+#### JSON Schema
+
+##### Object
+
+**Not Implemented**
+
+    PropertyNowRequired "property2"
+
 ## Request
 
 ### Payload
