@@ -20,6 +20,7 @@ import Control.Comonad.Env hiding (env)
 import Control.Lens hiding (cons)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
+import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.Aeson as A
 import Data.Coerce
@@ -32,7 +33,7 @@ import Data.Kind
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import Data.Maybe
-import Data.OpenApi
+import Data.OpenApi hiding (get)
 import Data.Ord
 import Data.Ratio
 import Data.Scientific
@@ -42,6 +43,7 @@ import qualified Data.Text as T hiding (singleton)
 import Data.Typeable
 import Text.Regex.Pcre2
 import OpenAPI.Checker.Behavior
+import OpenAPI.Checker.Memo
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
@@ -403,9 +405,14 @@ instance MonadWriter (P.PathsPrefixTree q f r) (Silent q f r) where
   listen (Silent x) = Silent (x, P.empty)
   pass (Silent (x, _)) = Silent x
 
+instance MonadState (MemoState ()) (Silent q f r) where
+  get = Silent $ runIdentity $ runMemo () get
+  put _ = pure ()
+
 type MonadProcess m =
   ( MonadReader (Traced (Definitions Schema)) m
   , MonadWriter (P.PathsPrefixTree Behave AnIssue 'SchemaLevel) m
+  , MonadState (MemoState ()) m
   )
 
 type SilentM = ReaderT (Traced (Definitions Schema)) (Silent Behave AnIssue 'SchemaLevel)
@@ -419,13 +426,20 @@ silently m = do
   defs <- R.ask
   pure . runSilent $ runReaderT m defs
 
+warnKnot :: MonadProcess m => KnotTier (ForeachType JsonFormula) () m
+warnKnot = KnotTier
+  { onKnotFound = warn UnguardedRecursion
+  , onKnotUsed = \_ -> pure bottom
+  , tieKnot = \_ -> pure
+  }
+
 processRefSchema
   :: MonadProcess m
   => Traced (Referenced Schema)
   -> m (ForeachType JsonFormula)
 processRefSchema x = do
   defs <- R.ask
-  processSchema $ dereference defs x
+  memoWithKnot warnKnot (processSchema $ dereference defs x) (ask x)
 
 tracedAllOf :: Traced Schema -> Maybe [Traced (Referenced Schema)]
 tracedAllOf sch =
@@ -743,7 +757,7 @@ schemaToFormula
   :: Traced (Definitions Schema)
   -> Traced Schema
   -> (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
-schemaToFormula defs rs = runWriter . (`runReaderT` defs) $ processSchema rs
+schemaToFormula defs rs = runWriter . (`runReaderT` defs) . runMemo () $ processSchema rs
 
 checkFormulas
   :: (HasAll (CheckEnv Schema) xs)
@@ -994,6 +1008,8 @@ instance Issuable 'SchemaLevel where
     -- ^ Some (openapi-supported) feature that we do not support was encountered in the schema
     | InvalidSchema Text
     -- ^ The schema is actually invalid
+    | UnguardedRecursion
+    -- ^ The schema contains a reference loop along "anyOf"/"allOf"/"oneOf".
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = True
 
