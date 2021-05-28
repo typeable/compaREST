@@ -7,6 +7,7 @@ module OpenAPI.Checker.Formula
   , errors
   , calculate
   , maxFixpoint
+  , mapErrors
   ) where
 
 import Data.Kind
@@ -29,7 +30,7 @@ data FormulaF (q :: k -> k -> Type) (f :: k -> Type) (r :: k) (a :: Type) where
     -- ^ invariant: at least one of LHS and RHS is not 'Errors', and they are
     -- both not 'Result'
   SelectFirst :: NE.NonEmpty (SomeFormulaF b)
-    -> !(AnItem q f r) -> (b -> a) -> FormulaF q f r a
+    -> !(P.PathsPrefixTree q f r) -> (b -> a) -> FormulaF q f r a
     -- ^ invariant: the list doesn't contain any 'Result's, 'Errors' or
     -- 'SelectFirst'
   Variable :: !VarRef -> a -> FormulaF q f r a
@@ -40,11 +41,11 @@ mkApply f (Result x) h = h . ($ x) <$> f
 mkApply (Errors e1) (Errors e2) _ = Errors (e1 <> e2)
 mkApply f x h = Apply f x h
 
-mkSelectFirst :: [SomeFormulaF b] -> AnItem q f r -> (b -> a) -> FormulaF q f r a
+mkSelectFirst :: [SomeFormulaF b] -> P.PathsPrefixTree q f r -> (b -> a) -> FormulaF q f r a
 mkSelectFirst fs allE h = case foldMap check fs of
   (First (Just x), _) -> Result (h x)
   (First Nothing, x:xs) -> SelectFirst (x NE.:| xs) allE h
-  (First Nothing, []) -> Errors $ P.singleton allE
+  (First Nothing, []) -> Errors allE
   where
     check (SomeFormulaF (Result x)) = (First (Just x), mempty)
     check (SomeFormulaF (Errors _)) = (mempty, mempty)
@@ -81,7 +82,7 @@ instance Applicative (FormulaF q f r) where
   f <*> x = mkApply f x id
 
 eitherOf :: [FormulaF q' f' r' a] -> AnItem q f r -> FormulaF q f r a
-eitherOf fs allE = mkSelectFirst (map SomeFormulaF fs) allE id
+eitherOf fs allE = mkSelectFirst (map SomeFormulaF fs) (P.singleton allE) id
 
 calculate :: FormulaF q f r a -> Either (P.PathsPrefixTree q f r) a
 calculate (Result x) = Right x
@@ -98,7 +99,7 @@ calculate (SelectFirst xs e h) = go (NE.toList xs)
     go (SomeFormulaF r:rs) = case calculate r of
       Left _ -> go rs
       Right x -> Right (h x)
-    go [] = Left $ P.singleton e
+    go [] = Left e
 calculate (Variable i _) = error $ "Unknown variable " <> show i
 
 -- Approximate for now. Answers yes/no correctly, but the error lists aren't
@@ -115,3 +116,10 @@ maxFixpoint i = go
     go v@(Variable _ _) = v
     goSF :: SomeFormulaF a -> SomeFormulaF a
     goSF (SomeFormulaF x) = SomeFormulaF (go x)
+
+mapErrors :: (P.PathsPrefixTree q f r -> P.PathsPrefixTree q' f' r') -> FormulaF q f r a -> FormulaF q' f' r' a
+mapErrors _ (Result x) = Result x
+mapErrors m (Errors e) = Errors $ m e
+mapErrors m (Apply f x h) = mkApply (mapErrors m f) (mapErrors m x) h
+mapErrors m (SelectFirst fs e h) = mkSelectFirst (NE.toList fs) (m e) h
+mapErrors _ (Variable i x) = Variable i x

@@ -10,6 +10,7 @@ where
 import Data.Aeson
 import Data.Kind
 import Data.Text as T
+import Data.Typeable
 import OpenAPI.Checker.Paths
 
 -- | Kind
@@ -37,7 +38,7 @@ class
   where
   data Behave a b
 
-class (Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
+class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
   data Issue l :: Type
   describeIssue :: Issue l -> Text
   describeIssue = T.pack . show -- TODO: remove this default

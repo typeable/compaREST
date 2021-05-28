@@ -117,16 +117,15 @@ type CompatFormula' q f r = Compose CompatM (FormulaF q f r)
 
 type SemanticCompatFormula = CompatFormula' Behave AnIssue 'APILevel
 
-type StructuralCompatFormula = CompatFormula' UnitQuiver Proxy ()
+type StructuralCompatFormula = CompatFormula' VoidQuiver Proxy ()
 
-data UnitQuiver a b where
-  UnitQuiver :: UnitQuiver () ()
+data VoidQuiver a b where
 
-deriving stock instance Eq (UnitQuiver a b)
+deriving stock instance Eq (VoidQuiver a b)
 
-deriving stock instance Ord (UnitQuiver a b)
+deriving stock instance Ord (VoidQuiver a b)
 
-deriving stock instance Show (UnitQuiver a b)
+deriving stock instance Show (VoidQuiver a b)
 
 class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   type CheckEnv t :: [Type]
@@ -155,7 +154,7 @@ checkCompatibility
   -> Behavior (SubtreeLevel t)
   -> ProdCons (Traced t)
   -> SemanticCompatFormula ()
-checkCompatibility e bhv = memo SemanticMemoKey $ \pc ->
+checkCompatibility e bhv = memo bhv SemanticMemoKey $ \pc ->
   case runCompatFormula $ checkSubstructure e pc of
     Left _ -> checkSemanticCompatibility e bhv pc
     Right () -> pure ()
@@ -165,7 +164,7 @@ checkSubstructure
   => HList xs
   -> ProdCons (Traced t)
   -> StructuralCompatFormula ()
-checkSubstructure e = memo StructuralMemoKey $ checkStructuralCompatibility e
+checkSubstructure e = memo Root StructuralMemoKey $ checkStructuralCompatibility e
 
 structuralMaybe
   :: (Subtree a, HasAll (CheckEnv a) xs)
@@ -260,7 +259,7 @@ issueAt :: Issuable l => Paths q r l -> Issue l -> CompatFormula' q AnIssue r a
 issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ AnIssue issue
 
 structuralIssue :: StructuralCompatFormula a
-structuralIssue = Compose $ pure $ anError $ AnItem (step UnitQuiver) Proxy
+structuralIssue = Compose $ pure $ anError $ AnItem Root Proxy
 
 anyOfAt
   :: Issuable l
@@ -283,11 +282,17 @@ fixpointKnot =
     }
 
 memo
-  :: (Typeable (r :: k), Typeable q, Typeable f, Typeable k, Typeable a)
-  => MemoKey
+  :: (Typeable (l :: k), Typeable q, Typeable f, Typeable k, Typeable a)
+  => Paths q r l
+  -> MemoKey
   -> (ProdCons (Traced a) -> CompatFormula' q f r ())
   -> (ProdCons (Traced a) -> CompatFormula' q f r ())
-memo k f pc = Compose $ memoWithKnot fixpointKnot (getCompose $ f pc) (k, ask <$> pc)
+memo bhv k f pc = Compose $ do
+  formula' <- memoWithKnot fixpointKnot (do
+    formula <- getCompose $ f pc
+    pure $ mapErrors (P.filter bhv) formula
+    ) (k, ask <$> pc)
+  pure $ mapErrors (P.embed bhv) formula'
 
 data MemoKey = SemanticMemoKey | StructuralMemoKey
   deriving stock (Eq, Ord)

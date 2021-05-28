@@ -5,3 +5,7 @@ Left:
         InPayload:
           PayloadSchema:
             OfType Number: MatchingMaximumWeak (Inclusive 2.0) (Inclusive 3.0)
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Number: MatchingMaximumWeak (Inclusive 2.0) (Inclusive 3.0)
