@@ -162,7 +162,7 @@ checkNumberFormat "double" _n = True
 checkNumberFormat f _n = error $ "Invalid number format: " <> T.unpack f
 
 checkStringFormat :: Format -> Text -> Bool
-checkStringFormat "byte" _s = True -- TOO: regex stuff #32
+checkStringFormat "byte" _s = True -- TODO: regex stuff #32
 checkStringFormat "binary" _s = True
 checkStringFormat "date" _s = True
 checkStringFormat "date-time" _s = True
