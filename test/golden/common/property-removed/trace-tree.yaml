@@ -5,3 +5,7 @@ Left:
         InPayload:
           PayloadSchema:
             OfType Object: UnexpectedProperty "property2"
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Object: PropertyNowRequired "property2"
