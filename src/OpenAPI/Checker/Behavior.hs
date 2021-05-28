@@ -29,6 +29,7 @@ data BehaviorLevel
   | SchemaLevel
   | TypedSchemaLevel
   | LinkLevel
+  | CallbackLevel
 
 class
   (Ord (Behave a b), Show (Behave a b)) =>
