@@ -1,5 +1,3 @@
 # **POST** /test
 
-**Not Implemented**
-
-    ParamNotMatched "test2"
+**Not Implemented:** `ParamNotMatched "test2"`

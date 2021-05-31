@@ -46,7 +46,7 @@ type instance AdditionalQuiverConstraints Behave a b = Behavable a b
 class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
   data Issue l :: Type
   describeIssue :: Issue l -> Blocks
-  describeIssue i = para (strong "Not Implemented") <> (codeBlock . T.pack $ show i)
+  describeIssue i = para (strong "Not Implemented:" <> " " <> (code . T.pack $ show i))
   issueIsUnsupported :: Issue l -> Bool
 
 -- | A set of interactions having common unifying features

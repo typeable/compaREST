@@ -4,6 +4,4 @@
 
 ### Number
 
-**Not Implemented**
-
-    NoContradiction
+**Not Implemented:** `NoContradiction`

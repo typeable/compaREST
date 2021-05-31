@@ -2,6 +2,4 @@
 
 ## Request
 
-**Not Implemented**
-
-    RequestBodyRequired
+**Not Implemented:** `RequestBodyRequired`

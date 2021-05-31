@@ -2,6 +2,4 @@
 
 ## Parameter test1
 
-**Not Implemented**
-
-    ParamRequired
+**Not Implemented:** `ParamRequired`

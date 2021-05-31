@@ -2,6 +2,5 @@
 
 ## Request
 
-**Not Implemented**
-
-    RequestMediaTypeNotFound application/x-www-form-urlencoded
+**Not Implemented:**
+`RequestMediaTypeNotFound application/x-www-form-urlencoded`

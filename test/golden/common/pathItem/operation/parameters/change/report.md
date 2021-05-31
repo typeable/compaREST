@@ -6,6 +6,4 @@
 
 #### String
 
-**Not Implemented**
-
-    NoContradiction
+**Not Implemented:** `NoContradiction`

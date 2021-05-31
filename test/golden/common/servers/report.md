@@ -2,16 +2,10 @@
 
 ## Server `http://missing.url`
 
-**Not Implemented**
-
-    ServerNotMatched
+**Not Implemented:** `ServerNotMatched`
 
 ## Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
 
-**Not Implemented**
+**Not Implemented:** `EnumValueNotConsumed 1 "a"`
 
-    EnumValueNotConsumed 1 "a"
-
-**Not Implemented**
-
-    ConsumerNotOpen 7
+**Not Implemented:** `ConsumerNotOpen 7`

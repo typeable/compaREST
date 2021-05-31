@@ -1,5 +1,3 @@
 # **POST** /test
 
-**Not Implemented**
-
-    ResponseCodeNotFound 500
+**Not Implemented:** `ResponseCodeNotFound 500`
