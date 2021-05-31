@@ -13,6 +13,7 @@ module OpenAPI.Checker.Validate.Operation
   , ProcessedPathItems (..)
   , processPathItems
   , Step (..)
+  , Behave (..)
   )
 where
 
@@ -41,7 +42,7 @@ import OpenAPI.Checker.Validate.Responses ()
 import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
 import OpenAPI.Checker.Validate.Sums
-import Text.Pandoc.Builder.Extra
+import Text.Pandoc.Builder
 
 data MatchedOperation = MatchedOperation
   { operation :: !Operation

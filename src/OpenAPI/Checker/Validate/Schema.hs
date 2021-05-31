@@ -48,7 +48,7 @@ import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
-import Text.Pandoc.Builder.Extra hiding (Format, Null)
+import Text.Pandoc.Builder hiding (Format, Null)
 import Text.Regex.Pcre2
 
 -- | Type of a JSON value

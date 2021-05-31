@@ -18,7 +18,7 @@ import Data.Text (Text)
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Subtree
-import Text.Pandoc.Builder.Extra
+import Text.Pandoc.Builder
 
 instance Subtree OAuth2Flows where
   type CheckEnv OAuth2Flows = '[]

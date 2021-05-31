@@ -20,7 +20,7 @@ import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Header ()
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
-import Text.Pandoc.Builder.Extra ()
+import Text.Pandoc.Builder ()
 
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)

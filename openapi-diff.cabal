@@ -137,7 +137,6 @@ library
                   , OpenAPI.Checker.Common
                   , OpenAPI.Checker.Validate.SecurityScheme
                   , OpenAPI.Checker.Validate.OAuth2Flows
-                  , Text.Pandoc.Builder.Extra
                   , OpenAPI.Checker.Report
 
 executable openapi-diff

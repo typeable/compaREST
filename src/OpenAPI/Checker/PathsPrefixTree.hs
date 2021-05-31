@@ -37,8 +37,12 @@ data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPref
   , snocItems :: !(TRM.TypeRepMap (AStep q f r))
   }
 
-pattern PathsPrefixNode :: S.Set (f r) -> [TRM.WrapTypeable (AStep q f r)] -> PathsPrefixTree q f r
-pattern PathsPrefixNode s steps <- (\(PathsPrefixTree aset m) -> (toSet aset, Exts.toList m) -> (s, steps))
+pattern PathsPrefixNode :: Ord (f r) => S.Set (f r) -> [TRM.WrapTypeable (AStep q f r)] -> PathsPrefixTree q f r
+pattern PathsPrefixNode s steps <-
+  (\(PathsPrefixTree aset m) -> (toSet aset, Exts.toList m) -> (s, steps))
+  where
+    PathsPrefixNode s steps | S.null s = PathsPrefixTree AnEmptySet (Exts.fromList steps)
+    PathsPrefixNode s steps = PathsPrefixTree (ASet s) (Exts.fromList steps)
 
 {-# COMPLETE PathsPrefixNode #-}
 

@@ -12,7 +12,7 @@ import Data.Kind
 import Data.Text as T
 import Data.Typeable
 import OpenAPI.Checker.Paths
-import Text.Pandoc.Builder.Extra
+import Text.Pandoc.Builder
 
 -- | Kind
 data BehaviorLevel

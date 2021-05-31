@@ -28,7 +28,7 @@ import OpenAPI.Checker.Common
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
-import Text.Pandoc.Builder.Extra
+import Text.Pandoc.Builder
 import Prelude as P
 
 tracedParsedServerUrlParts

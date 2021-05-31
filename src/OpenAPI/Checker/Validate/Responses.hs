@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module OpenAPI.Checker.Validate.Responses
-  (
+  ( Behave (..)
   )
 where
 
@@ -21,7 +21,7 @@ import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
 import OpenAPI.Checker.Validate.Sums
-import Text.Pandoc.Builder.Extra
+import Text.Pandoc.Builder
 
 tracedResponses :: Traced Responses -> IOHM.InsOrdHashMap HttpStatusCode (Traced (Referenced Response))
 tracedResponses resp =
@@ -76,14 +76,14 @@ instance Behavable 'ResponseLevel 'PayloadLevel where
   data Behave 'ResponseLevel 'PayloadLevel
     = ResponsePayload
     deriving stock (Eq, Ord, Show)
-  
+
   describeBehaviour ResponsePayload = "Payload"
 
 instance Behavable 'ResponseLevel 'HeaderLevel where
   data Behave 'ResponseLevel 'HeaderLevel
     = InHeader HeaderName
     deriving stock (Eq, Ord, Show)
-  
+
   describeBehaviour (InHeader name) = "Header " <> code name
 
 instance Subtree Response where
