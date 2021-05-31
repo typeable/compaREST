@@ -488,7 +488,7 @@ processSchema sch@(extract -> Schema {..}) = do
             }
         Just OpenApiNumber ->
           bottom
-            { forBoolean = top
+            { forNumber = top
             }
         Just OpenApiInteger ->
           bottom
@@ -961,7 +961,7 @@ instance Issuable 'TypedSchemaLevel where
     | NoMatchingCondition [SomeCondition]
     -- ^ consumer declares that the value must satisfy a disjunction of some conditions, but producer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
     | NoContradiction
-    -- ^ consumer indicates that values of this type are now allowed, but the producer does not do so (currently we only check immediate contradictions, c.f. #70)
+    -- ^ producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
 

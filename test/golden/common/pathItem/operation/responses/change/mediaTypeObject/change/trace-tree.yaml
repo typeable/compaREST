@@ -4,4 +4,4 @@ Left:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType Boolean: NoContradiction
+            OfType Number: NoContradiction
