@@ -151,7 +151,7 @@ fromList :: [AnItem q f r] -> PathsPrefixTree q f r
 fromList = foldMap singleton
 
 null :: PathsPrefixTree q f r -> Bool
-null (PathsPrefixTree AnEmptySet s) = TRM.size s == 0
+null (PathsPrefixTree AnEmptySet s) = all (\(TRM.WrapTypeable (AStep x)) -> all null x) (Exts.toList s)
 null _ = False
 
 foldWith

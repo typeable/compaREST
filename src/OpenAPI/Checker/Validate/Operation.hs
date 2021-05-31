@@ -37,8 +37,8 @@ import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.OAuth2Flows
 import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.Products
-import OpenAPI.Checker.Validate.RequestBody ()
-import OpenAPI.Checker.Validate.Responses ()
+import OpenAPI.Checker.Validate.RequestBody
+import OpenAPI.Checker.Validate.Responses
 import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
 import OpenAPI.Checker.Validate.Sums

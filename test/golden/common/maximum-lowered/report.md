@@ -1,12 +1,8 @@
 # **POST** /test
 
-## Request
+## JSON Request
 
-### Payload
-
-#### JSON Schema
-
-##### Number
+### Number
 
 **Not Implemented**
 

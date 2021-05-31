@@ -2,6 +2,7 @@
 
 module OpenAPI.Checker.Validate.RequestBody
   ( Issue (..)
+  , Behave (..)
   )
 where
 

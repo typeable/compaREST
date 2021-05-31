@@ -9,6 +9,7 @@ import Data.Foldable
 import Data.Functor
 import qualified Data.Map as M
 import Data.Maybe
+import qualified Data.Text as T
 import Data.Traversable
 import Data.TypeRepMap hiding (empty)
 import Data.Typeable
@@ -120,4 +121,7 @@ jets :: [SomeReportJet Behave]
 jets =
   [ constructSomeReportJet $ \p@(AtPath _) op@(InOperation _) ->
       strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
+  , constructSomeReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
+  , constructSomeReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
+      "JSON Response – " <> str (T.pack . show $ c) :: Inlines
   ]

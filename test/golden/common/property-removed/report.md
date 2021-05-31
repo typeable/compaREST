@@ -1,25 +1,17 @@
 # **POST** /test
 
-## Response code 200
+## JSON Request
 
-### Payload
-
-#### JSON Schema
-
-##### Object
-
-**Not Implemented**
-
-    PropertyNowRequired "property2"
-
-## Request
-
-### Payload
-
-#### JSON Schema
-
-##### Object
+### Object
 
 **Not Implemented**
 
     UnexpectedProperty "property2"
+
+## JSON Response – 200
+
+### Object
+
+**Not Implemented**
+
+    PropertyNowRequired "property2"
