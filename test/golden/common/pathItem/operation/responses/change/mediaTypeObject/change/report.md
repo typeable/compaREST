@@ -2,7 +2,7 @@
 
 ## JSON Response – 200
 
-### Boolean
+### Number
 
 **Not Implemented**
 
