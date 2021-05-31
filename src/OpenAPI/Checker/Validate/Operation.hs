@@ -361,7 +361,7 @@ instance Behavable 'APILevel 'PathLevel where
     = AtPath FilePath
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (AtPath p) = code (T.pack p)
+  describeBehaviour (AtPath p) = str (T.pack p)
 
 instance Subtree ProcessedPathItems where
   type SubtreeLevel ProcessedPathItems = 'APILevel

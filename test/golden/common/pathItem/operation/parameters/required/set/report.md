@@ -1,8 +1,6 @@
-# `/test`
+# **POST** /test
 
-## POST
-
-### Parameter test1
+## Parameter test1
 
 **Not Implemented**
 

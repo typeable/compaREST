@@ -1,6 +1,4 @@
-# `/test`
-
-## POST
+# **POST** /test
 
 **Not Implemented**
 

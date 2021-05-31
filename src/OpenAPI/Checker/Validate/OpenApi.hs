@@ -3,7 +3,7 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 
 module OpenAPI.Checker.Validate.OpenApi
-  (
+  ( Behave (..)
   )
 where
 

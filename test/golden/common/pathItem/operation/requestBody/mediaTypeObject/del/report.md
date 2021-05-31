@@ -1,8 +1,6 @@
-# `/test`
+# **POST** /test
 
-## POST
-
-### Request
+## Request
 
 **Not Implemented**
 

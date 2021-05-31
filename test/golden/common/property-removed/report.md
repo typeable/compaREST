@@ -1,26 +1,24 @@
-# `/test`
+# **POST** /test
 
-## POST
+## Response code 200
 
-### Response code 200
+### Payload
 
-#### Payload
+#### JSON Schema
 
-##### JSON Schema
-
-###### Object
+##### Object
 
 **Not Implemented**
 
     PropertyNowRequired "property2"
 
-### Request
+## Request
 
-#### Payload
+### Payload
 
-##### JSON Schema
+#### JSON Schema
 
-###### Object
+##### Object
 
 **Not Implemented**
 

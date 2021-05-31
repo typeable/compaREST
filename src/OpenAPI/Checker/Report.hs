@@ -16,6 +16,7 @@ import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
 import qualified OpenAPI.Checker.PathsPrefixTree as P hiding (empty)
+import OpenAPI.Checker.Validate.OpenApi
 import Text.Pandoc.Builder
 
 generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pandoc
@@ -116,4 +117,7 @@ incrementHeaders m = do
   local (\x -> x {headerLevel = l + 1}) m
 
 jets :: [SomeReportJet Behave]
-jets = []
+jets =
+  [ constructSomeReportJet $ \p@(AtPath _) op@(InOperation _) ->
+      strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
+  ]

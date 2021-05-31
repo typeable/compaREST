@@ -1,8 +1,6 @@
-# `/test`
+# **POST** /test
 
-## POST
-
-### Response code 200
+## Response code 200
 
 **Not Implemented**
 
