@@ -1,0 +1,6 @@
+Left:
+  AtPath (ProdCons {producer = "/api/foo", consumer = "/api/foo"}):
+    InOperation GetMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema: UnguardedRecursion

@@ -20,6 +20,7 @@ import Control.Comonad.Env hiding (env)
 import Control.Lens hiding (cons)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
+import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.Aeson as A
 import Data.Coerce
@@ -32,7 +33,7 @@ import Data.Kind
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import Data.Maybe
-import Data.OpenApi
+import Data.OpenApi hiding (get)
 import Data.Ord
 import Data.Ratio
 import Data.Scientific
@@ -42,6 +43,7 @@ import qualified Data.Text as T hiding (singleton)
 import Data.Typeable
 import Text.Regex.Pcre2
 import OpenAPI.Checker.Behavior
+import OpenAPI.Checker.Memo
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
@@ -393,17 +395,51 @@ parseDiscriminatorValue v = case A.fromJSON @(Referenced Schema) $ A.object ["$r
   A.Success x -> x
   A.Error _ -> Ref $ Reference v
 
-type ProcessM = ReaderT (Traced (Definitions Schema)) (Writer (P.PathsPrefixTree Behave AnIssue 'SchemaLevel))
+-- | A fake writer monad that doesn't actually record anything and allows lazy recursion.
+newtype Silent q f r a = Silent { runSilent :: a }
+  deriving stock (Functor)
+  deriving (Applicative, Monad) via Identity
 
-warn :: Issue 'SchemaLevel -> ProcessM ()
+instance MonadWriter (P.PathsPrefixTree q f r) (Silent q f r) where
+  tell _ = Silent ()
+  listen (Silent x) = Silent (x, P.empty)
+  pass (Silent (x, _)) = Silent x
+
+instance MonadState (MemoState ()) (Silent q f r) where
+  get = Silent $ runIdentity $ runMemo () get
+  put _ = pure ()
+
+type MonadProcess m =
+  ( MonadReader (Traced (Definitions Schema)) m
+  , MonadWriter (P.PathsPrefixTree Behave AnIssue 'SchemaLevel) m
+  , MonadState (MemoState ()) m
+  )
+
+type SilentM = ReaderT (Traced (Definitions Schema)) (Silent Behave AnIssue 'SchemaLevel)
+
+warn :: MonadProcess m => Issue 'SchemaLevel -> m ()
 warn issue = tell $ P.singleton $ AnItem Root $ AnIssue issue
 
+-- | Ignore warnings but allow a recursive loop that lazily computes a recursive 'Condition'.
+silently :: MonadProcess m => SilentM a -> m a
+silently m = do
+  defs <- R.ask
+  pure . runSilent $ runReaderT m defs
+
+warnKnot :: MonadProcess m => KnotTier (ForeachType JsonFormula) () m
+warnKnot = KnotTier
+  { onKnotFound = warn UnguardedRecursion
+  , onKnotUsed = \_ -> pure bottom
+  , tieKnot = \_ -> pure
+  }
+
 processRefSchema
-  :: Traced (Referenced Schema)
-  -> ProcessM (ForeachType JsonFormula)
+  :: MonadProcess m
+  => Traced (Referenced Schema)
+  -> m (ForeachType JsonFormula)
 processRefSchema x = do
   defs <- R.ask
-  processSchema $ dereference defs x
+  memoWithKnot warnKnot (processSchema $ dereference defs x) (ask x)
 
 tracedAllOf :: Traced Schema -> Maybe [Traced (Referenced Schema)]
 tracedAllOf sch =
@@ -447,8 +483,9 @@ tracedProperties sch =
 -- for every possible type of a JSON value. The conditions are independent, and
 -- are thus checked independently.
 processSchema
-  :: Traced Schema
-  -> ProcessM (ForeachType JsonFormula)
+  :: MonadProcess m
+  => Traced Schema
+  -> m (ForeachType JsonFormula)
 processSchema sch@(extract -> Schema {..}) = do
   let singletonFormula :: Condition t -> JsonFormula t
       singletonFormula f = SingleConjunct [f]
@@ -606,7 +643,7 @@ processSchema sch@(extract -> Schema {..}) = do
   itemsClause <- case tracedItems sch of
     Nothing -> pure top
     Just (Left rs) -> do
-      f <- processRefSchema rs
+      f <- silently $ processRefSchema rs
       pure top {forArray = singletonFormula $ Items f rs}
     Just (Right _) -> top <$ warn (NotSupported "array in items is not supported")
 
@@ -632,12 +669,12 @@ processSchema sch@(extract -> Schema {..}) = do
         _ -> top
 
   (addProps, addPropSchema) <- case tracedAdditionalProperties sch of
-    Just (Right rs) -> (,Just rs) <$> processRefSchema rs
+    Just (Right rs) -> (,Just rs) <$> silently (processRefSchema rs)
     Just (Left False) -> pure (bottom, Nothing)
     _ -> pure (top, Just $ traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty)
   propList <- forM (S.toList . S.fromList $ IOHM.keys _schemaProperties <> _schemaRequired) $ \k -> do
     (f, psch) <- case IOHM.lookup k $ tracedProperties sch of
-      Just rs -> (,rs) <$> processRefSchema rs
+      Just rs -> (,rs) <$> silently (processRefSchema rs)
       Nothing ->
         let fakeSchema = traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty
          in -- The mempty here is incorrect, but if addPropSchema was Nothing, then
@@ -713,14 +750,14 @@ processSchema sch@(extract -> Schema {..}) = do
 
 {- TODO: ReadOnly/WriteOnly #68 -}
 
-checkOneOfDisjoint :: [Traced (Referenced Schema)] -> ProcessM Bool
+checkOneOfDisjoint :: MonadProcess m => [Traced (Referenced Schema)] -> m Bool
 checkOneOfDisjoint = const $ pure True -- TODO #69
 
 schemaToFormula
   :: Traced (Definitions Schema)
   -> Traced Schema
   -> (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
-schemaToFormula defs rs = runWriter . (`runReaderT` defs) $ processSchema rs
+schemaToFormula defs rs = runWriter . (`runReaderT` defs) . runMemo () $ processSchema rs
 
 checkFormulas
   :: (HasAll (CheckEnv Schema) xs)
@@ -971,6 +1008,8 @@ instance Issuable 'SchemaLevel where
     -- ^ Some (openapi-supported) feature that we do not support was encountered in the schema
     | InvalidSchema Text
     -- ^ The schema is actually invalid
+    | UnguardedRecursion
+    -- ^ The schema contains a reference loop along "anyOf"/"allOf"/"oneOf".
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = True
 

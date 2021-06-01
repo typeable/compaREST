@@ -110,8 +110,9 @@ memoWithKnot tier f k = memoStateLookup @k @v k <$> get >>= \case
           <> ", got " <> show (dynTypeRep dyn)
       Just (Finished _) -> error $ "Unexpected Finished when memoizing "
           <> show (typeRep @(k -> v))
-      Nothing -> error $ "No key found when memoizing "
-          <> show (typeRep @(k -> v))
+      Nothing -> pure v
+        -- Normally this would be an error, but the underlying monad can refuse
+        -- to remember memoization state
     modify $ memoStateInsert @k @v k (Finished v')
     pure v'
 
