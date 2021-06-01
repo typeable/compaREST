@@ -1,3 +1,3 @@
 # **POST** /test
 
-**Not Implemented:** `ParamNotMatched "test2"`
+Parameter test2 is not supported.

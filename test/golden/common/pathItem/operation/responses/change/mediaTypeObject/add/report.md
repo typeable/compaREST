@@ -2,5 +2,5 @@
 
 ## Response code 200
 
-**Not Implemented:**
-`ResponseMediaTypeMissing application/x-www-form-urlencoded`
+Couldn't find reponse for media type
+`application/x-www-form-urlencoded`.

@@ -134,6 +134,13 @@ instance Issuable 'ServerLevel where
     | ServerNotMatched
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (EnumValueNotConsumed _ v) =
+    para $ "Enum value " <> code v <> " is not supported."
+  describeIssue (ConsumerNotOpen _) =
+    para $ "Expected a variable to be open (any value), but it wasn't."
+  describeIssue (ServerVariableNotDefined k) =
+    para $ "Variable " <> code k <> " is not defined."
+  describeIssue ServerNotMatched = para $ "Couldn't find a matching server."
 
 instance Subtree ProcessedServer where
   type SubtreeLevel ProcessedServer = 'ServerLevel

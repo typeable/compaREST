@@ -5,6 +5,7 @@ module OpenAPI.Checker.Validate.Link () where
 import Data.OpenApi
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
+import Text.Pandoc.Builder
 
 instance Subtree Link where
   type SubtreeLevel Link = 'LinkLevel
@@ -18,3 +19,4 @@ instance Issuable 'LinkLevel where
     deriving (Eq, Ord, Show)
   issueIsUnsupported = \case
     LinksUnsupported -> True
+  describeIssue LinksUnsupported = para "OpenApi Diff does not currently support Link Objects."

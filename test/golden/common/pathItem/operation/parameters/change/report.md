@@ -6,4 +6,4 @@
 
 #### String
 
-**Not Implemented:** `NoContradiction`
+Expected the type to be allowed, but it wasn't.

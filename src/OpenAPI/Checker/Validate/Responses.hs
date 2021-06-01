@@ -11,6 +11,7 @@ import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
+import qualified Data.Text as T
 import Network.HTTP.Media (MediaType)
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.References
@@ -71,6 +72,10 @@ instance Issuable 'ResponseLevel where
     | ResponseHeaderMissing HeaderName
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (ResponseMediaTypeMissing t) =
+    para $ "Couldn't find reponse for media type " <> (code . T.pack . show $ t) <> "."
+  describeIssue (ResponseHeaderMissing h) =
+    para $ "Couldn't find header " <> code h <> "."
 
 instance Behavable 'ResponseLevel 'PayloadLevel where
   data Behave 'ResponseLevel 'PayloadLevel

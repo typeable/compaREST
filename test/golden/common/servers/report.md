@@ -2,10 +2,10 @@
 
 ## Server `http://missing.url`
 
-**Not Implemented:** `ServerNotMatched`
+Couldn't find a matching server.
 
 ## Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
 
-**Not Implemented:** `EnumValueNotConsumed 1 "a"`
+Enum value `a` is not supported.
 
-**Not Implemented:** `ConsumerNotOpen 7`
+Expected a variable to be open (any value), but it wasn't.

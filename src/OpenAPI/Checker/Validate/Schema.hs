@@ -17,12 +17,13 @@ import Algebra.Lattice
 import Control.Applicative
 import Control.Arrow
 import Control.Comonad.Env hiding (env)
-import Control.Lens hiding (cons)
+import Control.Lens hiding (cons, para)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
 import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.Aeson as A
+import qualified Data.ByteString.Lazy as BSL
 import Data.Coerce
 import qualified Data.Foldable as F
 import Data.HList
@@ -40,6 +41,7 @@ import Data.Scientific
 import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T hiding (singleton)
+import qualified Data.Text.Encoding as T
 import Data.Typeable
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Memo
@@ -128,6 +130,9 @@ data Condition :: JsonType -> Type where
     -> Condition 'Object
   MaxProperties :: !Integer -> Condition 'Object
   MinProperties :: !Integer -> Condition 'Object
+
+showCondition :: Condition a -> Inlines -- TODO
+showCondition = str . T.pack . show
 
 satisfiesTyped :: TypedValue t -> Condition t -> Bool
 satisfiesTyped e (Exactly e') = e == e'
@@ -1001,6 +1006,48 @@ instance Issuable 'TypedSchemaLevel where
       NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (EnumDoesntSatisfy v) = para "The following enum value will yield an error:" <> showJSONValue v
+  describeIssue (NoMatchingEnum v) = para "The following enum value is not supported:" <> showJSONValue v
+  describeIssue (NoMatchingMaximum b) = para $ "Expected upper bound " <> showBound b <> " but didn't find it."
+  describeIssue (MatchingMaximumWeak e a) = para $ "Expected upper bound " <> showBound e <> " but but found " <> showBound a <> "."
+  describeIssue (NoMatchingMinimum b) = para $ "Expected lower bound " <> showBound b <> " but didn't find it."
+  describeIssue (MatchingMinimumWeak e a) = para $ "Expected lower bound " <> showBound e <> " but but found " <> showBound a <> "."
+  describeIssue (NoMatchingMultipleOf n) = para $ "Expected the value to be a multiple of " <> show' n <> " but it wasn't."
+  describeIssue (MatchingMultipleOfWeak e a) = para $ "Expected the value to be a multiple of " <> show' e <> " but found a multiple of " <> show' a <> "."
+  describeIssue (NoMatchingFormat f) = para $ "Couldn't match format: " <> code f <> "."
+  describeIssue (NoMatchingMaxLength n) = para $ "Expected the maximum length of the string to be " <> show' n <> "but it wasn't."
+  describeIssue (MatchingMaxLengthWeak e a) = para $ "Expected the maximum length of the string to be " <> show' e <> "but it was " <> show' a <> "."
+  describeIssue (NoMatchingMinLength n) = para $ "Expected the minimum length of the string to be " <> show' n <> "but it wasn't."
+  describeIssue (MatchingMinLengthWeak e a) = para $ "Expected the minimum length of the string to be " <> show' e <> "but it was " <> show' a <> "."
+  describeIssue (NoMatchingPattern p) = para $ "Expected the following pattern (regular expression), but didn't find it: " <> code p <> "."
+  describeIssue NoMatchingItems = para $ "Couldn't find any matching items."
+  describeIssue (NoMatchingMaxItems n) = para $ "Expected the maximum length of the array to be " <> show' n <> "but it wasn't."
+  describeIssue (MatchingMaxItemsWeak e a) = para $ "Expected the maximum length of the array to be " <> show' e <> "but it was " <> show' a <> "."
+  describeIssue (NoMatchingMinItems n) = para $ "Expected the minimum length of the array to be " <> show' n <> "but it wasn't."
+  describeIssue (MatchingMinItemsWeak e a) = para $ "Expected the minimum length of the array to be " <> show' e <> "but it was " <> show' a <> "."
+  describeIssue NoMatchingUniqueItems = para $ "Expected the items to be unique but they weren't."
+  describeIssue NoMatchingProperties = para $ "Couldn't find matching properties."
+  describeIssue (UnexpectedProperty p) = para $ "The property " <> code p <> " is not supported."
+  describeIssue (PropertyNowRequired p) = para $ "Don't have a required property " <> code p <> "."
+  describeIssue NoAdditionalProperties = para $ "Doesn't support additional properties."
+  describeIssue (NoMatchingMaxProperties n) = para $ "Expected the maximum number of properties to be " <> show' n <> "but it wasn't."
+  describeIssue (MatchingMaxPropertiesWeak e a) = para $ "Expected the maximum  number of properties to be " <> show' e <> "but it was " <> show' a <> "."
+  describeIssue (NoMatchingMinProperties n) = para $ "Expected the minimum number of properties to be " <> show' n <> "but it wasn't."
+  describeIssue (MatchingMinPropertiesWeak e a) = para $ "Expected the minimum  number of properties to be " <> show' e <> "but it was " <> show' a <> "."
+  describeIssue (NoMatchingCondition conds) =
+    para "Expected the following conditions to hold, but they didn't:"
+      <> bulletList ((\(SomeCondition c) -> para . showCondition $ c) <$> conds)
+  describeIssue NoContradiction = para "Expected the type to be allowed, but it wasn't."
+
+showJSONValue :: A.Value -> Blocks
+showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
+
+showBound :: Show a => Bound a -> Inlines
+showBound (Inclusive x) = show' x <> " inclusive"
+showBound (Exclusive x) = show' x <> " exclusive"
+
+show' :: Show x => x -> Inlines
+show' = str . T.pack . show
 
 instance Issuable 'SchemaLevel where
   data Issue 'SchemaLevel
@@ -1012,6 +1059,11 @@ instance Issuable 'SchemaLevel where
       UnguardedRecursion
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = True
+
+  describeIssue (NotSupported i) =
+    para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
+  describeIssue (InvalidSchema i) =
+    para (emph "The schema is invalid: " <> text i <> ".")
 
 instance Behavable 'SchemaLevel 'TypedSchemaLevel where
   data Behave 'SchemaLevel 'TypedSchemaLevel

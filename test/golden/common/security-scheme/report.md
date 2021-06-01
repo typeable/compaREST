@@ -4,7 +4,7 @@
 
 ### oauth
 
-**Not Implemented:** `SecuritySchemeNotMatched`
+Security scheme not met.
 
 # **GET** /oauth/sign\_out
 
@@ -12,4 +12,4 @@
 
 ### oauth
 
-**Not Implemented:** `SecuritySchemeNotMatched`
+Security scheme not met.

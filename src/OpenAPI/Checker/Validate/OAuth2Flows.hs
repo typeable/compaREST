@@ -9,6 +9,7 @@ where
 
 import Control.Monad
 import Data.Function
+import Data.Functor
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.OpenApi
 import Data.Proxy
@@ -103,6 +104,8 @@ instance Issuable 'SecurityRequirementLevel where
     | UndefinedSecurityScheme Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue SecurityRequirementNotMet = para "Security scheme was not met."
+  describeIssue (UndefinedSecurityScheme k) = para $ "Security scheme " <> code k <> " is not defined."
 
 instance Issuable 'SecuritySchemeLevel where
   data Issue 'SecuritySchemeLevel
@@ -126,6 +129,26 @@ instance Issuable 'SecuritySchemeLevel where
     | ScopeNotDefined Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue RefreshUrlsDontMatch = para "Refresh URLs differ."
+  describeIssue (HttpSchemeTypesDontMatch _ _) = para "HTTP scheme types don't match."
+  describeIssue (ApiKeyParamsDontMatch _ _) = para "API Key parameters don't match."
+  describeIssue (OpenIdConnectUrlsDontMatch _ _) = para "OpenaId Connect URLs don't match."
+  describeIssue (CustomHttpSchemesDontMatch e a) =
+    para $ "Expected HTTP scheme " <> code e <> " but got " <> code a <> "."
+  describeIssue ConsumerDoesNotSupportImplicitFlow = para "Implicit flow not supported."
+  describeIssue ConsumerDoesNotSupportPasswordFlow = para "Password flow not supported."
+  describeIssue ConsumerDoesNotSupportClientCridentialsFlow = para "Client Cridentials flow not supported."
+  describeIssue ConsumerDoesNotSupportAuthorizationCodeFlow = para "Authorization Code flow not supported."
+  describeIssue SecuritySchemeNotMatched = para "Security scheme not met."
+  describeIssue OAuth2ImplicitFlowNotEqual = para "Implicit Flows don't match."
+  describeIssue OAuth2PasswordFlowNotEqual = para "Password Flows don't match."
+  describeIssue OAuth2ClientCredentialsFlowNotEqual = para "Client Cridentials Flows don't match."
+  describeIssue OAuth2AuthorizationCodeFlowNotEqual = para "Authorization Code Flows don't match."
+  describeIssue (ScopesMissing ss) =
+    para "Scopes missing:" <> bulletList (S.toList ss <&> codeBlock)
+  describeIssue DifferentSecuritySchemes = para "Completely different security scheme types."
+  describeIssue CanNotHaveScopes = para "The specified security scheme can not have scopes."
+  describeIssue (ScopeNotDefined k) = para $ "Scope with key " <> code k <> " is not defined."
 
 instance Behavable 'SecurityRequirementLevel 'SecuritySchemeLevel where
   data Behave 'SecurityRequirementLevel 'SecuritySchemeLevel

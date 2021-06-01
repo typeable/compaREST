@@ -4,10 +4,10 @@
 
 ### Object
 
-**Not Implemented:** `UnexpectedProperty "property2"`
+The property `property2` is not supported.
 
 ## JSON Response – 200
 
 ### Object
 
-**Not Implemented:** `PropertyNowRequired "property2"`
+Don't have a required property `property2`.

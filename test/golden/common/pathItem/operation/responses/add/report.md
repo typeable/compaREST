@@ -1,3 +1,3 @@
 # **POST** /test
 
-**Not Implemented:** `ResponseCodeNotFound 500`
+Reponse code 500 is not supported.

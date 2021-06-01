@@ -9,7 +9,6 @@ where
 
 import Data.Aeson
 import Data.Kind
-import Data.Text as T
 import Data.Typeable
 import OpenAPI.Checker.Paths
 import Text.Pandoc.Builder
@@ -39,14 +38,12 @@ class
   where
   data Behave a b
   describeBehaviour :: Behave a b -> Inlines
-  describeBehaviour bhv = strong "Not Implemented" <> code (T.pack . show $ bhv)
 
 type instance AdditionalQuiverConstraints Behave a b = Behavable a b
 
 class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
   data Issue l :: Type
   describeIssue :: Issue l -> Blocks
-  describeIssue i = para (strong "Not Implemented:" <> " " <> (code . T.pack $ show i))
   issueIsUnsupported :: Issue l -> Bool
 
 -- | A set of interactions having common unifying features

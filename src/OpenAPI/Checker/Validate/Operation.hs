@@ -28,6 +28,7 @@ import qualified Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
+import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
 import OpenAPI.Checker.Behavior
@@ -97,10 +98,11 @@ getServers env oper =
 instance Behavable 'OperationLevel 'PathFragmentLevel where
   data Behave 'OperationLevel 'PathFragmentLevel
     = InParam Text
-    | InFragment Int
+    | InFragment (PathFragment Text)
     deriving stock (Eq, Ord, Show)
   describeBehaviour (InParam p) = "Parameter " <> text p
-  describeBehaviour (InFragment i) = "Fragment " <> (text . T.pack . show $ i)
+  describeBehaviour (InFragment (StaticPath p)) = "Static fragment " <> code p
+  describeBehaviour (InFragment (DynamicPath p)) = "Dynamic fragment " <> code p
 
 instance Behavable 'OperationLevel 'RequestLevel where
   data Behave 'OperationLevel 'RequestLevel
@@ -209,7 +211,8 @@ instance Subtree MatchedOperation where
             fragments = getFragments <$> pathParams <*> prodCons
             getFragments params mop = getPathFragments (extract mop) params
             -- Feed path parameters to the fragments getter
-            check idx frags = checkCompatibility @PathFragmentParam env (beh >>> step (InFragment idx)) frags
+            check _ frags@(ProdCons (Traced _ p) _) =
+              checkCompatibility @PathFragmentParam env (beh >>> step (InFragment $ _paramName . extract <$> p)) frags
             elements =
               fragments <&> \frags -> M.fromList $
                 zip [0 :: Int ..] $ do
@@ -355,6 +358,8 @@ instance Issuable 'APILevel where
     -- When several paths match given but all checks failed
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " did not match anything."
+  describeIssue (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " did not match anything."
 
 instance Behavable 'APILevel 'PathLevel where
   data Behave 'APILevel 'PathLevel
@@ -439,7 +444,6 @@ tracedMatchedPathItemParameters mpi =
   | (i, x) <- L.zip [0 ..] $ _pathItemParameters . pathItem $ extract mpi
   ]
 
--- TODO: simplify?
 tracedFragments :: Traced MatchedPathItem -> [Env (Trace PathFragmentParam) (PathFragment Text)]
 tracedFragments mpi =
   [ env (ask mpi >>> step (PathFragmentStep i)) x
@@ -457,21 +461,25 @@ instance Issuable 'PathLevel where
     = OperationMissing OperationMethod
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " is not defined."
 
 instance Behavable 'PathLevel 'OperationLevel where
   data Behave 'PathLevel 'OperationLevel
     = InOperation OperationMethod
     deriving (Eq, Ord, Show)
 
-  describeBehaviour (InOperation method) = case method of
-    GetMethod -> "GET"
-    PutMethod -> "PUT"
-    PostMethod -> "POST"
-    DeleteMethod -> "DELETE"
-    OptionsMethod -> "OPTIONS"
-    HeadMethod -> "HEAD"
-    PatchMethod -> "PATCH"
-    TraceMethod -> "TRACE"
+  describeBehaviour (InOperation method) = showMethod method
+
+showMethod :: IsString s => OperationMethod -> s
+showMethod = \case
+  GetMethod -> "GET"
+  PutMethod -> "PUT"
+  PostMethod -> "POST"
+  DeleteMethod -> "DELETE"
+  OptionsMethod -> "OPTIONS"
+  HeadMethod -> "HEAD"
+  PatchMethod -> "PATCH"
+  TraceMethod -> "TRACE"
 
 instance Subtree MatchedPathItem where
   type SubtreeLevel MatchedPathItem = 'PathLevel
@@ -570,6 +578,7 @@ instance Issuable 'CallbackLevel where
     deriving (Eq, Ord, Show)
   issueIsUnsupported = \case
     CallbacksUnsupported -> True
+  describeIssue CallbacksUnsupported = para "OpenApi Diff does not currently support callbacks."
 
 tracedCallbackPathItems :: Traced Callback -> Traced ProcessedPathItems
 tracedCallbackPathItems (Traced t (Callback x)) =

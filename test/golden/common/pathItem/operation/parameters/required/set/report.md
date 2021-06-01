@@ -2,4 +2,4 @@
 
 ## Parameter test1
 
-**Not Implemented:** `ParamRequired`
+Expected the parameter to be optional, but it is required.

@@ -4,5 +4,4 @@
 
 ### Number
 
-**Not Implemented:**
-`MatchingMaximumWeak (Inclusive 2.0) (Inclusive 3.0)`
+Expected upper bound 2.0 inclusive but but found 3.0 inclusive.

@@ -13,6 +13,7 @@ import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.References ()
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Schema ()
+import Text.Pandoc.Builder
 
 instance Subtree Header where
   type SubtreeLevel Header = 'HeaderLevel
@@ -50,6 +51,9 @@ instance Issuable 'HeaderLevel where
     | HeaderSchemaRequired
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue RequiredHeaderMissing = para "Header expected, but missing."
+  describeIssue NonEmptyHeaderRequired = para "Empty header not allowed."
+  describeIssue HeaderSchemaRequired = para "Expected header schema, but it is not present."
 
 instance Behavable 'HeaderLevel 'SchemaLevel where
   data Behave 'HeaderLevel 'SchemaLevel

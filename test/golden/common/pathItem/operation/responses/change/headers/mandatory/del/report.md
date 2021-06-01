@@ -2,4 +2,4 @@
 
 ## Response code 200
 
-**Not Implemented:** `ResponseHeaderMissing "Test2"`
+Couldn't find header `Test2`.

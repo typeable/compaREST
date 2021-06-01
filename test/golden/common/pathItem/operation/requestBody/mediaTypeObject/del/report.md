@@ -2,5 +2,5 @@
 
 ## Request
 
-**Not Implemented:**
-`RequestMediaTypeNotFound application/x-www-form-urlencoded`
+Couldn't find a request body for media type
+`application/x-www-form-urlencoded`.

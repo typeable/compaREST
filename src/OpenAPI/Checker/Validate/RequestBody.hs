@@ -11,11 +11,13 @@ import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
+import qualified Data.Text as T
 import Network.HTTP.Media (MediaType)
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.Sums
+import Text.Pandoc.Builder
 
 -- TODO: Use RequestMediaTypeObjectMapping
 tracedContent :: Traced RequestBody -> IOHM.InsOrdHashMap MediaType (Traced MediaTypeObject)
@@ -29,6 +31,10 @@ instance Issuable 'RequestLevel where
     | RequestMediaTypeNotFound MediaType
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue RequestBodyRequired =
+    para "Expected the request body to be optional, but found it to be required."
+  describeIssue (RequestMediaTypeNotFound t) =
+    para $ "Couldn't find a request body for media type " <> (code . T.pack . show $ t) <> "."
 
 instance Behavable 'RequestLevel 'PayloadLevel where
   data Behave 'RequestLevel 'PayloadLevel

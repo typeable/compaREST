@@ -4,4 +4,4 @@
 
 ### Object
 
-**Not Implemented:** `PropertyNowRequired "property2"`
+Don't have a required property `property2`.
