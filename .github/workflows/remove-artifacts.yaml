@@ -1,8 +1,8 @@
 name: Remove old artifacts
 
 on:
-  push:
-
+   schedule:
+     - cron: '0 0 * * *'
 jobs:
   remove-old-artifacts:
     runs-on: ubuntu-latest
