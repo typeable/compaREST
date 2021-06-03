@@ -838,19 +838,19 @@ checkImplication env beh prods cons = case findExactly prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaximumWeak m m')
+          else issueAt beh (MatchingMaximumWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaximum m)
     Minimum m -> case findRelevant max (\case Minimum m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinimumWeak (coerce m) (coerce m'))
+          else issueAt beh (MatchingMinimumWeak ProdCons {producer = coerce m', consumer = coerce m})
       Nothing -> issueAt beh (NoMatchingMinimum (coerce m))
     MultipleOf m -> case findRelevant lcmScientific (\case MultipleOf m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if lcmScientific m m' == m'
           then pure ()
-          else issueAt beh (MatchingMultipleOfWeak m m')
+          else issueAt beh (MatchingMultipleOfWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMultipleOf m)
     NumberFormat f ->
       if any (\case NumberFormat f' -> f == f'; _ -> False) prods
@@ -860,13 +860,13 @@ checkImplication env beh prods cons = case findExactly prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaxLengthWeak m m')
+          else issueAt beh (MatchingMaxLengthWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaxLength m)
     MinLength m -> case findRelevant max (\case MinLength m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinLengthWeak m m')
+          else issueAt beh (MatchingMinLengthWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMinLength m)
     Pattern p ->
       if any (\case Pattern p' -> p == p'; _ -> False) prods
@@ -886,13 +886,13 @@ checkImplication env beh prods cons = case findExactly prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaxItemsWeak m m')
+          else issueAt beh (MatchingMaxItemsWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaxItems m)
     MinItems m -> case findRelevant max (\case MinItems m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinItemsWeak m m')
+          else issueAt beh (MatchingMinItemsWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMinItems m)
     UniqueItems ->
       if any (== UniqueItems) $ prods
@@ -925,13 +925,13 @@ checkImplication env beh prods cons = case findExactly prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaxPropertiesWeak m m')
+          else issueAt beh (MatchingMaxPropertiesWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaxProperties m)
     MinProperties m -> case findRelevant max (\case MinProperties m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinPropertiesWeak m m')
+          else issueAt beh (MatchingMinPropertiesWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMinProperties m)
   where
     findExactly (Exactly x : _) = Just x
@@ -946,60 +946,60 @@ instance Issuable 'TypedSchemaLevel where
   data Issue 'TypedSchemaLevel
     = -- | producer produces a specific value ($1), consumer has a condition that is not satisfied by said value
       EnumDoesntSatisfy A.Value
-    | -- | producer produces a specific value ($1) which is not listed in the consumer's list of specific values
+    | -- | consumer only expects a specific value which the producer does not produce.
       NoMatchingEnum A.Value
-    | -- | producer declares a maximum numeric value ($1), consumer doesnt
+    | -- | consumer declares a maximum numeric value ($1), producer doesn't
       NoMatchingMaximum (Bound Scientific)
-    | -- | producer declares a maximum numeric value ($1), consumer declares a weaker (higher) limit ($2)
-      MatchingMaximumWeak (Bound Scientific) (Bound Scientific)
-    | -- | producer declares a minimum numeric value, consumer doesnt
+    | -- | consumer declares a maximum numeric value ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaximumWeak (ProdCons (Bound Scientific))
+    | -- | consumer declares a minimum numeric value, producer doesn't
       NoMatchingMinimum (Bound Scientific)
-    | -- | producer declares a minimum numeric value ($1), consumer declares a weaker (lower) limit ($2)
-      MatchingMinimumWeak (Bound Scientific) (Bound Scientific)
-    | -- | producer declares that the numeric value must be a multiple of $1, consumer doesn't
+    | -- | consumer declares a minimum numeric value ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinimumWeak (ProdCons (Bound Scientific))
+    | -- | consumer declares that the numeric value must be a multiple of $1, producer doesn't
       NoMatchingMultipleOf Scientific
-    | -- | producer declares that the numeric value must be a multiple of $1, consumer declares a weaker condition (multiple of $2)
-      MatchingMultipleOfWeak Scientific Scientific
-    | -- | producer declares a string/number format, consumer declares none or a different format (TODO: improve via regex #32)
+    | -- | consumer declares that the numeric value must be a multiple of $1, producer declares a weaker condition (multiple of $2)
+      MatchingMultipleOfWeak (ProdCons Scientific)
+    | -- | consumer declares a string/number format, producer declares none or a different format (TODO: improve via regex #32)
       NoMatchingFormat Format
-    | -- | producer declares a maximum length of the string ($1), consumer doesn't.
+    | -- | consumer declares a maximum length of the string ($1), producer doesn't.
       NoMatchingMaxLength Integer
-    | -- | producer declares a maximum length of the string ($1), consumer declares a weaker (higher) limit ($2)
-      MatchingMaxLengthWeak Integer Integer
-    | -- | producer declares a minimum length of the string ($1), consumer doesn't.
+    | -- | consumer declares a maximum length of the string ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaxLengthWeak (ProdCons Integer)
+    | -- | consumer declares a minimum length of the string ($1), producer doesn't.
       NoMatchingMinLength Integer
-    | -- | producer declares a minimum length of the string ($1), consumer declares a weaker (lower) limit ($2)
-      MatchingMinLengthWeak Integer Integer
-    | -- | producer declares the string value must matrix a regex ($1), consumer doesn't declare or declares different regex (TODO: #32)
+    | -- | consumer declares a minimum length of the string ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinLengthWeak (ProdCons Integer)
+    | -- | consumer declares the string value must matrix a regex ($1), producer doesn't declare or declares different regex (TODO: #32)
       NoMatchingPattern Pattern
-    | -- | producer declares the items of an array must satisfy some condition, consumer doesn't
+    | -- | consumer declares the items of an array must satisfy some condition, producer doesn't
       NoMatchingItems
-    | -- | producer declares a maximum length of the array ($1), consumer doesn't.
+    | -- | consumer declares a maximum length of the array ($1), producer doesn't.
       NoMatchingMaxItems Integer
-    | -- | producer declares a maximum length of the array ($1), consumer declares a weaker (higher) limit ($2)
-      MatchingMaxItemsWeak Integer Integer
-    | -- | producer declares a minimum length of the array ($1), consumer doesn't.
+    | -- | consumer declares a maximum length of the array ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaxItemsWeak (ProdCons Integer)
+    | -- | consumer declares a minimum length of the array ($1), producer doesn't.
       NoMatchingMinItems Integer
-    | -- | producer declares a minimum length of the array ($1), consumer declares a weaker (lower) limit ($2)
-      MatchingMinItemsWeak Integer Integer
-    | -- | producer declares that items must be unique, consumer doesn't
+    | -- | consumer declares a minimum length of the array ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinItemsWeak (ProdCons Integer)
+    | -- | consumer declares that items must be unique, producer doesn't
       NoMatchingUniqueItems
-    | -- | producer declares the properties of an object must satisfy some condition, consumer doesn't
+    | -- | consumer declares the properties of an object must satisfy some condition, producer doesn't
       NoMatchingProperties
     | -- | producer allows a property that is not allowed in the consumer
       UnexpectedProperty Text
-    | -- | consumer requires a property that is not required/allowed in the consumer
+    | -- | consumer requires a property that is not required/allowed in the producer
       PropertyNowRequired Text
     | -- | producer allows additional properties, consumer doesn't
       NoAdditionalProperties
-    | -- | producer declares a maximum number of properties in the object ($1), consumer doesn't.
+    | -- | consumer declares a maximum number of properties in the object ($1), producer doesn't.
       NoMatchingMaxProperties Integer
-    | -- | producer declares a maximum number of properties in the object ($1), consumer declares a weaker (higher) limit ($2)
-      MatchingMaxPropertiesWeak Integer Integer
-    | -- | producer declares a minimum number of properties in the object ($1), consumer doesn't.
+    | -- | consumer declares a maximum number of properties in the object ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaxPropertiesWeak (ProdCons Integer)
+    | -- | consumer declares a minimum number of properties in the object ($1), producer doesn't.
       NoMatchingMinProperties Integer
-    | -- | producer declares a minimum number of properties in the object ($1), consumer declares a weaker (lower) limit ($2)
-      MatchingMinPropertiesWeak Integer Integer
+    | -- | consumer declares a minimum number of properties in the object ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinPropertiesWeak (ProdCons Integer)
     | -- | consumer declares that the value must satisfy a disjunction of some conditions, but producer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
       NoMatchingCondition [SomeCondition]
     | -- | consumer indicates that values of this type are now allowed, but the producer does not do so (currently we only check immediate contradictions, c.f. #70)
@@ -1008,32 +1008,32 @@ instance Issuable 'TypedSchemaLevel where
   issueIsUnsupported _ = False
   describeIssue (EnumDoesntSatisfy v) = para "The following enum value will yield an error:" <> showJSONValue v
   describeIssue (NoMatchingEnum v) = para "The following enum value is not supported:" <> showJSONValue v
-  describeIssue (NoMatchingMaximum b) = para $ "Expected upper bound " <> showBound b <> " but didn't find it."
-  describeIssue (MatchingMaximumWeak e a) = para $ "Expected upper bound " <> showBound e <> " but but found " <> showBound a <> "."
-  describeIssue (NoMatchingMinimum b) = para $ "Expected lower bound " <> showBound b <> " but didn't find it."
-  describeIssue (MatchingMinimumWeak e a) = para $ "Expected lower bound " <> showBound e <> " but but found " <> showBound a <> "."
-  describeIssue (NoMatchingMultipleOf n) = para $ "Expected the value to be a multiple of " <> show' n <> " but it wasn't."
-  describeIssue (MatchingMultipleOfWeak e a) = para $ "Expected the value to be a multiple of " <> show' e <> " but found a multiple of " <> show' a <> "."
-  describeIssue (NoMatchingFormat f) = para $ "Couldn't match format: " <> code f <> "."
-  describeIssue (NoMatchingMaxLength n) = para $ "Expected the maximum length of the string to be " <> show' n <> "but it wasn't."
-  describeIssue (MatchingMaxLengthWeak e a) = para $ "Expected the maximum length of the string to be " <> show' e <> "but it was " <> show' a <> "."
-  describeIssue (NoMatchingMinLength n) = para $ "Expected the minimum length of the string to be " <> show' n <> "but it wasn't."
-  describeIssue (MatchingMinLengthWeak e a) = para $ "Expected the minimum length of the string to be " <> show' e <> "but it was " <> show' a <> "."
-  describeIssue (NoMatchingPattern p) = para $ "Expected the following pattern (regular expression), but didn't find it: " <> code p <> "."
-  describeIssue NoMatchingItems = para $ "Couldn't find any matching items."
-  describeIssue (NoMatchingMaxItems n) = para $ "Expected the maximum length of the array to be " <> show' n <> "but it wasn't."
-  describeIssue (MatchingMaxItemsWeak e a) = para $ "Expected the maximum length of the array to be " <> show' e <> "but it was " <> show' a <> "."
-  describeIssue (NoMatchingMinItems n) = para $ "Expected the minimum length of the array to be " <> show' n <> "but it wasn't."
-  describeIssue (MatchingMinItemsWeak e a) = para $ "Expected the minimum length of the array to be " <> show' e <> "but it was " <> show' a <> "."
-  describeIssue NoMatchingUniqueItems = para $ "Expected the items to be unique but they weren't."
-  describeIssue NoMatchingProperties = para $ "Couldn't find matching properties."
-  describeIssue (UnexpectedProperty p) = para $ "The property " <> code p <> " is not supported."
+  describeIssue (NoMatchingMaximum b) = para $ "Unexpected upper bound " <> showBound b <> "."
+  describeIssue (MatchingMaximumWeak (ProdCons p c)) = para $ "Expected upper bound " <> showBound p <> " but but found " <> showBound c <> "."
+  describeIssue (NoMatchingMinimum b) = para $ "Unexpected lower bound " <> showBound b <> "."
+  describeIssue (MatchingMinimumWeak (ProdCons p c)) = para $ "Expected lower bound " <> showBound p <> " but but found " <> showBound c <> "."
+  describeIssue (NoMatchingMultipleOf n) = para $ "Didn't expect the value to be a multiple of " <> show' n <> " but it was."
+  describeIssue (MatchingMultipleOfWeak (ProdCons p c)) = para $ "Expected the value to be a multiple of " <> show' p <> " but found a multiple of " <> show' c <> "."
+  describeIssue (NoMatchingFormat f) = para $ "Unexpected format: " <> code f <> "."
+  describeIssue (NoMatchingMaxLength n) = para $ "Unexpected maximum length of the string " <> show' n <> "."
+  describeIssue (MatchingMaxLengthWeak (ProdCons p c)) = para $ "Expected the maximum length of the string to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingMinLength n) = para $ "Unexpected minimum length of the string " <> show' n <> "."
+  describeIssue (MatchingMinLengthWeak (ProdCons p c)) = para $ "Expected the minimum length of the string to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingPattern p) = para "Unexpected pattern (regular expression): " <> codeBlock p
+  describeIssue NoMatchingItems = para "Couldn't find any matching items."
+  describeIssue (NoMatchingMaxItems n) = para $ "Unexpected maximum length of the array " <> show' n <> "."
+  describeIssue (MatchingMaxItemsWeak (ProdCons p c)) = para $ "Expected the maximum length of the array to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingMinItems n) = para $ "Unexpected minimum length of the array " <> show' n <> "."
+  describeIssue (MatchingMinItemsWeak (ProdCons p c)) = para $ "Expected the minimum length of the array to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue NoMatchingUniqueItems = para "Didn't expect the items to be unique, but they were."
+  describeIssue NoMatchingProperties = para "Couldn't find matching properties."
+  describeIssue (UnexpectedProperty p) = para $ "Expected the property " <> code p <> " to be allowed, but it wasn't."
   describeIssue (PropertyNowRequired p) = para $ "Don't have a required property " <> code p <> "."
-  describeIssue NoAdditionalProperties = para $ "Doesn't support additional properties."
-  describeIssue (NoMatchingMaxProperties n) = para $ "Expected the maximum number of properties to be " <> show' n <> "but it wasn't."
-  describeIssue (MatchingMaxPropertiesWeak e a) = para $ "Expected the maximum  number of properties to be " <> show' e <> "but it was " <> show' a <> "."
-  describeIssue (NoMatchingMinProperties n) = para $ "Expected the minimum number of properties to be " <> show' n <> "but it wasn't."
-  describeIssue (MatchingMinPropertiesWeak e a) = para $ "Expected the minimum  number of properties to be " <> show' e <> "but it was " <> show' a <> "."
+  describeIssue NoAdditionalProperties = para "Expected additional properties to be allowed, but they weren't."
+  describeIssue (NoMatchingMaxProperties n) = para $ "Unexpected maximum number of properties " <> show' n <> "."
+  describeIssue (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Expected the maximum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingMinProperties n) = para $ "Unexpected minimum number of properties " <> show' n <> "."
+  describeIssue (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Expected the minimum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
   describeIssue (NoMatchingCondition conds) =
     para "Expected the following conditions to hold, but they didn't:"
       <> bulletList ((\(SomeCondition c) -> para . showCondition $ c) <$> conds)
