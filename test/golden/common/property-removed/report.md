@@ -4,7 +4,7 @@
 
 ### Object
 
-The property `property2` is not supported.
+Expected the property `property2` to be allowed, but it wasn't.
 
 ## JSON Response – 200
 

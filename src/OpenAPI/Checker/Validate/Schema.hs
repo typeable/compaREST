@@ -1064,6 +1064,8 @@ instance Issuable 'SchemaLevel where
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
   describeIssue (InvalidSchema i) =
     para (emph "The schema is invalid: " <> text i <> ".")
+  describeIssue UnguardedRecursion =
+    para "Encountered recursion that is too complex for OpenApi Diff to untangle."
 
 instance Behavable 'SchemaLevel 'TypedSchemaLevel where
   data Behave 'SchemaLevel 'TypedSchemaLevel
