@@ -89,6 +89,15 @@ observeJetShowErrs jet (P.PathsPrefixNode currentIssues subIssues) = do
           Nothing -> return $ Just $ embed (step bhv) subErrs
   return $ PathsPrefixNode currentIssues mempty <> rest
 
+-- | A "jet" is a way of simplifying expressions from "outside". The "jetted"
+-- expressions should still be completely valid and correct without the jets.
+-- Jets just make the expression more "optimized" by identifying patterns and
+-- replacing the expressions with "better" ones that have the same sematics.
+--
+-- The tem "jet" in this context was introduced in the Urbit project:
+--   https://urbit.org/docs/vere/jetting/
+--
+-- The pattern fits well for simplifying 'Behaviour' tree paths.
 class ConstructReportJet f a b c where
   constructReportJet :: (f a b -> c) -> ReportJet f a
 
