@@ -118,7 +118,6 @@ library
                   , OpenAPI.Checker.Paths
                   , OpenAPI.Checker.PathsPrefixTree
                   , OpenAPI.Checker.References
-                  , OpenAPI.Checker.Run
                   , OpenAPI.Checker.Subtree
                   , OpenAPI.Checker.Validate.MediaTypeObject
                   , OpenAPI.Checker.Validate.OpenApi
@@ -143,10 +142,18 @@ executable openapi-diff
   import:              common-options
   hs-source-dirs:      app
   main-is:             Main.hs
-  build-depends:       openapi-diff
+  build-depends:
+      openapi-diff
+    , pandoc
+    , data-default
+    , bytestring
+    , yaml
+    , filepath
   ghc-options:         -threaded
                        -rtsopts
                        -with-rtsopts=-N
+  other-modules:
+    FormatHeuristic
 
 test-suite openapi-diff-test
   import:              common-options
