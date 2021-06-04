@@ -87,7 +87,7 @@ untypeValue (TArray a) = A.Array a
 untypeValue (TObject o) = A.Object o
 
 data Bound a = Exclusive !a | Inclusive !a
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor)
 
 -- | The order is lexicographical on @a * Bool@.
 instance Ord a => Ord (Bound a) where
@@ -131,8 +131,44 @@ data Condition :: JsonType -> Type where
   MaxProperties :: !Integer -> Condition 'Object
   MinProperties :: !Integer -> Condition 'Object
 
-showCondition :: Condition a -> Inlines -- TODO
-showCondition = str . T.pack . show
+showCondition :: Condition a -> Blocks
+showCondition = \case
+  (Exactly v) -> para "The value should be:" <> showJSONValue (untypeValue v)
+  (Maximum b) -> para $ "The value should be less than " <> showBound b <> "."
+  (Minimum (Down b)) -> para $ "The value should be more than " <> showBound (getDown <$> b) <> "."
+  (MultipleOf n) -> para $ "The value should be a multiple of " <> show' n <> "."
+  (NumberFormat p) -> para $ "The number should have the following format:" <> code p <> "."
+  (Pattern p) -> para "The value should satisfy the following pattern (regular expression):" <> codeBlock p
+  (StringFormat p) -> para $ "The string should have the following format:" <> code p <> "."
+  (MaxLength p) -> para $ "The length of the string should be less than or equal to " <> show' p <> "."
+  (MinLength p) -> para $ "The length of the string should be more than or equal to " <> show' p <> "."
+  (Items i _) -> para "The items of the array should satisfy:" <> showForEachJsonFormula i
+  (MaxItems n) -> para $ "The length of the array should be less than or equal to " <> show' n <> "."
+  (MinItems n) -> para $ "The length of the array should be more than or equal to " <> show' n <> "."
+  UniqueItems -> para "The elements in the array should be unique."
+  (Properties props additional _) ->
+    bulletList $
+      (M.toList props
+         <&> (\(k, p) ->
+                para (code k)
+                  <> para (strong $ if propRequired p then "Required" else "Optional")
+                  <> showForEachJsonFormula (propFormula p)))
+        <> [ para (emph "Additional properties")
+               <> showForEachJsonFormula additional
+           ]
+  (MaxProperties n) -> para $ "The maximum number of fields should be " <> show' n <> "."
+  (MinProperties n) -> para $ "The minimum number of fields should be " <> show' n <> "."
+  where
+    showForEachJsonFormula :: ForeachType JsonFormula -> Blocks
+    showForEachJsonFormula i =
+      bulletList $
+        foldType
+          (\t f ->
+             let (DNF conds') = f i
+                 conds = S.toList <$> S.toList conds'
+              in [ para (describeJSONType t)
+                     <> bulletList (conds <&> \cond -> bulletList (showCondition <$> cond))
+                 ])
 
 satisfiesTyped :: TypedValue t -> Condition t -> Bool
 satisfiesTyped e (Exactly e') = e == e'
@@ -1036,7 +1072,7 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Expected the minimum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
   describeIssue (NoMatchingCondition conds) =
     para "Expected the following conditions to hold, but they didn't:"
-      <> bulletList ((\(SomeCondition c) -> para . showCondition $ c) <$> conds)
+      <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
   describeIssue NoContradiction = para "Expected the type to be allowed, but it wasn't."
 
 showJSONValue :: A.Value -> Blocks
@@ -1072,13 +1108,16 @@ instance Behavable 'SchemaLevel 'TypedSchemaLevel where
     = OfType JsonType
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (OfType t) = case t of
-    Null -> "Null"
-    Boolean -> "Boolean"
-    Number -> "Number"
-    String -> "String"
-    Array -> "Array"
-    Object -> "Object"
+  describeBehaviour (OfType t) = describeJSONType t
+
+describeJSONType :: JsonType -> Inlines
+describeJSONType = \case
+  Null -> "Null"
+  Boolean -> "Boolean"
+  Number -> "Number"
+  String -> "String"
+  Array -> "Array"
+  Object -> "Object"
 
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel
