@@ -13,6 +13,7 @@ module OpenAPI.Checker.Validate.Operation
   , ProcessedPathItems (..)
   , processPathItems
   , Step (..)
+  , Behave (..)
   )
 where
 
@@ -27,6 +28,7 @@ import qualified Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
+import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T
 import OpenAPI.Checker.Behavior
@@ -36,11 +38,12 @@ import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.OAuth2Flows
 import OpenAPI.Checker.Validate.PathFragment
 import OpenAPI.Checker.Validate.Products
-import OpenAPI.Checker.Validate.RequestBody ()
-import OpenAPI.Checker.Validate.Responses ()
+import OpenAPI.Checker.Validate.RequestBody
+import OpenAPI.Checker.Validate.Responses
 import OpenAPI.Checker.Validate.SecurityRequirement ()
 import OpenAPI.Checker.Validate.Server ()
 import OpenAPI.Checker.Validate.Sums
+import Text.Pandoc.Builder
 
 data MatchedOperation = MatchedOperation
   { operation :: !Operation
@@ -95,18 +98,24 @@ getServers env oper =
 instance Behavable 'OperationLevel 'PathFragmentLevel where
   data Behave 'OperationLevel 'PathFragmentLevel
     = InParam Text
-    | InFragment Int
+    | InFragment (PathFragment Text)
     deriving stock (Eq, Ord, Show)
+  describeBehaviour (InParam p) = "Parameter " <> text p
+  describeBehaviour (InFragment (StaticPath p)) = "Static fragment " <> code p
+  describeBehaviour (InFragment (DynamicPath p)) = "Dynamic fragment " <> code p
 
 instance Behavable 'OperationLevel 'RequestLevel where
   data Behave 'OperationLevel 'RequestLevel
     = InRequest
     deriving stock (Eq, Ord, Show)
+  describeBehaviour InRequest = "Request"
 
 instance Behavable 'OperationLevel 'SecurityRequirementLevel where
   data Behave 'OperationLevel 'SecurityRequirementLevel
     = SecurityRequirementStep Int
     deriving stock (Eq, Ord, Show)
+  describeBehaviour (SecurityRequirementStep i) =
+    "Security requirement " <> (text . T.pack . show $ i)
 
 instance Subtree MatchedOperation where
   type SubtreeLevel MatchedOperation = 'OperationLevel
@@ -202,7 +211,8 @@ instance Subtree MatchedOperation where
             fragments = getFragments <$> pathParams <*> prodCons
             getFragments params mop = getPathFragments (extract mop) params
             -- Feed path parameters to the fragments getter
-            check idx frags = checkCompatibility @PathFragmentParam env (beh >>> step (InFragment idx)) frags
+            check _ frags@(ProdCons (Traced _ p) _) =
+              checkCompatibility @PathFragmentParam env (beh >>> step (InFragment $ _paramName . extract <$> p)) frags
             elements =
               fragments <&> \frags -> M.fromList $
                 zip [0 :: Int ..] $ do
@@ -348,11 +358,15 @@ instance Issuable 'APILevel where
     -- When several paths match given but all checks failed
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " did not match anything."
+  describeIssue (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " did not match anything."
 
 instance Behavable 'APILevel 'PathLevel where
   data Behave 'APILevel 'PathLevel
-    = AtPath (ProdCons FilePath) -- TODO: why are there two?
+    = AtPath FilePath
     deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (AtPath p) = str (T.pack p)
 
 instance Subtree ProcessedPathItems where
   type SubtreeLevel ProcessedPathItems = 'APILevel
@@ -376,15 +390,16 @@ instance Subtree ProcessedPathItems where
     -- one way
     for_ (unProcessedPathItems . extract $ p) $ \prodItem -> do
       let prodPath = path prodItem
+          beh' = beh >>> step (AtPath prodPath)
           matchedItems = do
             consItem <- unProcessedPathItems . extract $ c
             F.toList $ matchingPathItems $ ProdCons prodItem consItem
       case matchedItems of
         [] -> issueAt beh $ NoPathsMatched prodPath
-        [match] -> checkCompatibility env (beh >>> step (AtPath $ matchedPath <$> match)) (retraced <$> pc <*> match)
+        [match] -> checkCompatibility env beh' (retraced <$> pc <*> match)
         matches -> anyOfAt beh (AllPathsFailed prodPath) $ do
           match <- matches
-          pure $ checkCompatibility env (beh >>> step (AtPath $ matchedPath <$> match)) (retraced <$> pc <*> match)
+          pure $ checkCompatibility env beh' (retraced <$> pc <*> match)
     where
       retraced pc mpi = traced (ask pc >>> step (MatchedPathStep $ matchedPath mpi)) mpi
 
@@ -429,7 +444,6 @@ tracedMatchedPathItemParameters mpi =
   | (i, x) <- L.zip [0 ..] $ _pathItemParameters . pathItem $ extract mpi
   ]
 
--- TODO: simplify?
 tracedFragments :: Traced MatchedPathItem -> [Env (Trace PathFragmentParam) (PathFragment Text)]
 tracedFragments mpi =
   [ env (ask mpi >>> step (PathFragmentStep i)) x
@@ -447,11 +461,25 @@ instance Issuable 'PathLevel where
     = OperationMissing OperationMethod
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " is not defined."
 
 instance Behavable 'PathLevel 'OperationLevel where
   data Behave 'PathLevel 'OperationLevel
     = InOperation OperationMethod
     deriving (Eq, Ord, Show)
+
+  describeBehaviour (InOperation method) = showMethod method
+
+showMethod :: IsString s => OperationMethod -> s
+showMethod = \case
+  GetMethod -> "GET"
+  PutMethod -> "PUT"
+  PostMethod -> "POST"
+  DeleteMethod -> "DELETE"
+  OptionsMethod -> "OPTIONS"
+  HeadMethod -> "HEAD"
+  PatchMethod -> "PATCH"
+  TraceMethod -> "TRACE"
 
 instance Subtree MatchedPathItem where
   type SubtreeLevel MatchedPathItem = 'PathLevel
@@ -550,6 +578,7 @@ instance Issuable 'CallbackLevel where
     deriving (Eq, Ord, Show)
   issueIsUnsupported = \case
     CallbacksUnsupported -> True
+  describeIssue CallbacksUnsupported = para "OpenApi Diff does not currently support callbacks."
 
 tracedCallbackPathItems :: Traced Callback -> Traced ProcessedPathItems
 tracedCallbackPathItems (Traced t (Callback x)) =
@@ -562,3 +591,5 @@ instance Steppable Callback ProcessedPathItems where
 instance Behavable 'OperationLevel 'CallbackLevel where
   data Behave 'OperationLevel 'CallbackLevel = OperationCallback Text
     deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (OperationCallback key) = "Operation " <> code key

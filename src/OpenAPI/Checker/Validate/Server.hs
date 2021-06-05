@@ -28,6 +28,7 @@ import OpenAPI.Checker.Common
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.MediaTypeObject
+import Text.Pandoc.Builder
 import Prelude as P
 
 tracedParsedServerUrlParts
@@ -44,6 +45,8 @@ instance Behavable 'OperationLevel 'ServerLevel where
   data Behave 'OperationLevel 'ServerLevel
     = InServer Text
     deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (InServer n) = "Server " <> code n
 
 instance Subtree [Server] where
   type SubtreeLevel [Server] = 'OperationLevel
@@ -131,6 +134,13 @@ instance Issuable 'ServerLevel where
     | ServerNotMatched
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (EnumValueNotConsumed _ v) =
+    para $ "Enum value " <> code v <> " is not supported."
+  describeIssue (ConsumerNotOpen _) =
+    para $ "Expected a variable to be open (any value), but it wasn't."
+  describeIssue (ServerVariableNotDefined k) =
+    para $ "Variable " <> code k <> " is not defined."
+  describeIssue ServerNotMatched = para $ "Couldn't find a matching server."
 
 instance Subtree ProcessedServer where
   type SubtreeLevel ProcessedServer = 'ServerLevel

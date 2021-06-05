@@ -17,12 +17,13 @@ import Algebra.Lattice
 import Control.Applicative
 import Control.Arrow
 import Control.Comonad.Env hiding (env)
-import Control.Lens hiding (cons)
+import Control.Lens hiding (cons, para)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
 import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.Aeson as A
+import qualified Data.ByteString.Lazy as BSL
 import Data.Coerce
 import qualified Data.Foldable as F
 import Data.HList
@@ -40,8 +41,8 @@ import Data.Scientific
 import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T hiding (singleton)
+import qualified Data.Text.Encoding as T
 import Data.Typeable
-import Text.Regex.Pcre2
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Memo
 import OpenAPI.Checker.Orphans ()
@@ -49,6 +50,8 @@ import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
 import OpenAPI.Checker.References
 import OpenAPI.Checker.Subtree
+import Text.Pandoc.Builder hiding (Format, Null)
+import Text.Regex.Pcre2
 
 -- | Type of a JSON value
 data JsonType
@@ -84,7 +87,7 @@ untypeValue (TArray a) = A.Array a
 untypeValue (TObject o) = A.Object o
 
 data Bound a = Exclusive !a | Inclusive !a
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor)
 
 -- | The order is lexicographical on @a * Bool@.
 instance Ord a => Ord (Bound a) where
@@ -127,6 +130,45 @@ data Condition :: JsonType -> Type where
     -> Condition 'Object
   MaxProperties :: !Integer -> Condition 'Object
   MinProperties :: !Integer -> Condition 'Object
+
+showCondition :: Condition a -> Blocks
+showCondition = \case
+  (Exactly v) -> para "The value should be:" <> showJSONValue (untypeValue v)
+  (Maximum b) -> para $ "The value should be less than " <> showBound b <> "."
+  (Minimum (Down b)) -> para $ "The value should be more than " <> showBound (getDown <$> b) <> "."
+  (MultipleOf n) -> para $ "The value should be a multiple of " <> show' n <> "."
+  (NumberFormat p) -> para $ "The number should have the following format:" <> code p <> "."
+  (Pattern p) -> para "The value should satisfy the following pattern (regular expression):" <> codeBlock p
+  (StringFormat p) -> para $ "The string should have the following format:" <> code p <> "."
+  (MaxLength p) -> para $ "The length of the string should be less than or equal to " <> show' p <> "."
+  (MinLength p) -> para $ "The length of the string should be more than or equal to " <> show' p <> "."
+  (Items i _) -> para "The items of the array should satisfy:" <> showForEachJsonFormula i
+  (MaxItems n) -> para $ "The length of the array should be less than or equal to " <> show' n <> "."
+  (MinItems n) -> para $ "The length of the array should be more than or equal to " <> show' n <> "."
+  UniqueItems -> para "The elements in the array should be unique."
+  (Properties props additional _) ->
+    bulletList $
+      (M.toList props
+         <&> (\(k, p) ->
+                para (code k)
+                  <> para (strong $ if propRequired p then "Required" else "Optional")
+                  <> showForEachJsonFormula (propFormula p)))
+        <> [ para (emph "Additional properties")
+               <> showForEachJsonFormula additional
+           ]
+  (MaxProperties n) -> para $ "The maximum number of fields should be " <> show' n <> "."
+  (MinProperties n) -> para $ "The minimum number of fields should be " <> show' n <> "."
+  where
+    showForEachJsonFormula :: ForeachType JsonFormula -> Blocks
+    showForEachJsonFormula i =
+      bulletList $
+        foldType
+          (\t f ->
+             let (DNF conds') = f i
+                 conds = S.toList <$> S.toList conds'
+              in [ para (describeJSONType t)
+                     <> bulletList (conds <&> \cond -> bulletList (showCondition <$> cond))
+                 ])
 
 satisfiesTyped :: TypedValue t -> Condition t -> Bool
 satisfiesTyped e (Exactly e') = e == e'
@@ -363,10 +405,6 @@ instance
       , forObject = top
       }
 
-instance Behavable 'SchemaLevel 'SchemaLevel where
-  data Behave 'SchemaLevel 'SchemaLevel
-    deriving (Eq, Ord, Show)
-
 instance Steppable Schema (Referenced Schema) where
   data Step Schema (Referenced Schema)
     = AllOfStep Int
@@ -396,7 +434,7 @@ parseDiscriminatorValue v = case A.fromJSON @(Referenced Schema) $ A.object ["$r
   A.Error _ -> Ref $ Reference v
 
 -- | A fake writer monad that doesn't actually record anything and allows lazy recursion.
-newtype Silent q f r a = Silent { runSilent :: a }
+newtype Silent q f r a = Silent {runSilent :: a}
   deriving stock (Functor)
   deriving (Applicative, Monad) via Identity
 
@@ -427,11 +465,12 @@ silently m = do
   pure . runSilent $ runReaderT m defs
 
 warnKnot :: MonadProcess m => KnotTier (ForeachType JsonFormula) () m
-warnKnot = KnotTier
-  { onKnotFound = warn UnguardedRecursion
-  , onKnotUsed = \_ -> pure bottom
-  , tieKnot = \_ -> pure
-  }
+warnKnot =
+  KnotTier
+    { onKnotFound = warn UnguardedRecursion
+    , onKnotUsed = \_ -> pure bottom
+    , tieKnot = \_ -> pure
+    }
 
 processRefSchema
   :: MonadProcess m
@@ -835,19 +874,19 @@ checkImplication env beh prods cons = case findExactly prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaximumWeak m m')
+          else issueAt beh (MatchingMaximumWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaximum m)
     Minimum m -> case findRelevant max (\case Minimum m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinimumWeak (coerce m) (coerce m'))
+          else issueAt beh (MatchingMinimumWeak ProdCons {producer = coerce m', consumer = coerce m})
       Nothing -> issueAt beh (NoMatchingMinimum (coerce m))
     MultipleOf m -> case findRelevant lcmScientific (\case MultipleOf m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if lcmScientific m m' == m'
           then pure ()
-          else issueAt beh (MatchingMultipleOfWeak m m')
+          else issueAt beh (MatchingMultipleOfWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMultipleOf m)
     NumberFormat f ->
       if any (\case NumberFormat f' -> f == f'; _ -> False) prods
@@ -857,13 +896,13 @@ checkImplication env beh prods cons = case findExactly prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaxLengthWeak m m')
+          else issueAt beh (MatchingMaxLengthWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaxLength m)
     MinLength m -> case findRelevant max (\case MinLength m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinLengthWeak m m')
+          else issueAt beh (MatchingMinLengthWeak $ ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMinLength m)
     Pattern p ->
       if any (\case Pattern p' -> p == p'; _ -> False) prods
@@ -883,50 +922,52 @@ checkImplication env beh prods cons = case findExactly prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaxItemsWeak m m')
+          else issueAt beh (MatchingMaxItemsWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaxItems m)
     MinItems m -> case findRelevant max (\case MinItems m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinItemsWeak m m')
+          else issueAt beh (MatchingMinItemsWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMinItems m)
     UniqueItems ->
       if any (== UniqueItems) $ prods
         then pure ()
         else issueAt beh NoMatchingUniqueItems
     Properties props _ madd -> case findRelevant (<>) (\case Properties props' _ madd' -> Just $ (props', madd') NE.:| []; _ -> Nothing) prods of
-      Just pm -> anyOfAt beh NoMatchingProperties $ NE.toList pm <&> \(props', madd') -> do
-        F.for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
-          let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
-          case (M.lookup k props', madd', M.lookup k props, madd) of
-            (Nothing, Nothing, _, _) -> pure () -- vacuously
-            (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
-            (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
-            (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
-            (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
-            (Nothing, Just _, Nothing, Just _) -> pure ()
-          case (maybe False propRequired $ M.lookup k props', maybe False propRequired $ M.lookup k props) of
-            (False, True) -> issueAt beh (PropertyNowRequired k)
-            _ -> pure ()
-          pure ()
-        case (madd', madd) of
-          (Nothing, _) -> pure () -- vacuously
-          (_, Nothing) -> issueAt beh NoAdditionalProperties
-          (Just add', Just add) -> checkCompatibility env (beh >>> step InAdditionalProperty) (ProdCons add' add)
-        pure ()
+      Just pm ->
+        anyOfAt beh NoMatchingProperties $
+          NE.toList pm <&> \(props', madd') -> do
+            F.for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
+              let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
+              case (M.lookup k props', madd', M.lookup k props, madd) of
+                (Nothing, Nothing, _, _) -> pure () -- vacuously
+                (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
+                (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
+                (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
+                (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
+                (Nothing, Just _, Nothing, Just _) -> pure ()
+              case (maybe False propRequired $ M.lookup k props', maybe False propRequired $ M.lookup k props) of
+                (False, True) -> issueAt beh (PropertyNowRequired k)
+                _ -> pure ()
+              pure ()
+            case (madd', madd) of
+              (Nothing, _) -> pure () -- vacuously
+              (_, Nothing) -> issueAt beh NoAdditionalProperties
+              (Just add', Just add) -> checkCompatibility env (beh >>> step InAdditionalProperty) (ProdCons add' add)
+            pure ()
       Nothing -> issueAt beh NoMatchingProperties
     MaxProperties m -> case findRelevant min (\case MaxProperties m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' <= m
           then pure ()
-          else issueAt beh (MatchingMaxPropertiesWeak m m')
+          else issueAt beh (MatchingMaxPropertiesWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMaxProperties m)
     MinProperties m -> case findRelevant max (\case MinProperties m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
         if m' >= m
           then pure ()
-          else issueAt beh (MatchingMinPropertiesWeak m m')
+          else issueAt beh (MatchingMinPropertiesWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMinProperties m)
   where
     findExactly (Exactly x : _) = Just x
@@ -939,84 +980,144 @@ checkImplication env beh prods cons = case findExactly prods of
 
 instance Issuable 'TypedSchemaLevel where
   data Issue 'TypedSchemaLevel
-    = EnumDoesntSatisfy A.Value
-    -- ^ producer produces a specific value ($1), consumer has a condition that is not satisfied by said value
-    | NoMatchingEnum A.Value
-    -- ^ producer produces a specific value ($1) which is not listed in the consumer's list of specific values
-    | NoMatchingMaximum (Bound Scientific)
-    -- ^ producer declares a maximum numeric value ($1), consumer doesnt
-    | MatchingMaximumWeak (Bound Scientific) (Bound Scientific)
-    -- ^ producer declares a maximum numeric value ($1), consumer declares a weaker (higher) limit ($2)
-    | NoMatchingMinimum (Bound Scientific)
-    -- ^ producer declares a minimum numeric value, consumer doesnt
-    | MatchingMinimumWeak (Bound Scientific) (Bound Scientific)
-    -- ^ producer declares a minimum numeric value ($1), consumer declares a weaker (lower) limit ($2)
-    | NoMatchingMultipleOf Scientific
-    -- ^ producer declares that the numeric value must be a multiple of $1, consumer doesn't
-    | MatchingMultipleOfWeak Scientific Scientific
-    -- ^ producer declares that the numeric value must be a multiple of $1, consumer declares a weaker condition (multiple of $2)
-    | NoMatchingFormat Format
-    -- ^ producer declares a string/number format, consumer declares none or a different format (TODO: improve via regex #32)
-    | NoMatchingMaxLength Integer
-    -- ^ producer declares a maximum length of the string ($1), consumer doesn't.
-    | MatchingMaxLengthWeak Integer Integer
-    -- ^ producer declares a maximum length of the string ($1), consumer declares a weaker (higher) limit ($2)
-    | NoMatchingMinLength Integer
-    -- ^ producer declares a minimum length of the string ($1), consumer doesn't.
-    | MatchingMinLengthWeak Integer Integer
-    -- ^ producer declares a minimum length of the string ($1), consumer declares a weaker (lower) limit ($2)
-    | NoMatchingPattern Pattern
-    -- ^ producer declares the string value must matrix a regex ($1), consumer doesn't declare or declares different regex (TODO: #32)
-    | NoMatchingItems
-    -- ^ producer declares the items of an array must satisfy some condition, consumer doesn't
-    | NoMatchingMaxItems Integer
-    -- ^ producer declares a maximum length of the array ($1), consumer doesn't.
-    | MatchingMaxItemsWeak Integer Integer
-    -- ^ producer declares a maximum length of the array ($1), consumer declares a weaker (higher) limit ($2)
-    | NoMatchingMinItems Integer
-    -- ^ producer declares a minimum length of the array ($1), consumer doesn't.
-    | MatchingMinItemsWeak Integer Integer
-    -- ^ producer declares a minimum length of the array ($1), consumer declares a weaker (lower) limit ($2)
-    | NoMatchingUniqueItems
-    -- ^ producer declares that items must be unique, consumer doesn't
-    | NoMatchingProperties
-    -- ^ producer declares the properties of an object must satisfy some condition, consumer doesn't
-    | UnexpectedProperty Text
-    -- ^ producer allows a property that is not allowed in the consumer
-    | PropertyNowRequired Text
-    -- ^ consumer requires a property that is not required/allowed in the consumer
-    | NoAdditionalProperties
-    -- ^ producer allows additional properties, consumer doesn't
-    | NoMatchingMaxProperties Integer
-    -- ^ producer declares a maximum number of properties in the object ($1), consumer doesn't.
-    | MatchingMaxPropertiesWeak Integer Integer
-    -- ^ producer declares a maximum number of properties in the object ($1), consumer declares a weaker (higher) limit ($2)
-    | NoMatchingMinProperties Integer
-    -- ^ producer declares a minimum number of properties in the object ($1), consumer doesn't.
-    | MatchingMinPropertiesWeak Integer Integer
-    -- ^ producer declares a minimum number of properties in the object ($1), consumer declares a weaker (lower) limit ($2)
-    | NoMatchingCondition [SomeCondition]
-    -- ^ consumer declares that the value must satisfy a disjunction of some conditions, but producer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
-    | NoContradiction
-    -- ^ producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
+    = -- | producer produces a specific value ($1), consumer has a condition that is not satisfied by said value
+      EnumDoesntSatisfy A.Value
+    | -- | consumer only expects a specific value which the producer does not produce.
+      NoMatchingEnum A.Value
+    | -- | consumer declares a maximum numeric value ($1), producer doesn't
+      NoMatchingMaximum (Bound Scientific)
+    | -- | consumer declares a maximum numeric value ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaximumWeak (ProdCons (Bound Scientific))
+    | -- | consumer declares a minimum numeric value, producer doesn't
+      NoMatchingMinimum (Bound Scientific)
+    | -- | consumer declares a minimum numeric value ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinimumWeak (ProdCons (Bound Scientific))
+    | -- | consumer declares that the numeric value must be a multiple of $1, producer doesn't
+      NoMatchingMultipleOf Scientific
+    | -- | consumer declares that the numeric value must be a multiple of $1, producer declares a weaker condition (multiple of $2)
+      MatchingMultipleOfWeak (ProdCons Scientific)
+    | -- | consumer declares a string/number format, producer declares none or a different format (TODO: improve via regex #32)
+      NoMatchingFormat Format
+    | -- | consumer declares a maximum length of the string ($1), producer doesn't.
+      NoMatchingMaxLength Integer
+    | -- | consumer declares a maximum length of the string ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaxLengthWeak (ProdCons Integer)
+    | -- | consumer declares a minimum length of the string ($1), producer doesn't.
+      NoMatchingMinLength Integer
+    | -- | consumer declares a minimum length of the string ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinLengthWeak (ProdCons Integer)
+    | -- | consumer declares the string value must matrix a regex ($1), producer doesn't declare or declares different regex (TODO: #32)
+      NoMatchingPattern Pattern
+    | -- | consumer declares the items of an array must satisfy some condition, producer doesn't
+      NoMatchingItems
+    | -- | consumer declares a maximum length of the array ($1), producer doesn't.
+      NoMatchingMaxItems Integer
+    | -- | consumer declares a maximum length of the array ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaxItemsWeak (ProdCons Integer)
+    | -- | consumer declares a minimum length of the array ($1), producer doesn't.
+      NoMatchingMinItems Integer
+    | -- | consumer declares a minimum length of the array ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinItemsWeak (ProdCons Integer)
+    | -- | consumer declares that items must be unique, producer doesn't
+      NoMatchingUniqueItems
+    | -- | consumer declares the properties of an object must satisfy some condition, producer doesn't
+      NoMatchingProperties
+    | -- | producer allows a property that is not allowed in the consumer
+      UnexpectedProperty Text
+    | -- | consumer requires a property that is not required/allowed in the producer
+      PropertyNowRequired Text
+    | -- | producer allows additional properties, consumer doesn't
+      NoAdditionalProperties
+    | -- | consumer declares a maximum number of properties in the object ($1), producer doesn't.
+      NoMatchingMaxProperties Integer
+    | -- | consumer declares a maximum number of properties in the object ($1), producer declares a weaker (higher) limit ($2)
+      MatchingMaxPropertiesWeak (ProdCons Integer)
+    | -- | consumer declares a minimum number of properties in the object ($1), producer doesn't.
+      NoMatchingMinProperties Integer
+    | -- | consumer declares a minimum number of properties in the object ($1), producer declares a weaker (lower) limit ($2)
+      MatchingMinPropertiesWeak (ProdCons Integer)
+    | -- | consumer declares that the value must satisfy a disjunction of some conditions, but producer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
+      NoMatchingCondition [SomeCondition]
+    | -- | consumer indicates that values of this type are now allowed, but the producer does not do so (currently we only check immediate contradictions, c.f. #70)
+      NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (EnumDoesntSatisfy v) = para "The following enum value will yield an error:" <> showJSONValue v
+  describeIssue (NoMatchingEnum v) = para "The following enum value is not supported:" <> showJSONValue v
+  describeIssue (NoMatchingMaximum b) = para $ "Unexpected upper bound " <> showBound b <> "."
+  describeIssue (MatchingMaximumWeak (ProdCons p c)) = para $ "Expected upper bound " <> showBound p <> " but but found " <> showBound c <> "."
+  describeIssue (NoMatchingMinimum b) = para $ "Unexpected lower bound " <> showBound b <> "."
+  describeIssue (MatchingMinimumWeak (ProdCons p c)) = para $ "Expected lower bound " <> showBound p <> " but but found " <> showBound c <> "."
+  describeIssue (NoMatchingMultipleOf n) = para $ "Didn't expect the value to be a multiple of " <> show' n <> " but it was."
+  describeIssue (MatchingMultipleOfWeak (ProdCons p c)) = para $ "Expected the value to be a multiple of " <> show' p <> " but found a multiple of " <> show' c <> "."
+  describeIssue (NoMatchingFormat f) = para $ "Unexpected format: " <> code f <> "."
+  describeIssue (NoMatchingMaxLength n) = para $ "Unexpected maximum length of the string " <> show' n <> "."
+  describeIssue (MatchingMaxLengthWeak (ProdCons p c)) = para $ "Expected the maximum length of the string to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingMinLength n) = para $ "Unexpected minimum length of the string " <> show' n <> "."
+  describeIssue (MatchingMinLengthWeak (ProdCons p c)) = para $ "Expected the minimum length of the string to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingPattern p) = para "Unexpected pattern (regular expression): " <> codeBlock p
+  describeIssue NoMatchingItems = para "Couldn't find any matching items."
+  describeIssue (NoMatchingMaxItems n) = para $ "Unexpected maximum length of the array " <> show' n <> "."
+  describeIssue (MatchingMaxItemsWeak (ProdCons p c)) = para $ "Expected the maximum length of the array to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingMinItems n) = para $ "Unexpected minimum length of the array " <> show' n <> "."
+  describeIssue (MatchingMinItemsWeak (ProdCons p c)) = para $ "Expected the minimum length of the array to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue NoMatchingUniqueItems = para "Didn't expect the items to be unique, but they were."
+  describeIssue NoMatchingProperties = para "Couldn't find matching properties."
+  describeIssue (UnexpectedProperty p) = para $ "Expected the property " <> code p <> " to be allowed, but it wasn't."
+  describeIssue (PropertyNowRequired p) = para $ "Don't have a required property " <> code p <> "."
+  describeIssue NoAdditionalProperties = para "Expected additional properties to be allowed, but they weren't."
+  describeIssue (NoMatchingMaxProperties n) = para $ "Unexpected maximum number of properties " <> show' n <> "."
+  describeIssue (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Expected the maximum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingMinProperties n) = para $ "Unexpected minimum number of properties " <> show' n <> "."
+  describeIssue (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Expected the minimum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (NoMatchingCondition conds) =
+    para "Expected the following conditions to hold, but they didn't:"
+      <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
+  describeIssue NoContradiction = para "Expected the type to be allowed, but it wasn't."
+
+showJSONValue :: A.Value -> Blocks
+showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
+
+showBound :: Show a => Bound a -> Inlines
+showBound (Inclusive x) = show' x <> " inclusive"
+showBound (Exclusive x) = show' x <> " exclusive"
+
+show' :: Show x => x -> Inlines
+show' = str . T.pack . show
 
 instance Issuable 'SchemaLevel where
   data Issue 'SchemaLevel
-    = NotSupported Text
-    -- ^ Some (openapi-supported) feature that we do not support was encountered in the schema
-    | InvalidSchema Text
-    -- ^ The schema is actually invalid
-    | UnguardedRecursion
-    -- ^ The schema contains a reference loop along "anyOf"/"allOf"/"oneOf".
+    = -- | Some (openapi-supported) feature that we do not support was encountered in the schema
+      NotSupported Text
+    | -- | The schema is actually invalid
+      InvalidSchema Text
+    | -- | The schema contains a reference loop along "anyOf"/"allOf"/"oneOf".
+      UnguardedRecursion
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = True
+
+  describeIssue (NotSupported i) =
+    para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
+  describeIssue (InvalidSchema i) =
+    para (emph "The schema is invalid: " <> text i <> ".")
+  describeIssue UnguardedRecursion =
+    para "Encountered recursion that is too complex for OpenApi Diff to untangle."
 
 instance Behavable 'SchemaLevel 'TypedSchemaLevel where
   data Behave 'SchemaLevel 'TypedSchemaLevel
     = OfType JsonType
     deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (OfType t) = describeJSONType t
+
+describeJSONType :: JsonType -> Inlines
+describeJSONType = \case
+  Null -> "Null"
+  Boolean -> "Boolean"
+  Number -> "Number"
+  String -> "String"
+  Array -> "Array"
+  Object -> "Object"
 
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel
@@ -1024,6 +1125,10 @@ instance Behavable 'TypedSchemaLevel 'SchemaLevel where
     | InProperty Text
     | InAdditionalProperty
     deriving stock (Eq, Ord, Show)
+
+  describeBehaviour InItems = "Items"
+  describeBehaviour (InProperty p) = "Property " <> code p
+  describeBehaviour InAdditionalProperty = "Additional properties"
 
 instance Subtree Schema where
   type SubtreeLevel Schema = 'SchemaLevel

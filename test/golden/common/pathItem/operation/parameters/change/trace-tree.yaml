@@ -1,5 +1,5 @@
 Left:
-  AtPath (ProdCons {producer = "/test", consumer = "/test"}):
+  AtPath "/test":
     InOperation PostMethod:
       InParam "test":
         InParamSchema:

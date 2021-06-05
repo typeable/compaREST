@@ -1,5 +1,5 @@
 Left:
-  AtPath (ProdCons {producer = "/api/foo", consumer = "/api/foo"}):
+  AtPath "/api/foo":
     InOperation GetMethod:
       WithStatusCode 200:
         ResponsePayload:

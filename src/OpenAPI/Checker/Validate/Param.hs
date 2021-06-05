@@ -6,7 +6,7 @@ module OpenAPI.Checker.Validate.Param
   , Issue (..)
   ) where
 
-import Control.Lens
+import Control.Lens hiding (para)
 import Control.Monad
 import Data.Maybe
 import Data.OpenApi
@@ -15,6 +15,7 @@ import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Orphans ()
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Schema ()
+import Text.Pandoc.Builder
 
 -- | The type is normalized encoding style of the parameter. If two encoding
 -- styles are equal then parameters are compatible with their encoding style
@@ -62,11 +63,20 @@ instance Issuable 'PathFragmentLevel where
     | PathFragmentsDontMatch Text Text
     deriving (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue ParamNameMismatch = para "The path fragments don't match."
+  describeIssue ParamEmptinessIncompatible = para "Expected that an empty parameter is allowed, but it isn't."
+  describeIssue ParamRequired = para "Expected the parameter to be optional, but it is required."
+  describeIssue ParamPlaceIncompatible = para "Parameters in incompatible locations."
+  describeIssue ParamStyleMismatch = para "Different parameter styles (encodings)."
+  describeIssue ParamSchemaMismatch = para "Expected a schema, but didn't find one."
+  describeIssue (PathFragmentsDontMatch e a) = para $ "Expected " <> code e <> " but got " <> code a <> "."
 
 instance Behavable 'PathFragmentLevel 'SchemaLevel where
   data Behave 'PathFragmentLevel 'SchemaLevel
     = InParamSchema
     deriving (Eq, Ord, Show)
+  
+  describeBehaviour InParamSchema = "JSON Schema"
 
 instance Subtree Param where
   type SubtreeLevel Param = 'PathFragmentLevel

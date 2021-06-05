@@ -32,7 +32,7 @@ parsePath = fmap partition . T.splitOn "/" . T.pack
 data PathFragment param
   = StaticPath Text
   | DynamicPath param
-  deriving stock (Eq, Ord)
+  deriving stock (Eq, Ord, Show, Functor)
 
 type PathFragmentParam = PathFragment (Traced Param)
 

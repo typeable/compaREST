@@ -3,6 +3,7 @@
 -- structure.
 module OpenAPI.Checker.Paths
   ( NiceQuiver
+  , AdditionalQuiverConstraints
   , Paths (..)
   , DiffPaths (..)
   , catDiffPaths
@@ -24,7 +25,10 @@ import Data.Type.Equality
 import Type.Reflection
 import Prelude hiding ((.))
 
-type NiceQuiver (q :: k -> j -> Type) (a :: k) (b :: j) = (Typeable q, Typeable a, Typeable b, Ord (q a b), Show (q a b))
+type NiceQuiver (q :: k -> j -> Type) (a :: k) (b :: j) =
+  (Typeable q, Typeable a, Typeable b, Ord (q a b), Show (q a b), AdditionalQuiverConstraints q a b)
+
+type family AdditionalQuiverConstraints (q :: k -> j -> Type) (a :: k) (b :: j) :: Constraint
 
 -- | All the possible ways to navigate between nodes in a heterogeneous tree
 -- form a quiver. The hom-sets of the free category constructed from this quiver

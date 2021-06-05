@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module OpenAPI.Checker.Validate.Responses
-  (
+  ( Behave (..)
   )
 where
 
@@ -11,6 +11,7 @@ import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
+import qualified Data.Text as T
 import Network.HTTP.Media (MediaType)
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.References
@@ -21,6 +22,7 @@ import OpenAPI.Checker.Validate.MediaTypeObject
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
 import OpenAPI.Checker.Validate.Sums
+import Text.Pandoc.Builder
 
 tracedResponses :: Traced Responses -> IOHM.InsOrdHashMap HttpStatusCode (Traced (Referenced Response))
 tracedResponses resp =
@@ -70,16 +72,24 @@ instance Issuable 'ResponseLevel where
     | ResponseHeaderMissing HeaderName
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
+  describeIssue (ResponseMediaTypeMissing t) =
+    para $ "Couldn't find reponse for media type " <> (code . T.pack . show $ t) <> "."
+  describeIssue (ResponseHeaderMissing h) =
+    para $ "Couldn't find header " <> code h <> "."
 
 instance Behavable 'ResponseLevel 'PayloadLevel where
   data Behave 'ResponseLevel 'PayloadLevel
     = ResponsePayload
     deriving stock (Eq, Ord, Show)
 
+  describeBehaviour ResponsePayload = "Payload"
+
 instance Behavable 'ResponseLevel 'HeaderLevel where
   data Behave 'ResponseLevel 'HeaderLevel
     = InHeader HeaderName
     deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (InHeader name) = "Header " <> code name
 
 instance Subtree Response where
   type SubtreeLevel Response = 'ResponseLevel

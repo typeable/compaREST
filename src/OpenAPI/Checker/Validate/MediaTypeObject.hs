@@ -6,19 +6,22 @@ module OpenAPI.Checker.Validate.MediaTypeObject
   )
 where
 
-import Control.Lens
+import Control.Lens hiding (para)
 import Data.Foldable as F
 import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
 import Data.OpenApi
+import Data.String
 import Data.Text (Text)
+import qualified Data.Text as T
 import Network.HTTP.Media (MediaType, mainType, subType)
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.Header ()
 import OpenAPI.Checker.Validate.Products
 import OpenAPI.Checker.Validate.Schema ()
+import Text.Pandoc.Builder
 
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))
 tracedSchema mto = _mediaTypeObjectSchema (extract mto) <&> traced (ask mto >>> step MediaTypeSchema)
@@ -31,9 +34,7 @@ tracedEncoding mto =
 
 instance Issuable 'PayloadLevel where
   data Issue 'PayloadLevel
-    = PayloadMediaTypeNotFound
-    | MediaEncodingIncompat
-    | MediaTypeSchemaRequired
+    = MediaTypeSchemaRequired
     | MediaEncodingMissing Text
     | EncodingNotSupported
     deriving (Eq, Ord, Show)
@@ -41,10 +42,15 @@ instance Issuable 'PayloadLevel where
     EncodingNotSupported -> True
     _ -> False
 
+  describeIssue MediaTypeSchemaRequired = para "Media type expected, but was not specified."
+  describeIssue (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " expected, but was not specified."
+  describeIssue EncodingNotSupported = para "OpenApi Diff does not currently support media encodings other than JSON."
+
 instance Behavable 'PayloadLevel 'SchemaLevel where
   data Behave 'PayloadLevel 'SchemaLevel
     = PayloadSchema
     deriving (Eq, Ord, Show)
+  describeBehaviour PayloadSchema = "JSON Schema"
 
 instance Subtree MediaTypeObject where
   type SubtreeLevel MediaTypeObject = 'PayloadLevel
@@ -136,15 +142,22 @@ instance Behavable 'OperationLevel 'ResponseLevel where
   data Behave 'OperationLevel 'ResponseLevel
     = WithStatusCode HttpStatusCode
     deriving stock (Eq, Ord, Show)
+  describeBehaviour (WithStatusCode c) = "Response code " <> (fromString . show $ c)
 
 instance Issuable 'OperationLevel where
   data Issue 'OperationLevel
     = ResponseCodeNotFound HttpStatusCode
-    | CallbacksNotSupported
     | ParamNotMatched Text
     | PathFragmentNotMatched Int
     | NoRequestBody
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
-    CallbacksNotSupported -> True
     _ -> False
+  describeIssue (ResponseCodeNotFound c) =
+    para $ "Reponse code " <> (str . T.pack . show $ c) <> " is not supported."
+  describeIssue (ParamNotMatched param) =
+    para $ "Parameter " <> str param <> " is not supported."
+  describeIssue (PathFragmentNotMatched i) =
+    -- TODO: Indices are meaningless in this context. Replace with a better error.
+    para $ "Path fragment " <> (str . T.pack . show $ i) <> " not matched."
+  describeIssue NoRequestBody = para "Request body not specified."

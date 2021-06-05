@@ -64,7 +64,7 @@ import OpenAPI.Checker.Paths
 import qualified OpenAPI.Checker.PathsPrefixTree as P
 
 class
-  NiceQuiver Step a b =>
+  (Typeable Step, Typeable a, Typeable b, Ord (Step a b), Show (Step a b)) =>
   Steppable (a :: Type) (b :: Type)
   where
   -- | How to get from an @a@ node to a @b@ node
@@ -79,6 +79,8 @@ instance Steppable TraceRoot OpenApi where
     deriving stock (Eq, Ord, Show)
 
 type Trace = Paths Step TraceRoot
+
+type instance AdditionalQuiverConstraints Step a b = ()
 
 type Traced' a b = Env (Trace a) b
 
@@ -128,9 +130,11 @@ type SemanticCompatFormula = CompatFormula' Behave AnIssue 'APILevel
 
 type StructuralCompatFormula = CompatFormula' VoidQuiver Proxy ()
 
-data VoidQuiver a b where
+data VoidQuiver a b
 
 deriving stock instance Eq (VoidQuiver a b)
+
+type instance AdditionalQuiverConstraints VoidQuiver a b = ()
 
 deriving stock instance Ord (VoidQuiver a b)
 
@@ -297,10 +301,13 @@ memo
   -> (ProdCons (Traced a) -> CompatFormula' q f r ())
   -> (ProdCons (Traced a) -> CompatFormula' q f r ())
 memo bhv k f pc = Compose $ do
-  formula' <- memoWithKnot fixpointKnot (do
-    formula <- getCompose $ f pc
-    pure $ mapErrors (P.filter bhv) formula
-    ) (k, ask <$> pc)
+  formula' <-
+    memoWithKnot
+      fixpointKnot
+      (do
+         formula <- getCompose $ f pc
+         pure $ mapErrors (P.filter bhv) formula)
+      (k, ask <$> pc)
   pure $ mapErrors (P.embed bhv) formula'
 
 data MemoKey = SemanticMemoKey | StructuralMemoKey
