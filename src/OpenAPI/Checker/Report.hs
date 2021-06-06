@@ -98,16 +98,16 @@ observeJetShowErrs jet (P.PathsPrefixNode currentIssues subIssues) = do
 --   https://urbit.org/docs/vere/jetting/
 --
 -- The pattern fits well for simplifying 'Behaviour' tree paths.
-class ConstructReportJet f a b c where
-  constructReportJet :: (f a b -> c) -> ReportJet f a
+class ConstructReportJet x c f a | x c -> f a where
+  constructReportJet :: (x -> c) -> ReportJet f a
 
-instance (ConstructReportJet f b c d, Typeable b) => ConstructReportJet f a b (f b c -> d) where
+instance (ConstructReportJet (f b c) d f b, Typeable b) => ConstructReportJet (f a b) (f b c -> d) f a where
   constructReportJet f = ReportJet Proxy $ \x -> constructReportJet $ f x
 
-instance Typeable b => ConstructReportJet f a b Inlines where
+instance Typeable b => ConstructReportJet (f a b) Inlines f a where
   constructReportJet f = TerminalJet Proxy f
 
-constructSomeReportJet :: (ConstructReportJet f a b c, Typeable a) => (f a b -> c) -> SomeReportJet f
+constructSomeReportJet :: (ConstructReportJet (f a b) c f a, Typeable a) => (f a b -> c) -> SomeReportJet f
 constructSomeReportJet = SomeReportJet Proxy . constructReportJet
 
 data ReportJet f a where
