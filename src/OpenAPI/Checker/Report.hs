@@ -3,10 +3,10 @@ module OpenAPI.Checker.Report
   )
 where
 
+import Control.Applicative
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Data.Foldable
-import Data.Functor
 import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Text as T
@@ -25,13 +25,13 @@ generateReport (Right ()) = doc $ header 1 "No breaking changes found ✨"
 generateReport (Left errs) = doc $ runReportMonad jets $ showErrs errs
 
 data ReportState = ReportState
-  { sourceJets :: [SomeReportJet Behave]
+  { sourceJets :: [ReportJet Behave]
   , headerLevel :: Int
   }
 
 type ReportMonad = ReaderT ReportState (Writer Blocks)
 
-runReportMonad :: [SomeReportJet Behave] -> ReportMonad () -> Blocks
+runReportMonad :: [ReportJet Behave] -> ReportMonad () -> Blocks
 runReportMonad jts =
   execWriter
     . flip
@@ -46,11 +46,11 @@ smartHeader i = do
   h <- asks headerLevel
   tell $ header h i
 
-showErrs :: Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
+showErrs :: P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
   jts <- asks sourceJets
   for_ currentIssues $ \(AnIssue i) -> tell . describeIssue $ i
-  unfoldM x (observeSomeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
+  unfoldM x (observeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
     for_ subIssues $ \(WrapTypeable (AStep m)) ->
       for_ (M.toList m) $ \(bhv, subErrors) -> do
         unless (P.null subErrors) $ do
@@ -63,27 +63,17 @@ unfoldM a (f : ff) g = do
   a' <- f a
   unfoldM a' ff g
 
-observeSomeJetShowErrs
-  :: forall a.
-  Typeable a
-  => SomeReportJet Behave
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
-observeSomeJetShowErrs (SomeReportJet (Proxy :: Proxy a') f) x
-  | Just Refl <- eqT @a @a' = observeJetShowErrs f x
-observeSomeJetShowErrs _ x = pure x
-
-observeJetShowErrs :: ReportJet Behave a -> P.PathsPrefixTree Behave AnIssue a -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
-observeJetShowErrs jet (P.PathsPrefixNode currentIssues subIssues) = do
+observeJetShowErrs :: ReportJet Behave -> P.PathsPrefixTree Behave AnIssue a -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
+observeJetShowErrs (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) = do
   rest <- fmap (fold . join) $
     for subIssues $ \(WrapTypeable (AStep m)) -> fmap catMaybes $
       for (M.toList m) $ \(bhv, subErrs) ->
-        case applyReportJet jet bhv of
-          Just (Left h) -> do
+        case jet bhv of
+          Just (ReportJetResult h) -> do
             smartHeader h
             incrementHeaders $ showErrs subErrs
             return Nothing
-          Just (Right jet') -> do
+          Just (ReportContinuation jet') -> do
             rest <- observeJetShowErrs jet' subErrs
             return $ Just $ embed (step bhv) rest
           Nothing -> return $ Just $ embed (step bhv) subErrs
@@ -98,39 +88,43 @@ observeJetShowErrs jet (P.PathsPrefixNode currentIssues subIssues) = do
 --   https://urbit.org/docs/vere/jetting/
 --
 -- The pattern fits well for simplifying 'Behaviour' tree paths.
-class ConstructReportJet x c f a | x c -> f a where
-  constructReportJet :: (x -> c) -> ReportJet f a
+class ConstructReportJet x f where
+  constructReportJet :: x -> ReportJetResult f
 
-instance (ConstructReportJet (f b c) d f b, Typeable b) => ConstructReportJet (f a b) (f b c -> d) f a where
-  constructReportJet f = ReportJet Proxy $ \x -> constructReportJet $ f x
+instance (ConstructReportJet c f, Typeable a, Typeable b) => ConstructReportJet (f a b -> c) f where
+  constructReportJet (f :: f a b -> c) = ReportContinuation $
+    ReportJet $ \(q :: f a' b') -> maybeToAlternative $ do
+      Refl <- eqT @a @a'
+      Refl <- eqT @b @b'
+      pure $ constructReportJet $ f q
 
-instance Typeable b => ConstructReportJet (f a b) Inlines f a where
-  constructReportJet f = TerminalJet Proxy f
+maybeToAlternative :: Alternative m => Maybe a -> m a
+maybeToAlternative Nothing = empty
+maybeToAlternative (Just a) = pure a
 
-constructSomeReportJet :: (ConstructReportJet (f a b) c f a, Typeable a) => (f a b -> c) -> SomeReportJet f
-constructSomeReportJet = SomeReportJet Proxy . constructReportJet
+instance ConstructReportJet Inlines f where
+  constructReportJet x = ReportJetResult x
 
-data ReportJet f a where
-  ReportJet :: Typeable b => Proxy b -> (f a b -> ReportJet f b) -> ReportJet f a
-  TerminalJet :: Typeable b => Proxy b -> (f a b -> Inlines) -> ReportJet f a
+data ReportJetResult f
+  = ReportJetResult Inlines
+  | ReportContinuation (ReportJet f)
 
-data SomeReportJet f where
-  SomeReportJet :: Typeable a => Proxy a -> ReportJet f a -> SomeReportJet f
-
-applyReportJet :: forall f a b. Typeable b => ReportJet f a -> f a b -> Maybe (Either Inlines (ReportJet f b))
-applyReportJet (TerminalJet (Proxy :: Proxy b') f) x = eqT @b @b' <&> \Refl -> Left $ f x
-applyReportJet (ReportJet (Proxy :: Proxy b') f) x = eqT @b @b' <&> \Refl -> Right $ f x
+newtype ReportJet f = ReportJet (forall a b m. (Typeable a, Typeable b, Alternative m) => (f a b -> m (ReportJetResult f)))
 
 incrementHeaders :: ReportMonad x -> ReportMonad x
 incrementHeaders m = do
   l <- asks headerLevel
   local (\x -> x {headerLevel = l + 1}) m
 
-jets :: [SomeReportJet Behave]
+jets :: [ReportJet Behave]
 jets =
-  [ constructSomeReportJet $ \p@(AtPath _) op@(InOperation _) ->
-      strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
-  , constructSomeReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
-  , constructSomeReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
-      "JSON Response – " <> str (T.pack . show $ c) :: Inlines
-  ]
+  unwrapReportJetResult
+    <$> [ constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
+            strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
+        , constructReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
+        , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
+            "JSON Response – " <> str (T.pack . show $ c) :: Inlines
+        ]
+  where
+    unwrapReportJetResult (ReportJetResult _) = error "There really shouldn't be any results here."
+    unwrapReportJetResult (ReportContinuation f) = f
