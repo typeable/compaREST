@@ -120,26 +120,29 @@ catMapM f xs = mconcat <$> mapM f xs
 class ConstructReportJet x f where
   constructReportJet :: x -> ReportJetResult f Inlines
 
-instance (ConstructReportJet b f, JetArg a, Typeable f) => ConstructReportJet (a -> b) f where
-  constructReportJet f = Free $ ReportJet $ fmap (constructReportJet . f) . consumeJetArg
+instance (ConstructReportJet b f, JetArg a) => ConstructReportJet (a -> b) f where
+  constructReportJet f = consumeJetArg >>= constructReportJet . f
 
 instance ConstructReportJet Inlines f where
   constructReportJet x = Pure x
 
 class JetArg a where
-  consumeJetArg :: (Typeable x, Alternative m) => x -> m a
+  consumeJetArg :: ReportJetResult f a
 
 instance Typeable (f a b) => JetArg (f a b) where
-  consumeJetArg (x :: x) = case eqT @(f a b) @x of
-    Nothing -> empty
-    Just Refl -> pure x
+  consumeJetArg = Free $
+    ReportJet $ \(x :: x) ->
+      case eqT @(f a b) @x of
+        Nothing -> empty
+        Just Refl -> pure $ Pure x
 
 instance TryLiftUnion xs => JetArg (Union xs) where
-  consumeJetArg = tryLiftUnion
+  consumeJetArg = Free $ ReportJet $ fmap Pure . tryLiftUnion
 
 type ReportJetResult f = Free (ReportJet f)
 
-newtype ReportJet f x = ReportJet (forall a b m. (Typeable a, Typeable b, Alternative m) => f a b -> m x)
+newtype ReportJet f x = ReportJet (forall a b m. (Typeable (f a b), Alternative m) => f a b -> m x)
+  deriving stock (Functor)
 
 type ReportJet' f = ReportJet f (Free (ReportJet Behave) Inlines)
 
