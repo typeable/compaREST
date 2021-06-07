@@ -66,6 +66,7 @@ common common-options
                      , pandoc-types
                      , open-union
                      , type-fun
+                     , free
 
   default-extensions: ApplicativeDo
                     , BangPatterns
