@@ -3,7 +3,21 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: open-union-0.4.0.0@sha256:1c8f8090054b0974e95e44bed88e74fff956ba2120aade6e8deea92d65ef5e49,3503
+    pantry-tree:
+      size: 329
+      sha256: e01838ec41f7aa2a97aa2c3586c8188c4ad093ba0b2be41229ab7b8dbd33869e
+  original:
+    hackage: open-union-0.4.0.0
+- completed:
+    hackage: type-fun-0.1.3@sha256:336b851757792f201078043210aec180021ac052f0955c71fa330a5fe11b0604,1765
+    pantry-tree:
+      size: 583
+      sha256: b977d42525f0b4223959918d18e7905085283e937493c395077b608cd19b42c1
+  original:
+    hackage: type-fun-0.1.3
 snapshots:
 - completed:
     size: 587963

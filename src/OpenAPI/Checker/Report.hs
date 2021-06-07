@@ -9,6 +9,8 @@ import Control.Monad.Writer
 import Data.Foldable
 import qualified Data.Map as M
 import Data.Maybe
+import Data.OpenUnion
+import Data.OpenUnion.Extra
 import qualified Data.Text as T
 import Data.Traversable
 import Data.TypeRepMap hiding (empty)
@@ -104,6 +106,11 @@ maybeToAlternative (Just a) = pure a
 
 instance ConstructReportJet Inlines f where
   constructReportJet x = ReportJetResult x
+
+instance (TryLiftUnion xs, ConstructReportJet c f, Typeable f) => ConstructReportJet (Union xs -> c) f where
+  constructReportJet f = ReportContinuation $
+    ReportJet $ \x ->
+      constructReportJet . f <$> tryLiftUnion @xs x
 
 data ReportJetResult f
   = ReportJetResult Inlines
