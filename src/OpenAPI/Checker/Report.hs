@@ -93,24 +93,22 @@ observeJetShowErrs (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
 class ConstructReportJet x f where
   constructReportJet :: x -> ReportJetResult f
 
-instance (ConstructReportJet c f, Typeable a, Typeable b) => ConstructReportJet (f a b -> c) f where
-  constructReportJet (f :: f a b -> c) = ReportContinuation $
-    ReportJet $ \(q :: f a' b') -> maybeToAlternative $ do
-      Refl <- eqT @a @a'
-      Refl <- eqT @b @b'
-      pure $ constructReportJet $ f q
-
-maybeToAlternative :: Alternative m => Maybe a -> m a
-maybeToAlternative Nothing = empty
-maybeToAlternative (Just a) = pure a
+instance (ConstructReportJet b f, JetArg a, Typeable f) => ConstructReportJet (a -> b) f where
+  constructReportJet f = ReportContinuation $ ReportJet $ \u -> constructReportJet . f <$> consumeJetArg u
 
 instance ConstructReportJet Inlines f where
   constructReportJet x = ReportJetResult x
 
-instance (TryLiftUnion xs, ConstructReportJet c f, Typeable f) => ConstructReportJet (Union xs -> c) f where
-  constructReportJet f = ReportContinuation $
-    ReportJet $ \x ->
-      constructReportJet . f <$> tryLiftUnion @xs x
+class JetArg a where
+  consumeJetArg :: (Typeable x, Alternative m) => x -> m a
+
+instance Typeable (f a b) => JetArg (f a b) where
+  consumeJetArg (x :: x) = case eqT @(f a b) @x of
+    Nothing -> empty
+    Just Refl -> pure x
+
+instance TryLiftUnion xs => JetArg (Union xs) where
+  consumeJetArg = tryLiftUnion
 
 data ReportJetResult f
   = ReportJetResult Inlines
