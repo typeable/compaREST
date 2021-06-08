@@ -51,7 +51,7 @@ instance (forall a. ToJSON (f a)) => ToJSON (PathsPrefixTree q f r) where
     Object . getMergableObject
       . foldWith (\t x -> MergableObject . traceObject t $ toJSON x)
 
-deriving instance Eq (PathsPrefixTree q f a)
+deriving stock instance Eq (PathsPrefixTree q f a)
 
 -- Kind of orphan. Treat the map as an infinite tuple of @Maybe (f a)@'s, where
 -- the components are ordered by the @SomeTypeRep@ of the @a@.
@@ -104,9 +104,9 @@ instance Semigroup (ASet a) where
   s <> AnEmptySet = s
   ASet s1 <> ASet s2 = ASet $ S.union s1 s2
 
-deriving instance Eq (ASet a)
+deriving stock instance Eq (ASet a)
 
-deriving instance Ord (ASet a)
+deriving stock instance Ord (ASet a)
 
 -- type traceprefixset = traceprefixtree proxy
 
@@ -119,9 +119,9 @@ data AStep (q :: k -> k -> Type) (f :: k -> Type) (r :: k) (a :: k) where
     !(M.Map (q r a) (PathsPrefixTree q f a))
     -> AStep q f r a
 
-deriving instance Eq (AStep q f r a)
+deriving stock instance Eq (AStep q f r a)
 
-deriving instance Ord (AStep q f r a)
+deriving stock instance Ord (AStep q f r a)
 
 singleton :: AnItem q f r -> PathsPrefixTree q f r
 singleton (AnItem ys v) = go ys $ PathsPrefixTree (ASet $ S.singleton v) TRM.empty

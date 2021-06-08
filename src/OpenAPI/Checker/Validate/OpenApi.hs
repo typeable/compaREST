@@ -92,36 +92,36 @@ instance Subtree OpenApi where
 
 instance Steppable OpenApi ProcessedPathItems where
   data Step OpenApi ProcessedPathItems = OpenApiPathsStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions RequestBody) where
   data Step OpenApi (Definitions RequestBody) = ComponentsRequestBody
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions Param) where
   data Step OpenApi (Definitions Param) = ComponentsParam
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions SecurityScheme) where
   data Step OpenApi (Definitions SecurityScheme) = ComponentsSecurityScheme
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions Response) where
   data Step OpenApi (Definitions Response) = ComponentsResponse
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions Header) where
   data Step OpenApi (Definitions Header) = ComponentsHeader
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions Schema) where
   data Step OpenApi (Definitions Schema) = ComponentsSchema
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions Link) where
   data Step OpenApi (Definitions Link) = ComponentsLink
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable OpenApi (Definitions Callback) where
   data Step OpenApi (Definitions Callback) = ComponentsCallbacks
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)

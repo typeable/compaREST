@@ -38,17 +38,19 @@ type PathFragmentParam = PathFragment (Traced Param)
 
 instance (Typeable param) => Steppable (PathFragment param) Param where
   data Step (PathFragment param) Param = StaticPathParam Text
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 tracedPathFragmentParam :: Traced PathFragmentParam -> Traced Param
 tracedPathFragmentParam pfp = case extract pfp of
-  StaticPath s -> traced (ask pfp >>> step (StaticPathParam s))
-    $ mempty
-    { _paramRequired = Just True
-    , _paramIn = ParamPath
-    , _paramAllowEmptyValue = Just False
-    , _paramAllowReserved = Just False
-    , _paramSchema = Just $ Inline $ staticStringSchema s }
+  StaticPath s ->
+    traced (ask pfp >>> step (StaticPathParam s)) $
+      mempty
+        { _paramRequired = Just True
+        , _paramIn = ParamPath
+        , _paramAllowEmptyValue = Just False
+        , _paramAllowReserved = Just False
+        , _paramSchema = Just $ Inline $ staticStringSchema s
+        }
   DynamicPath p -> p
 
 staticStringSchema :: Text -> Schema
@@ -61,13 +63,16 @@ staticStringSchema t =
 
 instance Subtree PathFragmentParam where
   type SubtreeLevel PathFragmentParam = 'PathFragmentLevel
-  type CheckEnv PathFragmentParam =
-    '[ ProdCons (Traced (Definitions Schema)) ]
+  type
+    CheckEnv PathFragmentParam =
+      '[ProdCons (Traced (Definitions Schema))]
+
   -- Not much to compare at this level
-  checkStructuralCompatibility _ _ = structuralIssue 
+  checkStructuralCompatibility _ _ = structuralIssue
+
   -- This case isn't strictly needed. It is here for optimization.
-  checkSemanticCompatibility _ beh (ProdCons (extract -> StaticPath x) (extract -> StaticPath y))
-    = if x == y
+  checkSemanticCompatibility _ beh (ProdCons (extract -> StaticPath x) (extract -> StaticPath y)) =
+    if x == y
       then pure ()
       else issueAt beh (PathFragmentsDontMatch x y)
   checkSemanticCompatibility env beh prodCons = do

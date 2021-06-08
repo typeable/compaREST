@@ -67,8 +67,8 @@ instance Subtree RequestBody where
 
 instance Steppable RequestBody MediaTypeObject where
   data Step RequestBody MediaTypeObject = RequestMediaTypeObject MediaType
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable RequestBody (IOHM.InsOrdHashMap MediaType MediaTypeObject) where
   data Step RequestBody (IOHM.InsOrdHashMap MediaType MediaTypeObject) = RequestMediaTypeObjectMapping
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)

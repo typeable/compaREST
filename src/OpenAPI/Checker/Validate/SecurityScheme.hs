@@ -36,8 +36,8 @@ tracedSecuritySchemaTypes (Traced t x) = Traced (t >>> step SecuritySchemeTypeSt
 
 instance Steppable SecurityScheme SecuritySchemeType where
   data Step SecurityScheme SecuritySchemeType = SecuritySchemeTypeStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable SecuritySchemeType OAuth2Flows where
   data Step SecuritySchemeType OAuth2Flows = SecurityOAuthFlowsStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)

@@ -37,7 +37,7 @@ instance Issuable 'PayloadLevel where
     = MediaTypeSchemaRequired
     | MediaEncodingMissing Text
     | EncodingNotSupported
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
     EncodingNotSupported -> True
     _ -> False
@@ -49,7 +49,7 @@ instance Issuable 'PayloadLevel where
 instance Behavable 'PayloadLevel 'SchemaLevel where
   data Behave 'PayloadLevel 'SchemaLevel
     = PayloadSchema
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
   describeBehaviour PayloadSchema = "JSON Schema"
 
 instance Subtree MediaTypeObject where
@@ -124,19 +124,19 @@ instance Subtree Encoding where
 
 instance Steppable MediaTypeObject (Referenced Schema) where
   data Step MediaTypeObject (Referenced Schema) = MediaTypeSchema
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MediaTypeObject (Definitions Encoding) where
   data Step MediaTypeObject (Definitions Encoding) = MediaTypeEncodingMapping
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MediaTypeObject Encoding where
   data Step MediaTypeObject Encoding = MediaTypeParamEncoding Text
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable Encoding (Definitions (Referenced Header)) where
   data Step Encoding (Definitions (Referenced Header)) = EncodingHeaderStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Behavable 'OperationLevel 'ResponseLevel where
   data Behave 'OperationLevel 'ResponseLevel
