@@ -22,7 +22,7 @@ common common-options
   if flag(static)
     cc-options: -static
     ld-options: -static -pthread
-    ghc-options: -static -split-objs
+    ghc-options: -static
   ghc-options:
     -Weverything
     -Wno-implicit-prelude
