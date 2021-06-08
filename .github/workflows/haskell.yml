@@ -23,7 +23,7 @@ jobs:
       - name: Build
         run: |
           rm -rf ~/.stack
-          stack build --ghc-options="-O3 -j -split-sections" --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
+          stack build --ghc-options=-O3 --ghc-options=-j --ghc-options=-split-sections --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
       - name: Test
         run: stack test --test-arguments='--hide-successes --no-create'
 
