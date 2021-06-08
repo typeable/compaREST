@@ -11,10 +11,13 @@ import Data.Either
 import Data.Foldable
 import Data.Function
 import Data.Functor
+import Data.List.NonEmpty
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import Data.Maybe
 import Data.OpenUnion
 import Data.OpenUnion.Extra
+import Data.Text (Text)
 import qualified Data.Text as T
 import Data.TypeRepMap hiding (empty)
 import Data.Typeable
@@ -23,6 +26,7 @@ import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
 import qualified OpenAPI.Checker.PathsPrefixTree as P hiding (empty)
 import OpenAPI.Checker.Validate.OpenApi
+import OpenAPI.Checker.Validate.Schema
 import Text.Pandoc.Builder
 
 generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pandoc
@@ -130,7 +134,7 @@ instance ConstructReportJet Inlines f where
   constructReportJet x = pure $ Pure x
 
 class JetArg a where
-  consumeJetArg :: Alternative m => m (ReportJetResult f a)
+  consumeJetArg :: (Alternative m, Monad m) => m (ReportJetResult f a)
 
 instance Typeable (f a b) => JetArg (f a b) where
   consumeJetArg = pure $
@@ -142,6 +146,14 @@ instance Typeable (f a b) => JetArg (f a b) where
 
 instance TryLiftUnion xs => JetArg (Union xs) where
   consumeJetArg = pure $ Free $ ReportJet $ fmap Pure . tryLiftUnion
+
+instance JetArg x => JetArg (NonEmpty x) where
+  consumeJetArg =
+    (consumeJetArg @x)
+      >>= (`embedJetResult`
+             \x ->
+               (fmap (NE.cons x) <$> consumeJetArg @(NonEmpty x))
+                 <|> (pure . pure . pure) x)
 
 type ReportJetResult f = Free (ReportJet f)
 
@@ -166,7 +178,8 @@ incrementHeaders m = do
 jets :: [ReportJet' Behave]
 jets =
   fmap unwrapReportJetResult . join $
-    [ constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
+    [ constructReportJet jsonPathJet
+    , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
         strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
     , constructReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
     , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
@@ -176,3 +189,34 @@ jets =
     unwrapReportJetResult :: ReportJetResult Behave Inlines -> ReportJet' Behave
     unwrapReportJetResult (Pure _) = error "There really shouldn't be any results here."
     unwrapReportJetResult (Free f) = f
+
+    jsonPathJet
+      :: NonEmpty
+           ( Union
+               '[ Behave 'SchemaLevel 'TypedSchemaLevel
+                , Behave 'TypedSchemaLevel 'SchemaLevel
+                ]
+           )
+      -> Inlines
+    jsonPathJet x = code $ "$" <> showParts (NE.toList x)
+      where
+        showParts
+          :: [ Union
+                 '[ Behave 'SchemaLevel 'TypedSchemaLevel
+                  , Behave 'TypedSchemaLevel 'SchemaLevel
+                  ]
+             ]
+          -> Text
+        showParts [] = mempty
+        showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion (InProperty _)) : _)) = showParts xs
+        showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion InAdditionalProperty) : _)) = showParts xs
+        showParts (SingletonUnion (OfType Array) : xs@(SingletonUnion InItems : _)) = showParts xs
+        showParts (y : ys) =
+          ((\(OfType t) -> "[?(typeOf @ == \"" <> describeJSONType t <> "\")]")
+             @@> (\case
+                    InItems -> "[*]"
+                    InProperty p -> "." <> p
+                    InAdditionalProperty -> ".*")
+             @@> typesExhausted)
+            y
+            <> showParts ys

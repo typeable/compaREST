@@ -1,6 +1,7 @@
 module Data.OpenUnion.Extra
   ( (@@>)
   , TryLiftUnion (..)
+  , pattern SingletonUnion
   )
 where
 
@@ -34,3 +35,9 @@ r @@> l = either l r . restrict'
 {-# INLINE (@@>) #-}
 
 infixr 2 @@>
+
+pattern SingletonUnion :: (Typeable a, Elem a s) => a -> Union s
+pattern SingletonUnion x <-
+  ((\(Union y) -> fromDynamic y) -> Just x)
+  where
+    SingletonUnion x = liftUnion x

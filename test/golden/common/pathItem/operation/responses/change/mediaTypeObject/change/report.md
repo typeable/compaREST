@@ -2,6 +2,6 @@
 
 ## JSON Response – 200
 
-### Number
+### `$[?(typeOf @ == "Number")]`
 
 Expected the type to be allowed, but it wasn't.
