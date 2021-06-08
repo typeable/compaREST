@@ -34,13 +34,13 @@ generateReport (Right ()) = doc $ header 1 "No breaking changes found ✨"
 generateReport (Left errs) = doc $ runReportMonad jets $ showErrs errs
 
 data ReportState = ReportState
-  { sourceJets :: [ReportJet' Behave]
+  { sourceJets :: [ReportJet' Behave Inlines]
   , headerLevel :: Int
   }
 
 type ReportMonad = ReaderT ReportState (Writer Blocks)
 
-runReportMonad :: [ReportJet' Behave] -> ReportMonad () -> Blocks
+runReportMonad :: [ReportJet' Behave Inlines] -> ReportMonad () -> Blocks
 runReportMonad jts =
   execWriter
     . flip
@@ -73,7 +73,7 @@ unfoldM a (f : ff) g = do
   unfoldM a' ff g
 
 observeJetShowErrs
-  :: ReportJet' Behave
+  :: ReportJet' Behave Inlines
   -> P.PathsPrefixTree Behave AnIssue a
   -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs jet p = case observeJetShowErrs' jet p of
@@ -82,7 +82,7 @@ observeJetShowErrs jet p = case observeJetShowErrs' jet p of
 
 observeJetShowErrs'
   :: forall a.
-     ReportJet' Behave
+     ReportJet' Behave Inlines
   -> P.PathsPrefixTree Behave AnIssue a
   -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
 observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
@@ -122,71 +122,60 @@ catMapM f xs = mconcat <$> mapM f xs
 --
 -- The pattern fits well for simplifying 'Behaviour' tree paths.
 class ConstructReportJet x f where
-  constructReportJet :: (Alternative m, Monad m) => x -> m (ReportJetResult f Inlines)
+  constructReportJet :: x -> ReportJetResult f Inlines
 
 instance (ConstructReportJet b f, JetArg a) => ConstructReportJet (a -> b) f where
-  constructReportJet f = do
-    arg <- consumeJetArg
-    let res :: ReportJetResult f b = f <$> arg
-    embedJetResult res constructReportJet
+  constructReportJet f = Free (fmap f <$> consumeJetArg @a) >>= constructReportJet
 
 instance ConstructReportJet Inlines f where
-  constructReportJet x = pure $ Pure x
+  constructReportJet x = Pure x
 
 class JetArg a where
-  consumeJetArg :: (Alternative m, Monad m) => m (ReportJetResult f a)
+  consumeJetArg :: ReportJet' f a
 
 instance Typeable (f a b) => JetArg (f a b) where
-  consumeJetArg = pure $
-    Free $
-      ReportJet $ \(x :: x) ->
-        case eqT @(f a b) @x of
-          Nothing -> empty
-          Just Refl -> pure $ Pure x
+  consumeJetArg =
+    ReportJet $ \(x :: x) ->
+      case eqT @(f a b) @x of
+        Nothing -> empty
+        Just Refl -> pure $ Pure x
 
 instance TryLiftUnion xs => JetArg (Union xs) where
-  consumeJetArg = pure $ Free $ ReportJet $ fmap Pure . tryLiftUnion
+  consumeJetArg = ReportJet $ fmap Pure . tryLiftUnion
 
 instance JetArg x => JetArg (NonEmpty x) where
   consumeJetArg =
-    (consumeJetArg @x)
-      >>= (`embedJetResult`
-             \x ->
-               (fmap (NE.cons x) <$> consumeJetArg @(NonEmpty x))
-                 <|> (pure . pure . pure) x)
+    let (ReportJet f) = (consumeJetArg @x)
+     in ReportJet $ \a -> do
+          u <- f a
+          pure (u >>= \y -> Free $ fmap (NE.cons y) <$> consumeJetArg)
+            <|> pure (pure <$> u)
 
 type ReportJetResult f = Free (ReportJet f)
 
-embedJetResult
-  :: (Alternative n, Monad n)
-  => ReportJetResult f a
-  -> (forall m. (Alternative m, Monad m) => a -> m (ReportJetResult f b))
-  -> n (ReportJetResult f b)
-embedJetResult (Pure x) f = f x
-embedJetResult (Free (ReportJet g)) f = pure $ Free $ ReportJet $ fmap (>>= (`embedJetResult` f)) g
-
+-- Not a true 'Applicative'
 newtype ReportJet f x = ReportJet (forall a b m. (Typeable (f a b), Alternative m, Monad m) => f a b -> m x)
   deriving stock (Functor)
 
-type ReportJet' f = ReportJet f (Free (ReportJet Behave) Inlines)
+type ReportJet' f a = ReportJet f (Free (ReportJet f) a)
 
 incrementHeaders :: ReportMonad x -> ReportMonad x
 incrementHeaders m = do
   l <- asks headerLevel
   local (\x -> x {headerLevel = l + 1}) m
 
-jets :: [ReportJet' Behave]
+jets :: [ReportJet' Behave Inlines]
 jets =
-  fmap unwrapReportJetResult . join $
-    [ constructReportJet jsonPathJet
-    , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
-        strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
-    , constructReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
-    , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
-        "JSON Response – " <> str (T.pack . show $ c) :: Inlines
-    ]
+  unwrapReportJetResult
+    <$> [ constructReportJet jsonPathJet
+        , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
+            strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
+        , constructReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
+        , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
+            "JSON Response – " <> str (T.pack . show $ c) :: Inlines
+        ]
   where
-    unwrapReportJetResult :: ReportJetResult Behave Inlines -> ReportJet' Behave
+    unwrapReportJetResult :: ReportJetResult Behave x -> ReportJet' Behave x
     unwrapReportJetResult (Pure _) = error "There really shouldn't be any results here."
     unwrapReportJetResult (Free f) = f
 
