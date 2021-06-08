@@ -10,6 +10,8 @@ module OpenAPI.Checker.Validate.Schema
   , Bound (..)
   , schemaToFormula
   , foldLattice
+  , Behave (..)
+  , describeJSONType
   )
 where
 
@@ -39,6 +41,7 @@ import Data.Ord
 import Data.Ratio
 import Data.Scientific
 import qualified Data.Set as S
+import Data.String
 import Data.Text (Text)
 import qualified Data.Text as T hiding (singleton)
 import qualified Data.Text.Encoding as T
@@ -1110,7 +1113,7 @@ instance Behavable 'SchemaLevel 'TypedSchemaLevel where
 
   describeBehaviour (OfType t) = describeJSONType t
 
-describeJSONType :: JsonType -> Inlines
+describeJSONType :: IsString s => JsonType -> s
 describeJSONType = \case
   Null -> "Null"
   Boolean -> "Boolean"

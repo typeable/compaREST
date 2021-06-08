@@ -64,6 +64,9 @@ common common-options
                      , yaml
                      , hashable
                      , pandoc-types
+                     , open-union
+                     , type-fun
+                     , free
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -137,6 +140,7 @@ library
                   , OpenAPI.Checker.Validate.SecurityScheme
                   , OpenAPI.Checker.Validate.OAuth2Flows
                   , OpenAPI.Checker.Report
+                  , Data.OpenUnion.Extra
 
 executable openapi-diff
   import:              common-options
