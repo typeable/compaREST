@@ -124,7 +124,7 @@ parseServerUrl = fromRight undefined . parseOnly (serverUrlParser <* endOfInput)
 
 instance Steppable [Server] ProcessedServer where
   data Step [Server] ProcessedServer = ServerStep Text
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Issuable 'ServerLevel where
   data Issue 'ServerLevel

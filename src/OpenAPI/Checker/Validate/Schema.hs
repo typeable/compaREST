@@ -19,7 +19,6 @@ import Algebra.Lattice
 import Control.Applicative
 import Control.Arrow
 import Control.Comonad.Env hiding (env)
-import Control.Lens hiding (cons, para)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
 import Control.Monad.State
@@ -28,6 +27,8 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import Data.Coerce
 import qualified Data.Foldable as F
+import Data.Functor
+import Data.Functor.Identity
 import Data.HList
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict.InsOrd as IOHM
@@ -90,7 +91,7 @@ untypeValue (TArray a) = A.Array a
 untypeValue (TObject o) = A.Object o
 
 data Bound a = Exclusive !a | Inclusive !a
-  deriving (Eq, Show, Functor)
+  deriving stock (Eq, Show, Functor)
 
 -- | The order is lexicographical on @a * Bool@.
 instance Ord a => Ord (Bound a) where
@@ -417,19 +418,19 @@ instance Steppable Schema (Referenced Schema) where
     | ItemsArrayStep Int
     | AdditionalPropertiesStep
     | NotStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable Schema (Definitions (Referenced Schema)) where
   data Step Schema (Definitions (Referenced Schema)) = PropertiesStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable Schema Discriminator where
   data Step Schema Discriminator = DiscriminatorStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable Discriminator (Definitions (Referenced Schema)) where
   data Step Discriminator (Definitions (Referenced Schema)) = DiscriminatorMapping
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 parseDiscriminatorValue :: Text -> Referenced Schema
 parseDiscriminatorValue v = case A.fromJSON @(Referenced Schema) $ A.object ["$ref" A..= v] of

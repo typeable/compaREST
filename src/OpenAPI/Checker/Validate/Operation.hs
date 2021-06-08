@@ -297,7 +297,7 @@ data OperationMethod
   | HeadMethod
   | PatchMethod
   | TraceMethod
-  deriving (Eq, Ord, Show)
+  deriving stock (Eq, Ord, Show)
 
 pathItemMethod :: OperationMethod -> PathItem -> Maybe Operation
 pathItemMethod = \case
@@ -334,7 +334,7 @@ instance Steppable MatchedOperation [Server] where
   data Step MatchedOperation [Server]
     = OperationServersStep
     | EnvServerStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 -- * ProcessedPathItems
 
@@ -466,7 +466,7 @@ instance Issuable 'PathLevel where
 instance Behavable 'PathLevel 'OperationLevel where
   data Behave 'PathLevel 'OperationLevel
     = InOperation OperationMethod
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
   describeBehaviour (InOperation method) = showMethod method
 
@@ -538,19 +538,19 @@ instance Subtree MatchedPathItem where
 
 instance Steppable ProcessedPathItems MatchedPathItem where
   data Step ProcessedPathItems MatchedPathItem = MatchedPathStep FilePath
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedPathItem MatchedOperation where
   data Step MatchedPathItem MatchedOperation = OperationMethodStep OperationMethod
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedPathItem (Referenced Param) where
   data Step MatchedPathItem (Referenced Param) = PathItemParam Int
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Steppable MatchedPathItem PathFragmentParam where
   data Step MatchedPathItem PathFragmentParam = PathFragmentStep Int
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 -- * Callbacks
 
@@ -575,7 +575,7 @@ instance Subtree Callback where
 instance Issuable 'CallbackLevel where
   data Issue 'CallbackLevel
     = CallbacksUnsupported
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
     CallbacksUnsupported -> True
   describeIssue CallbacksUnsupported = para "OpenApi Diff does not currently support callbacks."
@@ -586,7 +586,7 @@ tracedCallbackPathItems (Traced t (Callback x)) =
 
 instance Steppable Callback ProcessedPathItems where
   data Step Callback ProcessedPathItems = CallbackPathsStep
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Behavable 'OperationLevel 'CallbackLevel where
   data Behave 'OperationLevel 'CallbackLevel = OperationCallback Text

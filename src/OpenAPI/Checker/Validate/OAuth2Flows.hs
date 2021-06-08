@@ -52,7 +52,7 @@ instance Subtree OAuth2Flows where
 
 instance Typeable t => Steppable OAuth2Flows (OAuth2Flow t) where
   data Step OAuth2Flows (OAuth2Flow t) = OAuth2FlowsFlow (Proxy t)
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance (Typeable t, Subtree t, SubtreeLevel (OAuth2Flow t) ~ SubtreeLevel t) => Subtree (OAuth2Flow t) where
   type CheckEnv (OAuth2Flow t) = CheckEnv t
@@ -68,7 +68,7 @@ instance (Typeable t, Subtree t, SubtreeLevel (OAuth2Flow t) ~ SubtreeLevel t) =
 
 instance Typeable t => Steppable (OAuth2Flow t) t where
   data Step (OAuth2Flow t) t = OAuth2FlowParamsStep (Proxy t)
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 instance Subtree OAuth2ImplicitFlow where
   type SubtreeLevel OAuth2ImplicitFlow = 'SecuritySchemeLevel

@@ -80,7 +80,7 @@ instance Steppable TraceRoot OpenApi where
 
 type Trace = Paths Step TraceRoot
 
-type instance AdditionalQuiverConstraints Step a b = ()
+type instance AdditionalQuiverConstraints Step _ _ = ()
 
 type Traced' a b = Env (Trace a) b
 
@@ -104,7 +104,7 @@ data ProdCons a = ProdCons
   { producer :: a
   , consumer :: a
   }
-  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
+  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 swapProdCons :: ProdCons a -> ProdCons a
 swapProdCons (ProdCons a b) = ProdCons b a
@@ -134,7 +134,7 @@ data VoidQuiver a b
 
 deriving stock instance Eq (VoidQuiver a b)
 
-type instance AdditionalQuiverConstraints VoidQuiver a b = ()
+type instance AdditionalQuiverConstraints VoidQuiver _ _ = ()
 
 deriving stock instance Ord (VoidQuiver a b)
 
@@ -219,7 +219,7 @@ iohmStructural e =
 
 instance (Typeable k, Typeable v, Ord k, Show k) => Steppable (IOHM.InsOrdHashMap k v) v where
   data Step (IOHM.InsOrdHashMap k v) v = InsOrdHashMapKeyStep k
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
 
 iohmStructuralWith
   :: (Ord k, Hashable k, Typeable k, Typeable v, Show k)

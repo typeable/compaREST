@@ -7,7 +7,6 @@ module OpenAPI.Checker.Paths
   , Paths (..)
   , DiffPaths (..)
   , catDiffPaths
-  , _DiffPaths
   , AnItem (..)
   , step
 
@@ -18,8 +17,6 @@ module OpenAPI.Checker.Paths
 where
 
 import Control.Category
-import Control.Comonad.Env
-import Control.Lens
 import Data.Kind
 import Data.Type.Equality
 import Type.Reflection
@@ -87,9 +84,9 @@ newtype DiffPaths (q :: k -> k -> Type) (a :: k) (b :: k)
 catDiffPaths :: DiffPaths q a b -> DiffPaths q b c -> DiffPaths q a c
 catDiffPaths (DiffPaths f) (DiffPaths g) = DiffPaths (g . f)
 
-_DiffPaths :: Iso (DiffPaths q a b) (DiffPaths q c d) (Paths q a b) (Paths q c d)
-_DiffPaths = dimap (\(DiffPaths f) -> f Root) $
-  fmap $ \xs -> DiffPaths (>>> xs)
+-- _DiffPaths :: Iso (DiffPaths q a b) (DiffPaths q c d) (Paths q a b) (Paths q c d)
+-- _DiffPaths = dimap (\(DiffPaths f) -> f Root) $
+--   fmap $ \xs -> DiffPaths (>>> xs)
 
 -- | An item related to some path relative to the root @r@.
 data AnItem (q :: k -> k -> Type) (f :: k -> Type) (r :: k) where

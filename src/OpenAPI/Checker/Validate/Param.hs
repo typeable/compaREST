@@ -4,10 +4,11 @@
 module OpenAPI.Checker.Validate.Param
   ( Behave (..)
   , Issue (..)
-  ) where
+  )
+where
 
-import Control.Lens hiding (para)
 import Control.Monad
+import Data.Functor
 import Data.Maybe
 import Data.OpenApi
 import Data.Text as T
@@ -22,13 +23,18 @@ import Text.Pandoc.Builder
 data EncodingStyle = EncodingStyle
   { style :: Style
   , explode :: Bool
-  , allowReserved :: Maybe Bool
-  -- ^ Nothing when @in@ parameter is not @query@
-  } deriving (Eq, Ord, Show)
+  , -- | Nothing when @in@ parameter is not @query@
+    allowReserved :: Maybe Bool
+  }
+  deriving stock (Eq, Ord, Show)
 
 paramEncoding :: Param -> EncodingStyle
-paramEncoding p = EncodingStyle
-    { style, explode, allowReserved }
+paramEncoding p =
+  EncodingStyle
+    { style
+    , explode
+    , allowReserved
+    }
   where
     style = fromMaybe defaultStyle $ _paramStyle p
     defaultStyle = case _paramIn p of
@@ -49,19 +55,19 @@ tracedSchema par = _paramSchema (extract par) <&> traced (ask par >>> step Param
 
 instance Issuable 'PathFragmentLevel where
   data Issue 'PathFragmentLevel
-    = ParamNameMismatch
-    -- ^ Params have different names
-    | ParamEmptinessIncompatible
-    -- ^ Consumer requires non-empty param, but producer gives emptyable
-    | ParamRequired
-    -- ^ Consumer requires mandatory parm, but producer optional
+    = -- | Params have different names
+      ParamNameMismatch
+    | -- | Consumer requires non-empty param, but producer gives emptyable
+      ParamEmptinessIncompatible
+    | -- | Consumer requires mandatory parm, but producer optional
+      ParamRequired
     | ParamPlaceIncompatible
-    | ParamStyleMismatch
-    -- ^ Params encoded in different styles
-    | ParamSchemaMismatch
-    -- ^ One of schemas not presented
+    | -- | Params encoded in different styles
+      ParamStyleMismatch
+    | -- | One of schemas not presented
+      ParamSchemaMismatch
     | PathFragmentsDontMatch Text Text
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue ParamNameMismatch = para "The path fragments don't match."
   describeIssue ParamEmptinessIncompatible = para "Expected that an empty parameter is allowed, but it isn't."
@@ -74,8 +80,8 @@ instance Issuable 'PathFragmentLevel where
 instance Behavable 'PathFragmentLevel 'SchemaLevel where
   data Behave 'PathFragmentLevel 'SchemaLevel
     = InParamSchema
-    deriving (Eq, Ord, Show)
-  
+    deriving stock (Eq, Ord, Show)
+
   describeBehaviour InParamSchema = "JSON Schema"
 
 instance Subtree Param where
@@ -92,30 +98,32 @@ instance Subtree Param where
     structuralEq $ fmap _paramExplode <$> pc
     pure ()
   checkSemanticCompatibility env beh pc@(ProdCons p c) = do
-    when (_paramName (extract p) /= _paramName (extract c))
-      $ issueAt beh ParamNameMismatch
-    when ((fromMaybe False . _paramRequired . extract $ c) &&
-          not (fromMaybe False . _paramRequired . extract $ p))
+    when (_paramName (extract p) /= _paramName (extract c)) $
+      issueAt beh ParamNameMismatch
+    when
+      ((fromMaybe False . _paramRequired . extract $ c)
+         && not (fromMaybe False . _paramRequired . extract $ p))
       $ issueAt beh ParamRequired
     case (_paramIn . extract $ p, _paramIn . extract $ c) of
       (ParamQuery, ParamQuery) -> do
         -- Emptiness is only for query params
-        when ((fromMaybe False . _paramAllowEmptyValue . extract $ p)
-              && not (fromMaybe False . _paramAllowEmptyValue . extract $ c))
+        when
+          ((fromMaybe False . _paramAllowEmptyValue . extract $ p)
+             && not (fromMaybe False . _paramAllowEmptyValue . extract $ c))
           $ issueAt beh ParamEmptinessIncompatible
       (a, b) | a == b -> pure ()
       _ -> issueAt beh ParamPlaceIncompatible
-    unless (paramEncoding (extract p) == paramEncoding (extract c))
-      $ issueAt beh ParamStyleMismatch
+    unless (paramEncoding (extract p) == paramEncoding (extract c)) $
+      issueAt beh ParamStyleMismatch
     case tracedSchema <$> pc of
       ProdCons (Just prodSchema) (Just consSchema) -> do
         checkCompatibility env (beh >>> step InParamSchema) $ ProdCons prodSchema consSchema
       ProdCons Nothing Nothing -> pure ()
       ProdCons Nothing (Just _consSchema) -> issueAt beh ParamSchemaMismatch
       ProdCons (Just _prodSchema) Nothing -> pure ()
-      -- If consumer doesn't care then why we should?
+    -- If consumer doesn't care then why we should?
     pure ()
 
 instance Steppable Param (Referenced Schema) where
   data Step Param (Referenced Schema) = ParamSchema
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)

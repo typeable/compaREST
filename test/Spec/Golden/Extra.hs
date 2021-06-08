@@ -17,7 +17,7 @@ import Test.Tasty.Golden
 data TestInput t
   = TestInputNode TestName [TestInput t]
   | TestInputLeaf TestName t FilePath
-  deriving (Functor)
+  deriving stock (Functor)
 
 getGoldenInputs
   :: (Each s t (FilePath, FilePath -> IO a) a)

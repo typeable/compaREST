@@ -16,7 +16,7 @@ instance Subtree Link where
 instance Issuable 'LinkLevel where
   data Issue 'LinkLevel
     = LinksUnsupported
-    deriving (Eq, Ord, Show)
+    deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
     LinksUnsupported -> True
   describeIssue LinksUnsupported = para "OpenApi Diff does not currently support Link Objects."
