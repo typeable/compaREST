@@ -201,7 +201,7 @@ jets =
         showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion InAdditionalProperty) : _)) = showParts xs
         showParts (SingletonUnion (OfType Array) : xs@(SingletonUnion InItems : _)) = showParts xs
         showParts (y : ys) =
-          ((\(OfType t) -> "[?(typeOf @ == \"" <> describeJSONType t <> "\")]")
+          ((\(OfType t) -> "(" <> describeJSONType t <> ")")
              @@> (\case
                     InItems -> "[*]"
                     InProperty p -> "." <> p

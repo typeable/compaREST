@@ -4,6 +4,6 @@
 
 ### JSON Schema
 
-#### `$[?(typeOf @ == "String")]`
+#### `$(String)`
 
 Expected the type to be allowed, but it wasn't.

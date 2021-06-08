@@ -2,3 +2,4 @@
 TAGS
 .vscode
 .dir-locals.el
+test/golden/common/prod

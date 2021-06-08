@@ -2,6 +2,6 @@
 
 ## JSON Request
 
-### `$[?(typeOf @ == "Object")]`
+### `$(Object)`
 
 Don't have a required property `property2`.
