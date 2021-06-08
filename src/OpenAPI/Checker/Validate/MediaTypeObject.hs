@@ -6,8 +6,8 @@ module OpenAPI.Checker.Validate.MediaTypeObject
   )
 where
 
-import Control.Lens hiding (para)
 import Data.Foldable as F
+import Data.Functor
 import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M

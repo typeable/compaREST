@@ -7,8 +7,8 @@ module OpenAPI.Checker.Validate.Param
   )
 where
 
-import Control.Lens hiding (para)
 import Control.Monad
+import Data.Functor
 import Data.Maybe
 import Data.OpenApi
 import Data.Text as T

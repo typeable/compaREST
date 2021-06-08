@@ -19,7 +19,6 @@ import Algebra.Lattice
 import Control.Applicative
 import Control.Arrow
 import Control.Comonad.Env hiding (env)
-import Control.Lens hiding (cons, para)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
 import Control.Monad.State
@@ -28,6 +27,8 @@ import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import Data.Coerce
 import qualified Data.Foldable as F
+import Data.Functor
+import Data.Functor.Identity
 import Data.HList
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict.InsOrd as IOHM
