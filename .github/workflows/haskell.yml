@@ -22,6 +22,7 @@ jobs:
             ${{ runner.os }}-build-stack-
       - name: Build
         run: |
+          free -h
           rm -rf ~/.stack
           stack build --ghc-options=-O3 --ghc-options=-split-sections --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
       - name: Test
