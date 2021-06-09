@@ -20,9 +20,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-stack-${{ hashFiles('**/stack.yaml') }}
             ${{ runner.os }}-build-stack-
-      - name: Build
+      - name: Increase swap
         run: |
           free -h
+
+          sudo swapoff /mnt/swapfile
+          sudo fallocate -l 8G /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+          free -h
+
+      - name: Build
+        run: |
           rm -rf ~/.stack
           stack build --ghc-options=-O3 --ghc-options=-split-sections --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
       - name: Test
