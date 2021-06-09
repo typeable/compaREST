@@ -26,14 +26,14 @@ jobs:
             ${{ runner.os }}-build-stack-${{ hashFiles('**/stack.yaml') }}
             ${{ runner.os }}-build-stack-
       - name: Build
-        run: stack build --ghc-options="-O3 -j" --local-bin-path out --copy-bins --flag openapi-diff:Static
+        run: stack build --ghc-options="-O3 -j" --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
       - name: Test
         run: stack test --test-arguments='--hide-successes --no-create'
 
       - name: Zip
         if: github.ref == 'refs/heads/master'
         run: |
-          zip openapi-diff-linux out/openapi-diff
+          zip openapi-diff-linux openapi-diff-linux/openapi-diff
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: github.ref == 'refs/heads/master'
         with:
