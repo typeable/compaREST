@@ -4,6 +4,7 @@
 
 module OpenAPI.Checker.Validate.OpenApi
   ( Behave (..)
+  , Issue (..)
   )
 where
 

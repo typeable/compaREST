@@ -16,9 +16,12 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.OpenUnion
 import Data.OpenUnion.Extra
+import Data.Set
+import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.TypeRepMap hiding (empty)
+import Data.Typeable
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
@@ -32,8 +35,7 @@ generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pand
 generateReport (Right ()) = doc $ header 1 "No breaking changes found ✨"
 generateReport (Left errs) = doc $
   runReportMonad jets $ do
-    let unsupported = P.filter (\(AnIssue i) -> issueIsUnsupported i) errs
-        breaking = P.filter (\(AnIssue i) -> not $ issueIsUnsupported i) errs
+    let (unsupported, breaking) = P.partition (\(AnIssue i) -> issueIsUnsupported i) errs
         breakingChangesPresent = not $ P.null breaking
         unsupportedChangesPresent = not $ P.null unsupported
     smartHeader "Summary"
@@ -86,10 +88,22 @@ smartHeader i = do
   h <- asks headerLevel
   tell $ header h i
 
-showErrs :: P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
+showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
+  let -- Extract this pattern if more cases like this arise
+      (pathRemovedIssues :: Set (AnIssue a), otherIssues :: Set (AnIssue a)) = case eqT @a @'APILevel of
+        Just Refl ->
+          S.partition
+            (\(AnIssue u) -> case u of
+               NoPathsMatched {} -> True
+               AllPathsFailed {} -> True)
+            currentIssues
+        Nothing -> (mempty, currentIssues)
   jts <- asks sourceJets
-  for_ currentIssues $ \(AnIssue i) -> tell . describeIssue $ i
+  for_ otherIssues $ \(AnIssue i) -> tell . describeIssue $ i
+  unless (S.null pathRemovedIssues) $ do
+    smartHeader "Removed paths"
+    for_ pathRemovedIssues $ \(AnIssue i) -> tell . describeIssue $ i
   unfoldM x (observeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
     for_ subIssues $ \(WrapTypeable (AStep m)) ->
       for_ (M.toList m) $ \(bhv, subErrors) -> do

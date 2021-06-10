@@ -13,6 +13,7 @@ module OpenAPI.Checker.PathsPrefixTree
   , takeSubtree
   , embed
   , size
+  , partition
   )
 where
 
@@ -39,6 +40,10 @@ data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPref
   , snocItems :: !(TRM.TypeRepMap (AStep q f r))
   }
 
+-- TODO: optimize
+partition :: (forall a. f a -> Bool) -> PathsPrefixTree q f r -> (PathsPrefixTree q f r, PathsPrefixTree q f r)
+partition f x = (filter f x, filter (not . f) x)
+
 filter :: (forall a. f a -> Bool) -> PathsPrefixTree q f r -> PathsPrefixTree q f r
 filter f (PathsPrefixTree roots branches) = PathsPrefixTree roots' branches'
   where
@@ -49,6 +54,7 @@ filter f (PathsPrefixTree roots branches) = PathsPrefixTree roots' branches'
         . Exts.toList
         $ branches
 
+-- | The number of leaves.
 size :: PathsPrefixTree q f r -> Int
 size (PathsPrefixTree root branches) =
   (S.size . toSet $ root)
