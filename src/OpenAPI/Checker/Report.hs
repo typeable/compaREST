@@ -3,7 +3,6 @@ module OpenAPI.Checker.Report
   )
 where
 
-import Control.Applicative
 import Control.Monad.Free hiding (unfoldM)
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -20,11 +19,11 @@ import Data.OpenUnion.Extra
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.TypeRepMap hiding (empty)
-import Data.Typeable
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
 import qualified OpenAPI.Checker.PathsPrefixTree as P hiding (empty)
+import OpenAPI.Checker.Report.Jet
 import OpenAPI.Checker.Validate.OpenApi
 import OpenAPI.Checker.Validate.Schema
 import Text.Pandoc.Builder
@@ -71,93 +70,6 @@ unfoldM a [] g = g a
 unfoldM a (f : ff) g = do
   a' <- f a
   unfoldM a' ff g
-
-observeJetShowErrs
-  :: ReportJet' Behave Inlines
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
-observeJetShowErrs jet p = case observeJetShowErrs' jet p of
-  Just m -> m
-  Nothing -> pure p
-
-observeJetShowErrs'
-  :: forall a.
-     ReportJet' Behave Inlines
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
-observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
-  let results =
-        subIssues >>= \(WrapTypeable (AStep m)) ->
-          M.toList m <&> \(bhv, subErrs) ->
-            maybe (Left $ embed (step bhv) subErrs) Right . listToMaybe $
-              jet @_ @_ @[] bhv
-                & mapMaybe
-                  (\case
-                     Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
-                     Pure h -> Just $ do
-                       smartHeader h
-                       incrementHeaders $ showErrs subErrs
-                       return mempty)
-   in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
-        if any isRight results
-          then
-            Just $
-              catMapM
-                (\case
-                   Left e -> pure e
-                   Right m -> m)
-                results
-          else Nothing
-
-catMapM :: (Monad m, Monoid b) => (a -> m b) -> [a] -> m b
-catMapM f xs = mconcat <$> mapM f xs
-
--- | A "jet" is a way of simplifying expressions from "outside". The "jetted"
--- expressions should still be completely valid and correct without the jets.
--- Jets just make the expression more "optimized" by identifying patterns and
--- replacing the expressions with "better" ones that have the same sematics.
---
--- The term "jet" in this context was introduced in the Urbit project:
---   https://urbit.org/docs/vere/jetting/
---
--- The pattern fits well for simplifying 'Behaviour' tree paths.
-class ConstructReportJet x f where
-  constructReportJet :: x -> ReportJetResult f Inlines
-
-instance (ConstructReportJet b f, JetArg a) => ConstructReportJet (a -> b) f where
-  constructReportJet f = Free (fmap f <$> consumeJetArg @a) >>= constructReportJet
-
-instance ConstructReportJet Inlines f where
-  constructReportJet x = Pure x
-
-class JetArg a where
-  consumeJetArg :: ReportJet' f a
-
-instance Typeable (f a b) => JetArg (f a b) where
-  consumeJetArg =
-    ReportJet $ \(x :: x) ->
-      case eqT @(f a b) @x of
-        Nothing -> empty
-        Just Refl -> pure $ Pure x
-
-instance TryLiftUnion xs => JetArg (Union xs) where
-  consumeJetArg = ReportJet $ fmap Pure . tryLiftUnion
-
-instance JetArg x => JetArg (NonEmpty x) where
-  consumeJetArg =
-    let (ReportJet f) = (consumeJetArg @x)
-     in ReportJet $ \a -> do
-          u <- f a
-          pure (u >>= \y -> Free $ fmap (NE.cons y) <$> consumeJetArg)
-            <|> pure (pure <$> u)
-
-type ReportJetResult f = Free (ReportJet f)
-
--- Not a true 'Applicative'
-newtype ReportJet f x = ReportJet (forall a b m. (Typeable (f a b), Alternative m, Monad m) => f a b -> m x)
-  deriving stock (Functor)
-
-type ReportJet' f a = ReportJet f (Free (ReportJet f) a)
 
 incrementHeaders :: ReportMonad x -> ReportMonad x
 incrementHeaders m = do
@@ -209,3 +121,43 @@ jets =
              @@> typesExhausted)
             y
             <> showParts ys
+
+observeJetShowErrs
+  :: ReportJet' Behave Inlines
+  -> P.PathsPrefixTree Behave AnIssue a
+  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
+observeJetShowErrs jet p = case observeJetShowErrs' jet p of
+  Just m -> m
+  Nothing -> pure p
+
+observeJetShowErrs'
+  :: forall a.
+     ReportJet' Behave Inlines
+  -> P.PathsPrefixTree Behave AnIssue a
+  -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
+observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
+  let results =
+        subIssues >>= \(WrapTypeable (AStep m)) ->
+          M.toList m <&> \(bhv, subErrs) ->
+            maybe (Left $ embed (step bhv) subErrs) Right . listToMaybe $
+              jet @_ @_ @[] bhv
+                & mapMaybe
+                  (\case
+                     Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
+                     Pure h -> Just $ do
+                       smartHeader h
+                       incrementHeaders $ showErrs subErrs
+                       return mempty)
+   in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
+        if any isRight results
+          then
+            Just $
+              catMapM
+                (\case
+                   Left e -> pure e
+                   Right m -> m)
+                results
+          else Nothing
+
+catMapM :: (Monad m, Monoid b) => (a -> m b) -> [a] -> m b
+catMapM f xs = mconcat <$> mapM f xs
