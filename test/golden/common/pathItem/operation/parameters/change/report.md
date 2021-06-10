@@ -1,9 +1,17 @@
-# **POST** /test
+# Summary
 
-## Parameter test
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 1                                        | 0                             |
 
-### JSON Schema
+# <span id="breaking-changes"></span>⚠️ Breaking changes
 
-#### `$(String)`
+## **POST** /test
+
+### Parameter test
+
+#### JSON Schema
+
+##### `$(String)`
 
 Expected the type to be allowed, but it wasn't.

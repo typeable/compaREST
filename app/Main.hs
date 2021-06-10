@@ -38,13 +38,14 @@ main = do
   let result = runCompatFormula $ checkCompatibility HNil Root (ProdCons a b)
       runPandocIO :: PandocIO a -> ExceptT Errors IO a
       runPandocIO x = lift (runIO x) >>= either (throwError . DocumentError) pure
+      options = def {writerExtensions = githubMarkdownExtensions}
       output :: Either (PathsPrefixTree Behave AnIssue 'APILevel) () -> ExceptT Errors IO ()
       output = case outputMode opts of
-        StdoutMode -> lift . T.putStrLn <=< runPandocIO . writeMarkdown def . generateReport
+        StdoutMode -> lift . T.putStrLn <=< runPandocIO . writeMarkdown options . generateReport
         FileMode f -> case formatFromFilePath f of
           Nothing -> \_ -> throwError UnknownOutputFormat
-          Just (TextWriter writer) -> lift . T.writeFile f <=< runPandocIO . writer def . generateReport
-          Just (ByteStringWriter writer) -> lift . BSL.writeFile f <=< runPandocIO . writer def . generateReport
+          Just (TextWriter writer) -> lift . T.writeFile f <=< runPandocIO . writer options . generateReport
+          Just (ByteStringWriter writer) -> lift . BSL.writeFile f <=< runPandocIO . writer options . generateReport
   either handler pure <=< runExceptT $ output result
   case result of
     Right () -> exitSuccess

@@ -306,7 +306,7 @@ memo bhv k f pc = Compose $ do
       fixpointKnot
       (do
          formula <- getCompose $ f pc
-         pure $ mapErrors (P.filter bhv) formula)
+         pure $ mapErrors (P.takeSubtree bhv) formula)
       (k, ask <$> pc)
   pure $ mapErrors (P.embed bhv) formula'
 

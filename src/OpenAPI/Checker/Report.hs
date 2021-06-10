@@ -30,7 +30,39 @@ import Text.Pandoc.Builder
 
 generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pandoc
 generateReport (Right ()) = doc $ header 1 "No breaking changes found ✨"
-generateReport (Left errs) = doc $ runReportMonad jets $ showErrs errs
+generateReport (Left errs) = doc $
+  runReportMonad jets $ do
+    let unsupported = P.filter (\(AnIssue i) -> issueIsUnsupported i) errs
+        breaking = P.filter (\(AnIssue i) -> not $ issueIsUnsupported i) errs
+        breakingChangesPresent = not $ P.null breaking
+        unsupportedChangesPresent = not $ P.null unsupported
+    smartHeader "Summary"
+    tell $
+      simpleTable
+        (para
+           <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+               , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
+               ])
+        [para . show' <$> [P.size breaking, P.size unsupported]]
+    when breakingChangesPresent $ do
+      smartHeader $ anchor breakingChangesId <> "⚠️ Breaking changes"
+      incrementHeaders $ showErrs breaking
+    when unsupportedChangesPresent $ do
+      smartHeader $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
+      incrementHeaders $ showErrs unsupported
+  where
+    anchor :: Text -> Inlines
+    anchor a = spanWith (a, [], []) mempty
+
+    refOpt :: Bool -> Text -> Inlines -> Inlines
+    refOpt False _ i = i
+    refOpt True a i = link ("#" <> a) "" i
+
+    breakingChangesId :: Text
+    breakingChangesId = "breaking-changes"
+
+    unsupportedChangesId :: Text
+    unsupportedChangesId = "unsupported-changes"
 
 data ReportState = ReportState
   { sourceJets :: [ReportJet' Behave Inlines]
@@ -161,3 +193,6 @@ observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) 
 
 catMapM :: (Monad m, Monoid b) => (a -> m b) -> [a] -> m b
 catMapM f xs = mconcat <$> mapM f xs
+
+show' :: Show x => x -> Inlines
+show' = str . T.pack . show
