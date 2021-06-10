@@ -12,11 +12,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: haskell/actions/setup@v1
-        with:
-          enable-stack: true
-          stack-no-global: true
-          stack-version: "latest"
       - name: Cache
         uses: actions/cache@v1
         with:
@@ -25,10 +20,22 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-stack-${{ hashFiles('**/stack.yaml') }}
             ${{ runner.os }}-build-stack-
+      - name: Increase swap
+        run: |
+          free -h
+
+          sudo swapoff /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+          free -h
+
       - name: Build
-        run: stack build --ghc-options="-O3 -j" --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
+        run: |
+          stack build --ghc-options=-O3 --ghc-options=-split-sections --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
       - name: Test
-        run: stack test --test-arguments='--hide-successes --no-create'
+        run: stack test --ghc-options=-O3 --ghc-options=-split-sections --flag openapi-diff:Static --test-arguments='--hide-successes --no-create'
 
       - name: Zip
         if: github.ref == 'refs/heads/master'

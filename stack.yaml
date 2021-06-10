@@ -3,3 +3,6 @@ resolver: nightly-2021-06-01
 extra-deps:
   - open-union-0.4.0.0
   - type-fun-0.1.3
+
+apply-ghc-options: everything
+rebuild-ghc-options: true
