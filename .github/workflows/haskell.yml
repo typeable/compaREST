@@ -41,6 +41,11 @@ jobs:
         if: github.ref == 'refs/heads/master'
         run: |
           zip openapi-diff-linux openapi-diff-linux/openapi-diff
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: openapi-diff-linux
+          path: openapi-diff-linux/openapi-diff
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: github.ref == 'refs/heads/master'
         with:
