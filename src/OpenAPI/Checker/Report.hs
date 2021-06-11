@@ -91,19 +91,26 @@ smartHeader i = do
 showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
   let -- Extract this pattern if more cases like this arise
-      (pathRemovedIssues :: Set (AnIssue a), otherIssues :: Set (AnIssue a)) = case eqT @a @'APILevel of
+      (removedPaths :: [Issue 'APILevel], otherIssues :: Set (AnIssue a)) = case eqT @a @'APILevel of
         Just Refl ->
-          S.partition
-            (\(AnIssue u) -> case u of
-               NoPathsMatched {} -> True
-               AllPathsFailed {} -> True)
-            currentIssues
+          let (p, o) =
+                S.partition
+                  (\(AnIssue u) -> case u of
+                     NoPathsMatched {} -> True
+                     AllPathsFailed {} -> True)
+                  currentIssues
+              p' = S.toList p <&> (\(AnIssue i) -> i)
+           in (p', o)
         Nothing -> (mempty, currentIssues)
   jts <- asks sourceJets
   for_ otherIssues $ \(AnIssue i) -> tell . describeIssue $ i
-  unless (S.null pathRemovedIssues) $ do
+  unless ([] == removedPaths) $ do
     smartHeader "Removed paths"
-    for_ pathRemovedIssues $ \(AnIssue i) -> tell . describeIssue $ i
+    tell $
+      bulletList $
+        removedPaths <&> \case
+          (NoPathsMatched p) -> para . code $ T.pack p
+          (AllPathsFailed p) -> para . code $ T.pack p
   unfoldM x (observeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
     for_ subIssues $ \(WrapTypeable (AStep m)) ->
       for_ (M.toList m) $ \(bhv, subErrors) -> do
