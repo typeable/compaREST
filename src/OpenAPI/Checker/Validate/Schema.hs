@@ -848,8 +848,15 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
           (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
             anyOfAt
               beh'
-              (NoMatchingCondition $ SomeCondition <$> ps)
+              (issueFromConjunct ps)
               [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
+  where
+    issueFromConjunct :: Typeable t => [Condition t] -> Issue 'TypedSchemaLevel
+    issueFromConjunct ps
+      | Just e <- findExactly ps
+        , all (satisfiesTyped e) ps =
+        EnumDoesntSatisfy $ untypeValue e
+    issueFromConjunct ps = NoMatchingCondition $ SomeCondition <$> ps
 
 checkContradiction
   :: Behavior 'TypedSchemaLevel
@@ -974,13 +981,15 @@ checkImplication env beh prods cons = case findExactly prods of
           else issueAt beh (MatchingMinPropertiesWeak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (NoMatchingMinProperties m)
   where
-    findExactly (Exactly x : _) = Just x
-    findExactly (_ : xs) = findExactly xs
-    findExactly [] = Nothing
     findRelevant combine extr =
       fmap (foldr1 combine) . NE.nonEmpty . mapMaybe extr
     lcmScientific (toRational -> a) (toRational -> b) =
       fromRational $ lcm (numerator a) (numerator b) % gcd (denominator a) (denominator b)
+
+findExactly :: [Condition t] -> Maybe (TypedValue t)
+findExactly (Exactly x : _) = Just x
+findExactly (_ : xs) = findExactly xs
+findExactly [] = Nothing
 
 instance Issuable 'TypedSchemaLevel where
   data Issue 'TypedSchemaLevel
@@ -1040,7 +1049,7 @@ instance Issuable 'TypedSchemaLevel where
       NoMatchingMinProperties Integer
     | -- | consumer declares a minimum number of properties in the object ($1), producer declares a weaker (lower) limit ($2)
       MatchingMinPropertiesWeak (ProdCons Integer)
-    | -- | consumer declares that the value must satisfy a disjunction of some conditions, but producer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
+    | -- | producer declares that the value must satisfy a disjunction of some conditions, but consumer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
       NoMatchingCondition [SomeCondition]
     | -- | consumer indicates that values of this type are now allowed, but the producer does not do so (currently we only check immediate contradictions, c.f. #70)
       NoContradiction
