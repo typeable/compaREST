@@ -1057,7 +1057,7 @@ instance Issuable 'TypedSchemaLevel where
       NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue (EnumDoesntSatisfy v) = para "The following enum value will yield an error:" <> showJSONValue v
+  describeIssue (EnumDoesntSatisfy v) = para "Didn't expect the enumeration to have the following value:" <> showJSONValue v
   describeIssue (NoMatchingEnum v) = para "The following enum value is not supported:" <> showJSONValue v
   describeIssue (NoMatchingMaximum b) = para $ "Unexpected upper bound " <> showBound b <> "."
   describeIssue (MatchingMaximumWeak (ProdCons p c)) = para $ "Expected upper bound " <> showBound p <> " but but found " <> showBound c <> "."
