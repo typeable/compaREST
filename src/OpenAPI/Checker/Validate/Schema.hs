@@ -950,18 +950,20 @@ checkImplication env beh prods cons = case findExactly prods of
         anyOfAt beh NoMatchingProperties $
           NE.toList pm <&> \(props', madd') -> do
             F.for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
-              let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
-              case (M.lookup k props', madd', M.lookup k props, madd) of
-                (Nothing, Nothing, _, _) -> pure () -- vacuously
-                (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
-                (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
-                (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
-                (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
-                (Nothing, Just _, Nothing, Just _) -> pure ()
               case (maybe False propRequired $ M.lookup k props', maybe False propRequired $ M.lookup k props) of
+                -- producer does not require field, but consumer does (can fail)
                 (False, True) -> issueAt beh (PropertyNowRequired k)
-                _ -> pure ()
-              pure ()
+                _ -> do
+                  let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
+                  case (M.lookup k props', madd', M.lookup k props, madd) of
+                    -- (producer, additional producer, consumer, additional consumer)
+                    (Nothing, Nothing, _, _) -> pure () -- vacuously
+                    -- this ^ seems fishy. Producer does not produce anything, but consumer might expect a field.
+                    (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
+                    (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
+                    (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
+                    (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
+                    (Nothing, Just _, Nothing, Just _) -> pure ()
             case (madd', madd) of
               (Nothing, _) -> pure () -- vacuously
               (_, Nothing) -> issueAt beh NoAdditionalProperties
