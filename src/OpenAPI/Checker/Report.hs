@@ -198,8 +198,9 @@ observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) 
                   (\case
                      Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
                      Pure h -> Just $ do
-                       smartHeader h
-                       incrementHeaders $ showErrs subErrs
+                       unless (P.null subErrs) $ do
+                         smartHeader h
+                         incrementHeaders $ showErrs subErrs
                        return mempty)
    in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
         if any isRight results

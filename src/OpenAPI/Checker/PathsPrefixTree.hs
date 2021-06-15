@@ -39,6 +39,7 @@ data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPref
   { rootItems :: !(ASet (f r))
   , snocItems :: !(TRM.TypeRepMap (AStep q f r))
   }
+  deriving stock (Show)
 
 -- TODO: optimize
 partition :: (forall a. f a -> Bool) -> PathsPrefixTree q f r -> (PathsPrefixTree q f r, PathsPrefixTree q f r)
@@ -114,6 +115,8 @@ filterASet f (ASet s) = fromSet $ S.filter f s
 data ASet (a :: Type) where
   AnEmptySet :: ASet a
   ASet :: Ord a => S.Set a -> ASet a
+
+deriving stock instance Show a => Show (ASet a)
 
 toSet :: ASet a -> S.Set a
 toSet AnEmptySet = S.empty
