@@ -1079,7 +1079,7 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue NoMatchingUniqueItems = para "Didn't expect the items to be unique, but they were."
   describeIssue NoMatchingProperties = para "Couldn't find matching properties."
   describeIssue (UnexpectedProperty p) = para $ "Expected the property " <> code p <> " to be allowed, but it wasn't."
-  describeIssue (PropertyNowRequired p) = para $ "Don't have a required property " <> code p <> "."
+  describeIssue (PropertyNowRequired p) = para $ "Didn't expect the property " <> code p <> " to be required, but it was."
   describeIssue NoAdditionalProperties = para "Expected additional properties to be allowed, but they weren't."
   describeIssue (NoMatchingMaxProperties n) = para $ "Unexpected maximum number of properties " <> show' n <> "."
   describeIssue (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Expected the maximum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
