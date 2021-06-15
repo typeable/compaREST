@@ -12,4 +12,4 @@
 
 #### `$(Object)`
 
-Didn't expect the property `property2` to be required, but it was.
+Property `property2` has become required.

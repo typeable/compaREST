@@ -71,11 +71,11 @@ instance Issuable 'PathFragmentLevel where
   issueIsUnsupported _ = False
   describeIssue ParamNameMismatch = para "The path fragments don't match."
   describeIssue ParamEmptinessIncompatible = para "Expected that an empty parameter is allowed, but it isn't."
-  describeIssue ParamRequired = para "Expected the parameter to be optional, but it is required."
+  describeIssue ParamRequired = para "Parameter has become required."
   describeIssue ParamPlaceIncompatible = para "Parameters in incompatible locations."
   describeIssue ParamStyleMismatch = para "Different parameter styles (encodings)."
   describeIssue ParamSchemaMismatch = para "Expected a schema, but didn't find one."
-  describeIssue (PathFragmentsDontMatch e a) = para $ "Expected " <> code e <> " but got " <> code a <> "."
+  describeIssue (PathFragmentsDontMatch e a) = para $ "Parameter changed from " <> code e <> " to " <> code a <> "."
 
 instance Behavable 'PathFragmentLevel 'SchemaLevel where
   data Behave 'PathFragmentLevel 'SchemaLevel

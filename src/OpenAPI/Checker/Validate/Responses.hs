@@ -73,9 +73,9 @@ instance Issuable 'ResponseLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue (ResponseMediaTypeMissing t) =
-    para $ "Couldn't find reponse for media type " <> (code . T.pack . show $ t) <> "."
+    para $ "New media type was added: " <> (code . T.pack . show $ t) <> "."
   describeIssue (ResponseHeaderMissing h) =
-    para $ "Couldn't find header " <> code h <> "."
+    para $ "New header was added " <> code h <> "."
 
 instance Behavable 'ResponseLevel 'PayloadLevel where
   data Behave 'ResponseLevel 'PayloadLevel

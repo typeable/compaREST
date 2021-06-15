@@ -135,12 +135,12 @@ instance Issuable 'ServerLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue (EnumValueNotConsumed _ v) =
-    para $ "Enum value " <> code v <> " is not supported."
+    para $ "Enum value " <> code v <> " has been removed."
   describeIssue (ConsumerNotOpen _) =
-    para $ "Expected a variable to be open (any value), but it wasn't."
+    para $ "A variable has been changed from being open to being closed."
   describeIssue (ServerVariableNotDefined k) =
     para $ "Variable " <> code k <> " is not defined."
-  describeIssue ServerNotMatched = para $ "Couldn't find a matching server."
+  describeIssue ServerNotMatched = para $ "The server was removed."
 
 instance Subtree ProcessedServer where
   type SubtreeLevel ProcessedServer = 'ServerLevel

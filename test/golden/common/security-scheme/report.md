@@ -12,7 +12,7 @@
 
 #### oauth
 
-Security scheme not met.
+Security scheme has been removed.
 
 ## **GET** /oauth/sign\_out
 
@@ -20,4 +20,4 @@ Security scheme not met.
 
 #### oauth
 
-Security scheme not met.
+Security scheme has been removed.

@@ -43,7 +43,7 @@ instance Issuable 'PayloadLevel where
     _ -> False
 
   describeIssue MediaTypeSchemaRequired = para "Media type expected, but was not specified."
-  describeIssue (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " expected, but was not specified."
+  describeIssue (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " added."
   describeIssue EncodingNotSupported = para "OpenApi Diff does not currently support media encodings other than JSON."
 
 instance Behavable 'PayloadLevel 'SchemaLevel where
@@ -154,10 +154,10 @@ instance Issuable 'OperationLevel where
   issueIsUnsupported = \case
     _ -> False
   describeIssue (ResponseCodeNotFound c) =
-    para $ "Reponse code " <> (str . T.pack . show $ c) <> " is not supported."
+    para $ "Reponse code " <> (str . T.pack . show $ c) <> " has been added."
   describeIssue (ParamNotMatched param) =
-    para $ "Didn't expect parameter " <> code param <> " to be required, but it was."
+    para $ "Parameter " <> code param <> " has become required."
   describeIssue (PathFragmentNotMatched i) =
     -- TODO: Indices are meaningless in this context. Replace with a better error.
     para $ "Path fragment " <> (str . T.pack . show $ i) <> " not matched."
-  describeIssue NoRequestBody = para "Request body not specified."
+  describeIssue NoRequestBody = para "Request body has been added."

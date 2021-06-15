@@ -10,5 +10,4 @@
 
 ### Response code 200
 
-Couldn't find reponse for media type
-`application/x-www-form-urlencoded`.
+New media type was added: `application/x-www-form-urlencoded`.

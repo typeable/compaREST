@@ -10,5 +10,4 @@
 
 ### Request
 
-Couldn't find a request body for media type
-`application/x-www-form-urlencoded`.
+Media type `application/x-www-form-urlencoded` has been removed.

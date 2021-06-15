@@ -12,10 +12,10 @@
 
 #### `$(Object)`
 
-Expected the property `property2` to be allowed, but it wasn't.
+Property `property2` has been removed.
 
 ### JSON Response – 200
 
 #### `$(Object)`
 
-Didn't expect the property `property2` to be required, but it was.
+Property `property2` has become required.

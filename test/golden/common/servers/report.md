@@ -10,10 +10,10 @@
 
 ### Server `http://missing.url`
 
-Couldn't find a matching server.
+The server was removed.
 
 ### Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
 
-Enum value `a` is not supported.
+Enum value `a` has been removed.
 
-Expected a variable to be open (any value), but it wasn't.
+A variable has been changed from being open to being closed.

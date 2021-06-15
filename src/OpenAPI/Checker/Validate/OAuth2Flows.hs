@@ -104,7 +104,7 @@ instance Issuable 'SecurityRequirementLevel where
     | UndefinedSecurityScheme Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue SecurityRequirementNotMet = para "Security scheme was not met."
+  describeIssue SecurityRequirementNotMet = para "Security scheme has been removed."
   describeIssue (UndefinedSecurityScheme k) = para $ "Security scheme " <> code k <> " is not defined."
 
 instance Issuable 'SecuritySchemeLevel where
@@ -129,23 +129,23 @@ instance Issuable 'SecuritySchemeLevel where
     | ScopeNotDefined Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue RefreshUrlsDontMatch = para "Refresh URLs differ."
-  describeIssue (HttpSchemeTypesDontMatch _ _) = para "HTTP scheme types don't match."
-  describeIssue (ApiKeyParamsDontMatch _ _) = para "API Key parameters don't match."
-  describeIssue (OpenIdConnectUrlsDontMatch _ _) = para "OpenaId Connect URLs don't match."
+  describeIssue RefreshUrlsDontMatch = para "Refresh URL changed."
+  describeIssue (HttpSchemeTypesDontMatch _ _) = para "HTTP scheme type changed."
+  describeIssue (ApiKeyParamsDontMatch _ _) = para "API Key parameters changed."
+  describeIssue (OpenIdConnectUrlsDontMatch _ _) = para "OpenaId Connect URL changed."
   describeIssue (CustomHttpSchemesDontMatch e a) =
-    para $ "Expected HTTP scheme " <> code e <> " but got " <> code a <> "."
-  describeIssue ConsumerDoesNotSupportImplicitFlow = para "Implicit flow not supported."
-  describeIssue ConsumerDoesNotSupportPasswordFlow = para "Password flow not supported."
-  describeIssue ConsumerDoesNotSupportClientCridentialsFlow = para "Client Cridentials flow not supported."
-  describeIssue ConsumerDoesNotSupportAuthorizationCodeFlow = para "Authorization Code flow not supported."
-  describeIssue SecuritySchemeNotMatched = para "Security scheme not met."
-  describeIssue OAuth2ImplicitFlowNotEqual = para "Implicit Flows don't match."
-  describeIssue OAuth2PasswordFlowNotEqual = para "Password Flows don't match."
-  describeIssue OAuth2ClientCredentialsFlowNotEqual = para "Client Cridentials Flows don't match."
-  describeIssue OAuth2AuthorizationCodeFlowNotEqual = para "Authorization Code Flows don't match."
+    para $ "Changed HTTP scheme from " <> code e <> " to " <> code a <> "."
+  describeIssue ConsumerDoesNotSupportImplicitFlow = para "Implicit flow support has been removed."
+  describeIssue ConsumerDoesNotSupportPasswordFlow = para "Password flow support has been removed."
+  describeIssue ConsumerDoesNotSupportClientCridentialsFlow = para "Client Cridentials flow support has been removed."
+  describeIssue ConsumerDoesNotSupportAuthorizationCodeFlow = para "Authorization Code flow support has been removed."
+  describeIssue SecuritySchemeNotMatched = para "Security scheme has been removed."
+  describeIssue OAuth2ImplicitFlowNotEqual = para "Implicit Flow changed."
+  describeIssue OAuth2PasswordFlowNotEqual = para "Password Flow changed."
+  describeIssue OAuth2ClientCredentialsFlowNotEqual = para "Client Cridentials Flow changed."
+  describeIssue OAuth2AuthorizationCodeFlowNotEqual = para "Authorization Code Flow changed."
   describeIssue (ScopesMissing ss) =
-    para "Scopes missing:" <> bulletList (S.toList ss <&> codeBlock)
+    para "New scopes required:" <> bulletList (S.toList ss <&> codeBlock)
   describeIssue DifferentSecuritySchemes = para "Completely different security scheme types."
   describeIssue CanNotHaveScopes = para "The specified security scheme can not have scopes."
   describeIssue (ScopeNotDefined k) = para $ "Scope with key " <> code k <> " is not defined."

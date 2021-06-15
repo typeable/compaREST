@@ -14,4 +14,4 @@
 
 ##### `$(String)`
 
-Expected the type to be allowed, but it wasn't.
+The type has been removed.

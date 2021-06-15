@@ -8,4 +8,4 @@
 
 ## **POST** /test
 
-Reponse code 500 is not supported.
+Reponse code 500 has been added.

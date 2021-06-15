@@ -51,8 +51,8 @@ instance Issuable 'HeaderLevel where
     | HeaderSchemaRequired
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue RequiredHeaderMissing = para "Header expected, but missing."
-  describeIssue NonEmptyHeaderRequired = para "Empty header not allowed."
+  describeIssue RequiredHeaderMissing = para "Header has become required."
+  describeIssue NonEmptyHeaderRequired = para "The header does not allow empty values anymore."
   describeIssue HeaderSchemaRequired = para "Expected header schema, but it is not present."
 
 instance Behavable 'HeaderLevel 'SchemaLevel where

@@ -1021,7 +1021,7 @@ instance Issuable 'TypedSchemaLevel where
       NoMatchingMinLength Integer
     | -- | consumer declares a minimum length of the string ($1), producer declares a weaker (lower) limit ($2)
       MatchingMinLengthWeak (ProdCons Integer)
-    | -- | consumer declares the string value must matrix a regex ($1), producer doesn't declare or declares different regex (TODO: #32)
+    | -- | consumer declares the string value must match a regex ($1), producer doesn't declare or declares different regex (TODO: #32)
       NoMatchingPattern Pattern
     | -- | consumer declares the items of an array must satisfy some condition, producer doesn't
       NoMatchingItems
@@ -1057,38 +1057,38 @@ instance Issuable 'TypedSchemaLevel where
       NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue (EnumDoesntSatisfy v) = para "Didn't expect the enumeration to have the following value:" <> showJSONValue v
-  describeIssue (NoMatchingEnum v) = para "The following enum value is not supported:" <> showJSONValue v
-  describeIssue (NoMatchingMaximum b) = para $ "Unexpected upper bound " <> showBound b <> "."
-  describeIssue (MatchingMaximumWeak (ProdCons p c)) = para $ "Expected upper bound " <> showBound p <> " but but found " <> showBound c <> "."
-  describeIssue (NoMatchingMinimum b) = para $ "Unexpected lower bound " <> showBound b <> "."
-  describeIssue (MatchingMinimumWeak (ProdCons p c)) = para $ "Expected lower bound " <> showBound p <> " but but found " <> showBound c <> "."
-  describeIssue (NoMatchingMultipleOf n) = para $ "Didn't expect the value to be a multiple of " <> show' n <> " but it was."
-  describeIssue (MatchingMultipleOfWeak (ProdCons p c)) = para $ "Expected the value to be a multiple of " <> show' p <> " but found a multiple of " <> show' c <> "."
-  describeIssue (NoMatchingFormat f) = para $ "Unexpected format: " <> code f <> "."
-  describeIssue (NoMatchingMaxLength n) = para $ "Unexpected maximum length of the string " <> show' n <> "."
-  describeIssue (MatchingMaxLengthWeak (ProdCons p c)) = para $ "Expected the maximum length of the string to be " <> show' p <> "but it was " <> show' c <> "."
-  describeIssue (NoMatchingMinLength n) = para $ "Unexpected minimum length of the string " <> show' n <> "."
-  describeIssue (MatchingMinLengthWeak (ProdCons p c)) = para $ "Expected the minimum length of the string to be " <> show' p <> "but it was " <> show' c <> "."
-  describeIssue (NoMatchingPattern p) = para "Unexpected pattern (regular expression): " <> codeBlock p
-  describeIssue NoMatchingItems = para "Couldn't find any matching items."
-  describeIssue (NoMatchingMaxItems n) = para $ "Unexpected maximum length of the array " <> show' n <> "."
-  describeIssue (MatchingMaxItemsWeak (ProdCons p c)) = para $ "Expected the maximum length of the array to be " <> show' p <> "but it was " <> show' c <> "."
-  describeIssue (NoMatchingMinItems n) = para $ "Unexpected minimum length of the array " <> show' n <> "."
-  describeIssue (MatchingMinItemsWeak (ProdCons p c)) = para $ "Expected the minimum length of the array to be " <> show' p <> "but it was " <> show' c <> "."
-  describeIssue NoMatchingUniqueItems = para "Didn't expect the items to be unique, but they were."
-  describeIssue NoMatchingProperties = para "Couldn't find matching properties."
-  describeIssue (UnexpectedProperty p) = para $ "Expected the property " <> code p <> " to be allowed, but it wasn't."
-  describeIssue (PropertyNowRequired p) = para $ "Didn't expect the property " <> code p <> " to be required, but it was."
-  describeIssue NoAdditionalProperties = para "Expected additional properties to be allowed, but they weren't."
-  describeIssue (NoMatchingMaxProperties n) = para $ "Unexpected maximum number of properties " <> show' n <> "."
-  describeIssue (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Expected the maximum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
-  describeIssue (NoMatchingMinProperties n) = para $ "Unexpected minimum number of properties " <> show' n <> "."
-  describeIssue (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Expected the minimum  number of properties to be " <> show' p <> "but it was " <> show' c <> "."
+  describeIssue (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
+  describeIssue (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
+  describeIssue (NoMatchingMaximum b) = para $ "Upper bound has been added:" <> showBound b <> "."
+  describeIssue (MatchingMaximumWeak (ProdCons p c)) = para $ "Upper bound changed from " <> showBound p <> " to " <> showBound c <> "."
+  describeIssue (NoMatchingMinimum b) = para $ "Lower bound has been added: " <> showBound b <> "."
+  describeIssue (MatchingMinimumWeak (ProdCons p c)) = para $ "Lower bound changed from " <> showBound p <> " to " <> showBound c <> "."
+  describeIssue (NoMatchingMultipleOf n) = para $ "Value is now a multiple of " <> show' n <> "."
+  describeIssue (MatchingMultipleOfWeak (ProdCons p c)) = para $ "Value changed from being a multiple of " <> show' p <> " to being a multiple of " <> show' c <> "."
+  describeIssue (NoMatchingFormat f) = para $ "Format added: " <> code f <> "."
+  describeIssue (NoMatchingMaxLength n) = para $ "Maximum length added: " <> show' n <> "."
+  describeIssue (MatchingMaxLengthWeak (ProdCons p c)) = para $ "Maximum length of the string changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue (NoMatchingMinLength n) = para $ "Minimum length of the string added: " <> show' n <> "."
+  describeIssue (MatchingMinLengthWeak (ProdCons p c)) = para $ "Minimum length of the string changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue (NoMatchingPattern p) = para "Pattern (regular expression) added: " <> codeBlock p
+  describeIssue NoMatchingItems = para "Array item schema has been added."
+  describeIssue (NoMatchingMaxItems n) = para $ "Maximum length of the array has been added " <> show' n <> "."
+  describeIssue (MatchingMaxItemsWeak (ProdCons p c)) = para $ "Maximum length of the array changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue (NoMatchingMinItems n) = para $ "Minimum length of the array added: " <> show' n <> "."
+  describeIssue (MatchingMinItemsWeak (ProdCons p c)) = para $ "Minimum length of the array changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue NoMatchingUniqueItems = para "Items are now required to be unique."
+  describeIssue NoMatchingProperties = para "Property added."
+  describeIssue (UnexpectedProperty p) = para $ "Property " <> code p <> " has been removed."
+  describeIssue (PropertyNowRequired p) = para $ "Property " <> code p <> " has become required."
+  describeIssue NoAdditionalProperties = para "Additional properties have been removed."
+  describeIssue (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been added: " <> show' n <> "."
+  describeIssue (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Maximum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue (NoMatchingMinProperties n) = para $ "Minimum number of properties added: " <> show' n <> "."
+  describeIssue (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Minimum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue (NoMatchingCondition conds) =
-    para "Expected the following conditions to hold, but they didn't:"
+    para "Expected the following conditions to hold, but they didn't (please file a bug if you see this):"
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
-  describeIssue NoContradiction = para "Expected the type to be allowed, but it wasn't."
+  describeIssue NoContradiction = para "The type has been removed."
 
 showJSONValue :: A.Value -> Blocks
 showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)

@@ -12,4 +12,4 @@
 
 #### `$(Number)`
 
-Expected upper bound 3.0 inclusive but but found 2.0 inclusive.
+Upper bound changed from 3.0 inclusive to 2.0 inclusive.
