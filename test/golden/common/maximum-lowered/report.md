@@ -1,7 +1,15 @@
-# **POST** /test
+# Summary
 
-## JSON Request
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 1                                        | 0                             |
 
-### `$(Number)`
+# <span id="breaking-changes"></span>⚠️ Breaking changes
 
-Expected upper bound 3.0 inclusive but but found 2.0 inclusive.
+## **POST** /test
+
+### JSON Request
+
+#### `$(Number)`
+
+Upper bound changed from 3.0 inclusive to 2.0 inclusive.

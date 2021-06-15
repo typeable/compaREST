@@ -133,6 +133,7 @@ library
                   , OpenAPI.Checker.Validate.OAuth2Flows
                   , OpenAPI.Checker.Report
                   , Data.OpenUnion.Extra
+                  , OpenAPI.Checker.Report.Jet
 
 executable openapi-diff
   import:              common-options

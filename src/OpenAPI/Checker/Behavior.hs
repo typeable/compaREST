@@ -55,6 +55,8 @@ instance Issuable l => ToJSON (Issue l) where
 data AnIssue (l :: BehaviorLevel) where
   AnIssue :: Issuable l => Issue l -> AnIssue l
 
+deriving stock instance Show (AnIssue l)
+
 deriving stock instance Eq (AnIssue l)
 
 deriving stock instance Ord (AnIssue l)

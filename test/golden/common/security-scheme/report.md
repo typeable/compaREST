@@ -1,15 +1,23 @@
-# **POST** /oauth/check
+# Summary
 
-## Security requirement 0
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 2                                        | 0                             |
 
-### oauth
+# <span id="breaking-changes"></span>⚠️ Breaking changes
 
-Security scheme not met.
+## **POST** /oauth/check
 
-# **GET** /oauth/sign\_out
+### Security requirement 0
 
-## Security requirement 1
+#### oauth
 
-### oauth
+Security scheme has been removed.
 
-Security scheme not met.
+## **GET** /oauth/sign\_out
+
+### Security requirement 1
+
+#### oauth
+
+Security scheme has been removed.

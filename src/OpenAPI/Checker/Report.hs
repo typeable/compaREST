@@ -3,7 +3,6 @@ module OpenAPI.Checker.Report
   )
 where
 
-import Control.Applicative
 import Control.Monad.Free hiding (unfoldM)
 import Control.Monad.Reader
 import Control.Monad.Writer
@@ -17,6 +16,8 @@ import qualified Data.Map as M
 import Data.Maybe
 import Data.OpenUnion
 import Data.OpenUnion.Extra
+import Data.Set
+import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.TypeRepMap hiding (empty)
@@ -25,13 +26,45 @@ import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
 import qualified OpenAPI.Checker.PathsPrefixTree as P hiding (empty)
+import OpenAPI.Checker.Report.Jet
 import OpenAPI.Checker.Validate.OpenApi
 import OpenAPI.Checker.Validate.Schema
 import Text.Pandoc.Builder
 
 generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pandoc
 generateReport (Right ()) = doc $ header 1 "No breaking changes found ✨"
-generateReport (Left errs) = doc $ runReportMonad jets $ showErrs errs
+generateReport (Left errs) = doc $
+  runReportMonad jets $ do
+    let (unsupported, breaking) = P.partition (\(AnIssue i) -> issueIsUnsupported i) errs
+        breakingChangesPresent = not $ P.null breaking
+        unsupportedChangesPresent = not $ P.null unsupported
+    smartHeader "Summary"
+    tell $
+      simpleTable
+        (para
+           <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+               , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
+               ])
+        [para . show' <$> [P.size breaking, P.size unsupported]]
+    when breakingChangesPresent $ do
+      smartHeader $ anchor breakingChangesId <> "⚠️ Breaking changes"
+      incrementHeaders $ showErrs breaking
+    when unsupportedChangesPresent $ do
+      smartHeader $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
+      incrementHeaders $ showErrs unsupported
+  where
+    anchor :: Text -> Inlines
+    anchor a = spanWith (a, [], []) mempty
+
+    refOpt :: Bool -> Text -> Inlines -> Inlines
+    refOpt False _ i = i
+    refOpt True a i = link ("#" <> a) "" i
+
+    breakingChangesId :: Text
+    breakingChangesId = "breaking-changes"
+
+    unsupportedChangesId :: Text
+    unsupportedChangesId = "unsupported-changes"
 
 data ReportState = ReportState
   { sourceJets :: [ReportJet' Behave Inlines]
@@ -55,10 +88,29 @@ smartHeader i = do
   h <- asks headerLevel
   tell $ header h i
 
-showErrs :: P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
+showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
+  let -- Extract this pattern if more cases like this arise
+      (removedPaths :: [Issue 'APILevel], otherIssues :: Set (AnIssue a)) = case eqT @a @'APILevel of
+        Just Refl ->
+          let (p, o) =
+                S.partition
+                  (\(AnIssue u) -> case u of
+                     NoPathsMatched {} -> True
+                     AllPathsFailed {} -> True)
+                  currentIssues
+              p' = S.toList p <&> (\(AnIssue i) -> i)
+           in (p', o)
+        Nothing -> (mempty, currentIssues)
   jts <- asks sourceJets
-  for_ currentIssues $ \(AnIssue i) -> tell . describeIssue $ i
+  for_ otherIssues $ \(AnIssue i) -> tell . describeIssue $ i
+  unless ([] == removedPaths) $ do
+    smartHeader "Removed paths"
+    tell $
+      bulletList $
+        removedPaths <&> \case
+          (NoPathsMatched p) -> para . code $ T.pack p
+          (AllPathsFailed p) -> para . code $ T.pack p
   unfoldM x (observeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
     for_ subIssues $ \(WrapTypeable (AStep m)) ->
       for_ (M.toList m) $ \(bhv, subErrors) -> do
@@ -71,93 +123,6 @@ unfoldM a [] g = g a
 unfoldM a (f : ff) g = do
   a' <- f a
   unfoldM a' ff g
-
-observeJetShowErrs
-  :: ReportJet' Behave Inlines
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
-observeJetShowErrs jet p = case observeJetShowErrs' jet p of
-  Just m -> m
-  Nothing -> pure p
-
-observeJetShowErrs'
-  :: forall a.
-     ReportJet' Behave Inlines
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
-observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
-  let results =
-        subIssues >>= \(WrapTypeable (AStep m)) ->
-          M.toList m <&> \(bhv, subErrs) ->
-            maybe (Left $ embed (step bhv) subErrs) Right . listToMaybe $
-              jet @_ @_ @[] bhv
-                & mapMaybe
-                  (\case
-                     Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
-                     Pure h -> Just $ do
-                       smartHeader h
-                       incrementHeaders $ showErrs subErrs
-                       return mempty)
-   in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
-        if any isRight results
-          then
-            Just $
-              catMapM
-                (\case
-                   Left e -> pure e
-                   Right m -> m)
-                results
-          else Nothing
-
-catMapM :: (Monad m, Monoid b) => (a -> m b) -> [a] -> m b
-catMapM f xs = mconcat <$> mapM f xs
-
--- | A "jet" is a way of simplifying expressions from "outside". The "jetted"
--- expressions should still be completely valid and correct without the jets.
--- Jets just make the expression more "optimized" by identifying patterns and
--- replacing the expressions with "better" ones that have the same sematics.
---
--- The term "jet" in this context was introduced in the Urbit project:
---   https://urbit.org/docs/vere/jetting/
---
--- The pattern fits well for simplifying 'Behaviour' tree paths.
-class ConstructReportJet x f where
-  constructReportJet :: x -> ReportJetResult f Inlines
-
-instance (ConstructReportJet b f, JetArg a) => ConstructReportJet (a -> b) f where
-  constructReportJet f = Free (fmap f <$> consumeJetArg @a) >>= constructReportJet
-
-instance ConstructReportJet Inlines f where
-  constructReportJet x = Pure x
-
-class JetArg a where
-  consumeJetArg :: ReportJet' f a
-
-instance Typeable (f a b) => JetArg (f a b) where
-  consumeJetArg =
-    ReportJet $ \(x :: x) ->
-      case eqT @(f a b) @x of
-        Nothing -> empty
-        Just Refl -> pure $ Pure x
-
-instance TryLiftUnion xs => JetArg (Union xs) where
-  consumeJetArg = ReportJet $ fmap Pure . tryLiftUnion
-
-instance JetArg x => JetArg (NonEmpty x) where
-  consumeJetArg =
-    let (ReportJet f) = (consumeJetArg @x)
-     in ReportJet $ \a -> do
-          u <- f a
-          pure (u >>= \y -> Free $ fmap (NE.cons y) <$> consumeJetArg)
-            <|> pure (pure <$> u)
-
-type ReportJetResult f = Free (ReportJet f)
-
--- Not a true 'Applicative'
-newtype ReportJet f x = ReportJet (forall a b m. (Typeable (f a b), Alternative m, Monad m) => f a b -> m x)
-  deriving stock (Functor)
-
-type ReportJet' f a = ReportJet f (Free (ReportJet f) a)
 
 incrementHeaders :: ReportMonad x -> ReportMonad x
 incrementHeaders m = do
@@ -209,3 +174,47 @@ jets =
              @@> typesExhausted)
             y
             <> showParts ys
+
+observeJetShowErrs
+  :: ReportJet' Behave Inlines
+  -> P.PathsPrefixTree Behave AnIssue a
+  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
+observeJetShowErrs jet p = case observeJetShowErrs' jet p of
+  Just m -> m
+  Nothing -> pure p
+
+observeJetShowErrs'
+  :: forall a.
+     ReportJet' Behave Inlines
+  -> P.PathsPrefixTree Behave AnIssue a
+  -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
+observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
+  let results =
+        subIssues >>= \(WrapTypeable (AStep m)) ->
+          M.toList m <&> \(bhv, subErrs) ->
+            maybe (Left $ embed (step bhv) subErrs) Right . listToMaybe $
+              jet @_ @_ @[] bhv
+                & mapMaybe
+                  (\case
+                     Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
+                     Pure h -> Just $ do
+                       unless (P.null subErrs) $ do
+                         smartHeader h
+                         incrementHeaders $ showErrs subErrs
+                       return mempty)
+   in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
+        if any isRight results
+          then
+            Just $
+              catMapM
+                (\case
+                   Left e -> pure e
+                   Right m -> m)
+                results
+          else Nothing
+
+catMapM :: (Monad m, Monoid b) => (a -> m b) -> [a] -> m b
+catMapM f xs = mconcat <$> mapM f xs
+
+show' :: Show x => x -> Inlines
+show' = str . T.pack . show

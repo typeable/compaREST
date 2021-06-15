@@ -1,5 +1,13 @@
-# **POST** /test
+# Summary
 
-## Parameter test1
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 1                                        | 0                             |
 
-Expected the parameter to be optional, but it is required.
+# <span id="breaking-changes"></span>⚠️ Breaking changes
+
+## **POST** /test
+
+### Parameter test1
+
+Parameter has become required.

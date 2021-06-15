@@ -21,6 +21,7 @@ import OpenAPI.Checker.Validate.OpenApi ()
 import Spec.Golden.Extra
 import Test.Tasty (TestTree, testGroup)
 import Text.Pandoc.Class
+import Text.Pandoc.Options
 import Text.Pandoc.Writers
 import Prelude hiding (id, (.))
 
@@ -42,7 +43,7 @@ tests = do
       "report.md"
       ("a.yaml", "b.yaml")
       Yaml.decodeFileThrow
-      (runPandoc . writeMarkdown def . generateReport . runChecker)
+      (runPandoc . writeMarkdown def {writerExtensions = githubMarkdownExtensions} . generateReport . runChecker)
 
   return $ testGroup "Golden tests" [traceTreeTests, reportTests]
 

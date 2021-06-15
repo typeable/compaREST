@@ -32,9 +32,9 @@ instance Issuable 'RequestLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue RequestBodyRequired =
-    para "Expected the request body to be optional, but found it to be required."
+    para "Request body has become required."
   describeIssue (RequestMediaTypeNotFound t) =
-    para $ "Couldn't find a request body for media type " <> (code . T.pack . show $ t) <> "."
+    para $ "Media type " <> (code . T.pack . show $ t) <> " has been removed."
 
 instance Behavable 'RequestLevel 'PayloadLevel where
   data Behave 'RequestLevel 'PayloadLevel

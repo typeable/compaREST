@@ -10,10 +10,14 @@ module OpenAPI.Checker.PathsPrefixTree
   , foldWith
   , toList
   , filter
+  , takeSubtree
   , embed
+  , size
+  , partition
   )
 where
 
+import Control.Monad
 import Data.Aeson
 import Data.Foldable hiding (null, toList)
 import qualified Data.HashMap.Strict as HM
@@ -26,7 +30,6 @@ import Data.Type.Equality
 import qualified Data.TypeRepMap as TRM
 import qualified Data.Vector as V
 import qualified GHC.Exts as Exts
-import qualified GHC.Exts as TRM
 import OpenAPI.Checker.Paths
 import Type.Reflection
 import Prelude hiding (filter, null)
@@ -36,13 +39,33 @@ data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPref
   { rootItems :: !(ASet (f r))
   , snocItems :: !(TRM.TypeRepMap (AStep q f r))
   }
+  deriving stock (Show)
+
+-- TODO: optimize
+partition :: (forall a. f a -> Bool) -> PathsPrefixTree q f r -> (PathsPrefixTree q f r, PathsPrefixTree q f r)
+partition f x = (filter f x, filter (not . f) x)
+
+filter :: (forall a. f a -> Bool) -> PathsPrefixTree q f r -> PathsPrefixTree q f r
+filter f (PathsPrefixTree roots branches) = PathsPrefixTree roots' branches'
+  where
+    roots' = filterASet f roots
+    branches' =
+      Exts.fromList
+        . fmap (\(TRM.WrapTypeable (AStep x)) -> TRM.WrapTypeable . AStep . M.filter (not . null) . fmap (filter f) $ x)
+        . Exts.toList
+        $ branches
+
+-- | The number of leaves.
+size :: PathsPrefixTree q f r -> Int
+size (PathsPrefixTree root branches) =
+  (S.size . toSet $ root)
+    + (sum . fmap (\(TRM.WrapTypeable (AStep x)) -> sum . fmap size . M.elems $ x) . Exts.toList $ branches)
 
 pattern PathsPrefixNode :: Ord (f r) => S.Set (f r) -> [TRM.WrapTypeable (AStep q f r)] -> PathsPrefixTree q f r
 pattern PathsPrefixNode s steps <-
   (\(PathsPrefixTree aset m) -> (toSet aset, Exts.toList m) -> (s, steps))
   where
-    PathsPrefixNode s steps | S.null s = PathsPrefixTree AnEmptySet (Exts.fromList steps)
-    PathsPrefixNode s steps = PathsPrefixTree (ASet s) (Exts.fromList steps)
+    PathsPrefixNode s steps = PathsPrefixTree (fromSet s) (Exts.fromList steps)
 
 {-# COMPLETE PathsPrefixNode #-}
 
@@ -79,25 +102,32 @@ compareTRM s1 s2 =
       | otherwise = EQ -- unreachable
     toMap s =
       M.fromList
-        [(someTypeRep x, w) | w@(TRM.WrapTypeable x) <- TRM.toList s]
+        [(someTypeRep x, w) | w@(TRM.WrapTypeable x) <- Exts.toList s]
 
 instance Ord (PathsPrefixTree q f a) where
   compare (PathsPrefixTree r1 s1) (PathsPrefixTree r2 s2) =
     compare r1 r2 <> compareTRM s1 s2
 
+filterASet :: (a -> Bool) -> ASet a -> ASet a
+filterASet _ AnEmptySet = AnEmptySet
+filterASet f (ASet s) = fromSet $ S.filter f s
+
 data ASet (a :: Type) where
   AnEmptySet :: ASet a
   ASet :: Ord a => S.Set a -> ASet a
+
+deriving stock instance Show a => Show (ASet a)
 
 toSet :: ASet a -> S.Set a
 toSet AnEmptySet = S.empty
 toSet (ASet s) = s
 
+fromSet :: Ord a => S.Set a -> ASet a
+fromSet s | S.null s = AnEmptySet
+fromSet s = ASet s
+
 instance ToJSON a => ToJSON (ASet a) where
-  toJSON =
-    toJSON . \case
-      AnEmptySet -> S.empty
-      ASet s -> s
+  toJSON = toJSON . toSet
 
 instance Semigroup (ASet a) where
   AnEmptySet <> s = s
@@ -168,7 +198,7 @@ foldWith k = goTPT Root
     goASet _ AnEmptySet = mempty
     goASet xs (ASet rs) = foldMap (k xs) rs
     goTRM :: forall a. Paths q r a -> TRM.TypeRepMap (AStep q f a) -> m
-    goTRM xs s = foldMap (\(TRM.WrapTypeable f) -> goAStep xs f) $ TRM.toList s
+    goTRM xs s = foldMap (\(TRM.WrapTypeable f) -> goAStep xs f) $ Exts.toList s
     goAStep :: forall a b. Paths q r a -> AStep q f a b -> m
     goAStep xs (AStep m) =
       M.foldrWithKey (\x t -> (goTPT (Snoc xs x) t <>)) mempty m
@@ -177,11 +207,11 @@ toList :: PathsPrefixTree q f r -> [AnItem q f r]
 toList t = appEndo (foldWith (\xs f -> Endo (AnItem xs f :)) t) []
 
 -- | Select a subtree by prefix
-filter :: forall q f r a. Paths q r a -> PathsPrefixTree q f r -> PathsPrefixTree q f a
-filter Root t = t
-filter (Snoc xs x) t =
+takeSubtree :: forall q f r a. Paths q r a -> PathsPrefixTree q f r -> PathsPrefixTree q f a
+takeSubtree Root t = t
+takeSubtree (Snoc xs x) t =
   foldMap (\(AStep m) -> fold $ M.lookup x m) $
-    TRM.lookup @a $ snocItems $ filter xs t
+    TRM.lookup @a $ snocItems $ takeSubtree xs t
 
 -- | Embed a subtree in a larger tree with given prefix
 embed :: Paths q r a -> PathsPrefixTree q f a -> PathsPrefixTree q f r

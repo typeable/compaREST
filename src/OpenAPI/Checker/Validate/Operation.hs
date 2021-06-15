@@ -14,6 +14,7 @@ module OpenAPI.Checker.Validate.Operation
   , processPathItems
   , Step (..)
   , Behave (..)
+  , Issue (..)
   )
 where
 
@@ -358,8 +359,8 @@ instance Issuable 'APILevel where
     -- When several paths match given but all checks failed
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " did not match anything."
-  describeIssue (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " did not match anything."
+  describeIssue (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
+  describeIssue (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
 
 instance Behavable 'APILevel 'PathLevel where
   data Behave 'APILevel 'PathLevel
@@ -461,7 +462,7 @@ instance Issuable 'PathLevel where
     = OperationMissing OperationMethod
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " is not defined."
+  describeIssue (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " has been removed."
 
 instance Behavable 'PathLevel 'OperationLevel where
   data Behave 'PathLevel 'OperationLevel

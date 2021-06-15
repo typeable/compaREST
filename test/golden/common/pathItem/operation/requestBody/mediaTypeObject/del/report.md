@@ -1,6 +1,13 @@
-# **POST** /test
+# Summary
 
-## Request
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 1                                        | 0                             |
 
-Couldn't find a request body for media type
-`application/x-www-form-urlencoded`.
+# <span id="breaking-changes"></span>⚠️ Breaking changes
+
+## **POST** /test
+
+### Request
+
+Media type `application/x-www-form-urlencoded` has been removed.

@@ -1,11 +1,19 @@
-# **GET** /pets
+# Summary
 
-## Server `http://missing.url`
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 3                                        | 0                             |
 
-Couldn't find a matching server.
+# <span id="breaking-changes"></span>⚠️ Breaking changes
 
-## Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
+## **GET** /pets
 
-Enum value `a` is not supported.
+### Server `http://missing.url`
 
-Expected a variable to be open (any value), but it wasn't.
+The server was removed.
+
+### Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
+
+Enum value `a` has been removed.
+
+A variable has been changed from being open to being closed.

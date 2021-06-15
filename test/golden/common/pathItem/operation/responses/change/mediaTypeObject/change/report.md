@@ -1,7 +1,15 @@
-# **POST** /test
+# Summary
 
-## JSON Response – 200
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 1                                        | 0                             |
 
-### `$(Number)`
+# <span id="breaking-changes"></span>⚠️ Breaking changes
 
-Expected the type to be allowed, but it wasn't.
+## **POST** /test
+
+### JSON Response – 200
+
+#### `$(Number)`
+
+The type has been removed.

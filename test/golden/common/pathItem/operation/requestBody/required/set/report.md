@@ -1,5 +1,13 @@
-# **POST** /test
+# Summary
 
-## Request
+| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------|
+| 1                                        | 0                             |
 
-Expected the request body to be optional, but found it to be required.
+# <span id="breaking-changes"></span>⚠️ Breaking changes
+
+## **POST** /test
+
+### Request
+
+Request body has become required.
