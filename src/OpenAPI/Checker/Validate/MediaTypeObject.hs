@@ -156,7 +156,7 @@ instance Issuable 'OperationLevel where
   describeIssue (ResponseCodeNotFound c) =
     para $ "Reponse code " <> (str . T.pack . show $ c) <> " is not supported."
   describeIssue (ParamNotMatched param) =
-    para $ "Didn't expect parameter " <> code param <> "."
+    para $ "Didn't expect parameter " <> code param <> " to be required, but it was."
   describeIssue (PathFragmentNotMatched i) =
     -- TODO: Indices are meaningless in this context. Replace with a better error.
     para $ "Path fragment " <> (str . T.pack . show $ i) <> " not matched."
