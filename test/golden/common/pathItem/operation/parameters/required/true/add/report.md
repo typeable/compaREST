@@ -8,4 +8,4 @@
 
 ## **POST** /test
 
-Parameter test2 is not supported.
+Didn't expect parameter `test2`.
