@@ -1,8 +1,16 @@
-Left:
+breakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
         InPayload:
+          PayloadSchema:
+            OfType Number: MatchingMaximumWeak (ProdCons {producer = Inclusive 3.0,
+              consumer = Inclusive 2.0})
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
           PayloadSchema:
             OfType Number: MatchingMaximumWeak (ProdCons {producer = Inclusive 3.0,
               consumer = Inclusive 2.0})

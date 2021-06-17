@@ -1,7 +1,14 @@
-Left:
+breakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
             OfType Number: NoContradiction
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType String: NoContradiction

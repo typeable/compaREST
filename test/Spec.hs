@@ -9,4 +9,4 @@ main = defaultMain =<< tests
 tests :: IO TestTree
 tests = do
   goldenReportTree <- Spec.Golden.TraceTree.tests
-  return . localOption (mkTimeout 1000000) $ goldenReportTree
+  return . localOption (mkTimeout 5000000) $ goldenReportTree

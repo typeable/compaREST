@@ -1,8 +1,8 @@
 # Summary
 
-| [⚠️ Breaking changes](#breaking-changes) | 🤷 Unsupported feature changes |
-|------------------------------------------|-------------------------------|
-| 2                                        | 0                             |
+| [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------------------------|-------------------------------|
+| 2                                        | 1                                               | 0                             |
 
 # <span id="breaking-changes"></span>⚠️ Breaking changes
 
@@ -19,5 +19,15 @@ Security scheme has been removed.
 ### Security requirement 1
 
 #### oauth
+
+Security scheme has been removed.
+
+# <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+
+## **POST** /oauth/check
+
+### Security requirement 0
+
+#### spa-oauth
 
 Security scheme has been removed.

@@ -5,19 +5,14 @@ import Control.Monad.Except
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Default
-import Data.HList
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import FormatHeuristic
-import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Options
-import OpenAPI.Checker.Paths
-import OpenAPI.Checker.PathsPrefixTree
-import OpenAPI.Checker.Report
-import OpenAPI.Checker.Subtree
+import OpenAPI.Checker.Run
 import System.Exit
 import System.IO
-import Text.Pandoc
+import Text.Pandoc hiding (report)
 
 main :: IO ()
 main = do
@@ -33,23 +28,27 @@ main = do
                 fail "Exiting"
               Right s -> pure s
           Right s -> pure s
-  a <- traced (step ClientSchema) <$> parseSchema (clientFile opts)
-  b <- traced (step ServerSchema) <$> parseSchema (serverFile opts)
-  let result = runCompatFormula $ checkCompatibility HNil Root (ProdCons a b)
-      runPandocIO :: PandocIO a -> ExceptT Errors IO a
+  a <- parseSchema (clientFile opts)
+  b <- parseSchema (serverFile opts)
+  let runPandocIO :: PandocIO a -> ExceptT Errors IO a
       runPandocIO x = lift (runIO x) >>= either (throwError . DocumentError) pure
       options = def {writerExtensions = githubMarkdownExtensions}
-      output :: Either (PathsPrefixTree Behave AnIssue 'APILevel) () -> ExceptT Errors IO ()
-      output = case outputMode opts of
-        StdoutMode -> lift . T.putStrLn <=< runPandocIO . writeMarkdown options . generateReport
+      write :: Pandoc -> ExceptT Errors IO ()
+      write = case outputMode opts of
+        StdoutMode -> lift . T.putStrLn <=< runPandocIO . writeMarkdown options
         FileMode f -> case formatFromFilePath f of
           Nothing -> \_ -> throwError UnknownOutputFormat
-          Just (TextWriter writer) -> lift . T.writeFile f <=< runPandocIO . writer options . generateReport
-          Just (ByteStringWriter writer) -> lift . BSL.writeFile f <=< runPandocIO . writer options . generateReport
-  either handler pure <=< runExceptT $ output result
-  case result of
-    Right () -> exitSuccess
-    Left _ -> exitWith $ ExitFailure 1
+          Just (TextWriter writer) -> lift . T.writeFile f <=< runPandocIO . writer options
+          Just (ByteStringWriter writer) -> lift . BSL.writeFile f <=< runPandocIO . writer options
+      -- output :: Either (PathsPrefixTree Behave AnIssue 'APILevel) () -> ExceptT Errors IO ()
+      -- output inp = do
+      --   undefined
+      (report, status) = runReport (a, b)
+  either handler pure <=< runExceptT $ write report
+  case status of
+    NoBreakingChanges -> exitSuccess
+    BreakingChanges -> exitWith $ ExitFailure 1
+    OnlyUnsupportedChanges -> exitWith $ ExitFailure 2
 
 data Errors
   = DocumentError PandocError

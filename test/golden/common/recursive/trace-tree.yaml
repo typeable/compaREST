@@ -1,1 +1,14 @@
-Right: []
+breakingChanges: {}
+nonBreakingChanges:
+  AtPath "/api/foo":
+    InOperation GetMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Object:
+              InProperty "leaf":
+                OfType Object:
+                  InProperty "value":
+                    OfType Object:
+                      InProperty "foo":
+                        OfType String: NoMatchingEnum (String "a")

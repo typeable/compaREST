@@ -1,11 +1,15 @@
 module OpenAPI.Checker.Report
   ( generateReport
+  , ReportInput (..)
+  , ReportStatus (..)
+  , Pandoc
   )
 where
 
 import Control.Monad.Free hiding (unfoldM)
 import Control.Monad.Reader
 import Control.Monad.Writer
+import Data.Aeson (ToJSON)
 import Data.Either
 import Data.Foldable
 import Data.Function
@@ -22,6 +26,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.TypeRepMap hiding (empty)
 import Data.Typeable
+import Generic.Data
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
@@ -31,27 +36,57 @@ import OpenAPI.Checker.Validate.OpenApi
 import OpenAPI.Checker.Validate.Schema
 import Text.Pandoc.Builder
 
-generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pandoc
-generateReport (Right ()) = doc $ header 1 "No breaking changes found ✨"
-generateReport (Left errs) = doc $
-  runReportMonad jets $ do
-    let (unsupported, breaking) = P.partition (\(AnIssue i) -> issueIsUnsupported i) errs
-        breakingChangesPresent = not $ P.null breaking
-        unsupportedChangesPresent = not $ P.null unsupported
-    smartHeader "Summary"
-    tell $
-      simpleTable
-        (para
-           <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
-               , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
-               ])
-        [para . show' <$> [P.size breaking, P.size unsupported]]
-    when breakingChangesPresent $ do
-      smartHeader $ anchor breakingChangesId <> "⚠️ Breaking changes"
-      incrementHeaders $ showErrs breaking
-    when unsupportedChangesPresent $ do
-      smartHeader $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
-      incrementHeaders $ showErrs unsupported
+type Changes = P.PathsPrefixTree Behave AnIssue 'APILevel
+
+data ReportInput = ReportInput
+  { breakingChanges :: Changes
+  , nonBreakingChanges :: Changes
+  }
+  deriving stock (Generic)
+  deriving (Semigroup, Monoid) via (Generically ReportInput)
+  deriving anyclass (ToJSON)
+
+data ReportStatus
+  = BreakingChanges
+  | NoBreakingChanges
+  | -- | All changes that could be breaking are unsupported – we don't know if
+    -- there actually are any breaking changes.
+    OnlyUnsupportedChanges
+
+generateReport :: ReportInput -> (Pandoc, ReportStatus)
+generateReport inp =
+  let (bUnsupported, breaking) = P.partition (\(AnIssue i) -> issueIsUnsupported i) $ breakingChanges inp
+      (nbUnsupported, nonBreaking) = P.partition (\(AnIssue i) -> issueIsUnsupported i) $ nonBreakingChanges inp
+      unsupported = bUnsupported <> nbUnsupported
+      breakingChangesPresent = not $ P.null breaking
+      nonBreakingChangesPresent = not $ P.null nonBreaking
+      unsupportedChangesPresent = not $ P.null unsupported
+      report = doc $
+        runReportMonad jets $ do
+          smartHeader "Summary"
+          tell $
+            simpleTable
+              (para
+                 <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+                     , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
+                     , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
+                     ])
+              [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
+          when breakingChangesPresent $ do
+            smartHeader $ anchor breakingChangesId <> "⚠️ Breaking changes"
+            incrementHeaders $ showErrs breaking
+          when nonBreakingChangesPresent $ do
+            smartHeader $ anchor nonBreakingChangesId <> "🙆 Non-breaking changes"
+            incrementHeaders $ showErrs nonBreaking
+          when unsupportedChangesPresent $ do
+            smartHeader $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
+            incrementHeaders $ showErrs unsupported
+      status =
+        if
+            | breakingChangesPresent -> BreakingChanges
+            | unsupportedChangesPresent -> OnlyUnsupportedChanges
+            | otherwise -> NoBreakingChanges
+   in (report, status)
   where
     anchor :: Text -> Inlines
     anchor a = spanWith (a, [], []) mempty
@@ -60,11 +95,10 @@ generateReport (Left errs) = doc $
     refOpt False _ i = i
     refOpt True a i = link ("#" <> a) "" i
 
-    breakingChangesId :: Text
+    breakingChangesId, nonBreakingChangesId, unsupportedChangesId :: Text
     breakingChangesId = "breaking-changes"
-
-    unsupportedChangesId :: Text
     unsupportedChangesId = "unsupported-changes"
+    nonBreakingChangesId = "non-breaking-changes"
 
 data ReportState = ReportState
   { sourceJets :: [ReportJet' Behave Inlines]
@@ -135,9 +169,9 @@ jets =
     <$> [ constructReportJet jsonPathJet
         , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
             strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
-        , constructReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
+        , constructReportJet $ \InRequest InPayload PayloadSchema -> "📱➡️ JSON Request" :: Inlines
         , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
-            "JSON Response – " <> str (T.pack . show $ c) :: Inlines
+            "📱⬅️ JSON Response – " <> str (T.pack . show $ c) :: Inlines
         ]
   where
     unwrapReportJetResult :: ReportJetResult Behave x -> ReportJet' Behave x

@@ -1,3 +1,4 @@
-Left:
+breakingChanges:
   AtPath "/test":
     InOperation PostMethod: ResponseCodeNotFound 500
+nonBreakingChanges: {}

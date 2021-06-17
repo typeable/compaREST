@@ -1,4 +1,5 @@
-Left:
+breakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200: ResponseHeaderMissing "Test2"
+nonBreakingChanges: {}

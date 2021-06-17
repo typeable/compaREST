@@ -104,6 +104,7 @@ library
                      , transformers
                      , mtl
                      , aeson
+                     , generic-data
   hs-source-dirs:      src
   exposed-modules:  Data.HList
                   , OpenAPI.Checker.Behavior
@@ -134,6 +135,7 @@ library
                   , OpenAPI.Checker.Report
                   , Data.OpenUnion.Extra
                   , OpenAPI.Checker.Report.Jet
+                  , OpenAPI.Checker.Run
 
 executable openapi-diff
   import:              common-options

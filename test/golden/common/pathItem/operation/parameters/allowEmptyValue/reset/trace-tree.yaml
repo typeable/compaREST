@@ -1,4 +1,5 @@
-Left:
+breakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       InParam "test1": ParamEmptinessIncompatible
+nonBreakingChanges: {}
