@@ -24,4 +24,4 @@ A variable has been changed from being open to being closed.
 
 ### Server `http://{x}variable.path/{y}/{openVariable1}/{openVariable2}`
 
-Enum value `bbb` has been removed.
+Enum value `bbb` has been added.

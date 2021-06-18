@@ -12,7 +12,7 @@
 
 #### `$(Number)`
 
-The type has been removed.
+The type has been added.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 

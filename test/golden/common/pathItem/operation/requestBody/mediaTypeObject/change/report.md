@@ -22,4 +22,4 @@ The type has been removed.
 
 #### `$(Number)`
 
-The type has been removed.
+The type has been added.

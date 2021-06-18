@@ -73,9 +73,9 @@ instance Issuable 'ResponseLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue Forward (ResponseMediaTypeMissing t) =
-    para $ "New media type was added: " <> (code . T.pack . show $ t) <> "."
-  describeIssue Backward (ResponseMediaTypeMissing t) =
     para $ "Media type was removed: " <> (code . T.pack . show $ t) <> "."
+  describeIssue Backward (ResponseMediaTypeMissing t) =
+    para $ "New media type was added: " <> (code . T.pack . show $ t) <> "."
   describeIssue Forward (ResponseHeaderMissing h) =
     para $ "New header was added " <> code h <> "."
   describeIssue Backward (ResponseHeaderMissing h) =

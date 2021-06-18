@@ -18,7 +18,7 @@ Property `property2` has been removed.
 
 #### `$(Object)`
 
-Property `property2` has become required.
+Property `property2` is no longer required.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -28,7 +28,7 @@ Property `property2` has become required.
 
 #### `$(Object)`
 
-Property `property2` has become required.
+Property `property2` is no longer required.
 
 ### 📱⬅️ JSON Response – 200
 

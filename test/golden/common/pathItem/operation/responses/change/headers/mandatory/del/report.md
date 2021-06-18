@@ -10,4 +10,4 @@
 
 ### Response code 200
 
-New header was added `Test2`.
+Header was removed `Test2`.

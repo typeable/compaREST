@@ -30,4 +30,4 @@ Security scheme has been removed.
 
 #### spa-oauth
 
-Security scheme has been removed.
+Security scheme has been added.

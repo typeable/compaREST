@@ -10,4 +10,4 @@
 
 ### Request
 
-Request body has become required.
+Request body is no longer required.

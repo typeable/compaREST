@@ -10,4 +10,4 @@
 
 ### Request
 
-Media type `application/x-www-form-urlencoded` has been removed.
+Media type `application/x-www-form-urlencoded` has been added.

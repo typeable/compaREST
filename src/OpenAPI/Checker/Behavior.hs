@@ -3,6 +3,7 @@ module OpenAPI.Checker.Behavior
   , Behavable (..)
   , Issuable (..)
   , Orientation (..)
+  , toggleOrientation
   , Behavior
   , AnIssue (..)
   )
@@ -57,6 +58,11 @@ class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLeve
   issueIsUnsupported :: Issue l -> Bool
 
 data Orientation = Forward | Backward
+  deriving stock (Eq, Ord)
+
+toggleOrientation :: Orientation -> Orientation
+toggleOrientation Forward = Backward
+toggleOrientation Backward = Forward
 
 -- | A set of interactions having common unifying features
 type Behavior = Paths Behave 'APILevel

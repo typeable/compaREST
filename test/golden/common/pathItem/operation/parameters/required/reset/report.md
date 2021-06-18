@@ -10,4 +10,4 @@
 
 ### Parameter test1
 
-Parameter has become required.
+Parameter is no longer required.

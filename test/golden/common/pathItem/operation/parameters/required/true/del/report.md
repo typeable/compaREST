@@ -8,4 +8,4 @@
 
 ## **POST** /test
 
-Parameter `test2` has become required.
+Parameter `test2` is no longer required.

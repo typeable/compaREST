@@ -10,4 +10,4 @@
 
 ### Response code 200
 
-New media type was added: `application/x-www-form-urlencoded`.
+Media type was removed: `application/x-www-form-urlencoded`.
