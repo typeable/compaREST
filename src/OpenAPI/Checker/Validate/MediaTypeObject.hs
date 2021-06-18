@@ -42,9 +42,10 @@ instance Issuable 'PayloadLevel where
     EncodingNotSupported -> True
     _ -> False
 
-  describeIssue MediaTypeSchemaRequired = para "Media type expected, but was not specified."
-  describeIssue (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " added."
-  describeIssue EncodingNotSupported = para "OpenApi Diff does not currently support media encodings other than JSON."
+  describeIssue _ MediaTypeSchemaRequired = para "Media type expected, but was not specified."
+  describeIssue Forward (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " has been removed."
+  describeIssue Backward (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " added."
+  describeIssue _ EncodingNotSupported = para "OpenApi Diff does not currently support media encodings other than JSON."
 
 instance Behavable 'PayloadLevel 'SchemaLevel where
   data Behave 'PayloadLevel 'SchemaLevel
@@ -153,11 +154,16 @@ instance Issuable 'OperationLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
     _ -> False
-  describeIssue (ResponseCodeNotFound c) =
+  describeIssue Forward (ResponseCodeNotFound c) =
     para $ "Reponse code " <> (str . T.pack . show $ c) <> " has been added."
-  describeIssue (ParamNotMatched param) =
+  describeIssue Backward (ResponseCodeNotFound c) =
+    para $ "Reponse code " <> (str . T.pack . show $ c) <> " has been removed."
+  describeIssue Forward (ParamNotMatched param) =
     para $ "Parameter " <> code param <> " has become required."
-  describeIssue (PathFragmentNotMatched i) =
+  describeIssue Backward (ParamNotMatched param) =
+    para $ "Parameter " <> code param <> " is no longer required."
+  describeIssue _ (PathFragmentNotMatched i) =
     -- TODO: Indices are meaningless in this context. Replace with a better error.
     para $ "Path fragment " <> (str . T.pack . show $ i) <> " not matched."
-  describeIssue NoRequestBody = para "Request body has been added."
+  describeIssue Forward NoRequestBody = para "Request body has been added."
+  describeIssue Backward NoRequestBody = para "Request body has been removed."

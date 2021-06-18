@@ -137,7 +137,7 @@ showErrs x@(P.PathsPrefixNode currentIssues _) = do
            in (p', o)
         Nothing -> (mempty, currentIssues)
   jts <- asks sourceJets
-  for_ otherIssues $ \(AnIssue i) -> tell . describeIssue $ i
+  for_ otherIssues $ \(AnIssue i) -> tell . describeIssue Forward $ i
   unless ([] == removedPaths) $ do
     smartHeader "Removed paths"
     tell $

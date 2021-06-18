@@ -10,4 +10,4 @@
 
 ### Parameter test1
 
-Expected that an empty parameter is allowed, but it isn't.
+The parameter can no longer be empty.

@@ -1057,38 +1057,58 @@ instance Issuable 'TypedSchemaLevel where
       NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
-  describeIssue (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
-  describeIssue (NoMatchingMaximum b) = para $ "Upper bound has been added:" <> showBound b <> "."
-  describeIssue (MatchingMaximumWeak (ProdCons p c)) = para $ "Upper bound changed from " <> showBound p <> " to " <> showBound c <> "."
-  describeIssue (NoMatchingMinimum b) = para $ "Lower bound has been added: " <> showBound b <> "."
-  describeIssue (MatchingMinimumWeak (ProdCons p c)) = para $ "Lower bound changed from " <> showBound p <> " to " <> showBound c <> "."
-  describeIssue (NoMatchingMultipleOf n) = para $ "Value is now a multiple of " <> show' n <> "."
-  describeIssue (MatchingMultipleOfWeak (ProdCons p c)) = para $ "Value changed from being a multiple of " <> show' p <> " to being a multiple of " <> show' c <> "."
-  describeIssue (NoMatchingFormat f) = para $ "Format added: " <> code f <> "."
-  describeIssue (NoMatchingMaxLength n) = para $ "Maximum length added: " <> show' n <> "."
-  describeIssue (MatchingMaxLengthWeak (ProdCons p c)) = para $ "Maximum length of the string changed from " <> show' p <> " to " <> show' c <> "."
-  describeIssue (NoMatchingMinLength n) = para $ "Minimum length of the string added: " <> show' n <> "."
-  describeIssue (MatchingMinLengthWeak (ProdCons p c)) = para $ "Minimum length of the string changed from " <> show' p <> " to " <> show' c <> "."
-  describeIssue (NoMatchingPattern p) = para "Pattern (regular expression) added: " <> codeBlock p
-  describeIssue NoMatchingItems = para "Array item schema has been added."
-  describeIssue (NoMatchingMaxItems n) = para $ "Maximum length of the array has been added " <> show' n <> "."
-  describeIssue (MatchingMaxItemsWeak (ProdCons p c)) = para $ "Maximum length of the array changed from " <> show' p <> " to " <> show' c <> "."
-  describeIssue (NoMatchingMinItems n) = para $ "Minimum length of the array added: " <> show' n <> "."
-  describeIssue (MatchingMinItemsWeak (ProdCons p c)) = para $ "Minimum length of the array changed from " <> show' p <> " to " <> show' c <> "."
-  describeIssue NoMatchingUniqueItems = para "Items are now required to be unique."
-  describeIssue NoMatchingProperties = para "Property added."
-  describeIssue (UnexpectedProperty p) = para $ "Property " <> code p <> " has been removed."
-  describeIssue (PropertyNowRequired p) = para $ "Property " <> code p <> " has become required."
-  describeIssue NoAdditionalProperties = para "Additional properties have been removed."
-  describeIssue (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been added: " <> show' n <> "."
-  describeIssue (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Maximum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
-  describeIssue (NoMatchingMinProperties n) = para $ "Minimum number of properties added: " <> show' n <> "."
-  describeIssue (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Minimum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
-  describeIssue (NoMatchingCondition conds) =
+  describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
+  describeIssue Backward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
+  describeIssue Forward (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
+  describeIssue Backward (NoMatchingEnum v) = para "The following enum value has been added:" <> showJSONValue v
+  describeIssue Forward (NoMatchingMaximum b) = para $ "Upper bound has been added:" <> showBound b <> "."
+  describeIssue Backward (NoMatchingMaximum b) = para $ "Upper bound has been removed:" <> showBound b <> "."
+  describeIssue _ (MatchingMaximumWeak (ProdCons p c)) = para $ "Upper bound changed from " <> showBound p <> " to " <> showBound c <> "."
+  describeIssue Forward (NoMatchingMinimum b) = para $ "Lower bound has been added: " <> showBound b <> "."
+  describeIssue Backward (NoMatchingMinimum b) = para $ "Lower bound has been removed: " <> showBound b <> "."
+  describeIssue _ (MatchingMinimumWeak (ProdCons p c)) = para $ "Lower bound changed from " <> showBound p <> " to " <> showBound c <> "."
+  describeIssue Forward (NoMatchingMultipleOf n) = para $ "Value is now a multiple of " <> show' n <> "."
+  describeIssue Backward (NoMatchingMultipleOf n) = para $ "Value is no longer a multiple of " <> show' n <> "."
+  describeIssue _ (MatchingMultipleOfWeak (ProdCons p c)) = para $ "Value changed from being a multiple of " <> show' p <> " to being a multiple of " <> show' c <> "."
+  describeIssue Forward (NoMatchingFormat f) = para $ "Format added: " <> code f <> "."
+  describeIssue Backward (NoMatchingFormat f) = para $ "Format removed: " <> code f <> "."
+  describeIssue Forward (NoMatchingMaxLength n) = para $ "Maximum length added: " <> show' n <> "."
+  describeIssue Backward (NoMatchingMaxLength n) = para $ "Maximum length removed: " <> show' n <> "."
+  describeIssue _ (MatchingMaxLengthWeak (ProdCons p c)) = para $ "Maximum length of the string changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue Forward (NoMatchingMinLength n) = para $ "Minimum length of the string added: " <> show' n <> "."
+  describeIssue Backward (NoMatchingMinLength n) = para $ "Minimum length of the string removed: " <> show' n <> "."
+  describeIssue _ (MatchingMinLengthWeak (ProdCons p c)) = para $ "Minimum length of the string changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue Forward (NoMatchingPattern p) = para "Pattern (regular expression) added: " <> codeBlock p
+  describeIssue Backward (NoMatchingPattern p) = para "Pattern (regular expression) removed: " <> codeBlock p
+  describeIssue Forward NoMatchingItems = para "Array item schema has been added."
+  describeIssue Backward NoMatchingItems = para "Array item schema has been removed."
+  describeIssue Forward (NoMatchingMaxItems n) = para $ "Maximum length of the array has been added " <> show' n <> "."
+  describeIssue Backward (NoMatchingMaxItems n) = para $ "Maximum length of the array has been removed " <> show' n <> "."
+  describeIssue _ (MatchingMaxItemsWeak (ProdCons p c)) = para $ "Maximum length of the array changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue Forward (NoMatchingMinItems n) = para $ "Minimum length of the array added: " <> show' n <> "."
+  describeIssue Backward (NoMatchingMinItems n) = para $ "Minimum length of the array removed: " <> show' n <> "."
+  describeIssue _ (MatchingMinItemsWeak (ProdCons p c)) = para $ "Minimum length of the array changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue Forward NoMatchingUniqueItems = para "Items are now required to be unique."
+  describeIssue Backward NoMatchingUniqueItems = para "Items are no longer required to be unique."
+  describeIssue Forward NoMatchingProperties = para "Property added."
+  describeIssue Backward NoMatchingProperties = para "Property removed."
+  describeIssue Forward (UnexpectedProperty p) = para $ "Property " <> code p <> " has been removed."
+  describeIssue Backward (UnexpectedProperty p) = para $ "Property " <> code p <> " has been added."
+  describeIssue Forward (PropertyNowRequired p) = para $ "Property " <> code p <> " has become required."
+  describeIssue Backward (PropertyNowRequired p) = para $ "Property " <> code p <> " is no longer required."
+  describeIssue Forward NoAdditionalProperties = para "Additional properties have been removed."
+  describeIssue Backward NoAdditionalProperties = para "Additional properties have been added."
+  describeIssue Forward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been added: " <> show' n <> "."
+  describeIssue Backward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been removed: " <> show' n <> "."
+  describeIssue _ (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Maximum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue Forward (NoMatchingMinProperties n) = para $ "Minimum number of properties added: " <> show' n <> "."
+  describeIssue Backward (NoMatchingMinProperties n) = para $ "Minimum number of properties removed: " <> show' n <> "."
+  describeIssue _ (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Minimum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue _ (NoMatchingCondition conds) =
     para "Expected the following conditions to hold, but they didn't (please file a bug if you see this):"
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
-  describeIssue NoContradiction = para "The type has been removed."
+  describeIssue Forward NoContradiction = para "The type has been removed."
+  describeIssue Backward NoContradiction = para "The type has been added."
 
 showJSONValue :: A.Value -> Blocks
 showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
@@ -1111,11 +1131,11 @@ instance Issuable 'SchemaLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = True
 
-  describeIssue (NotSupported i) =
+  describeIssue _ (NotSupported i) =
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
-  describeIssue (InvalidSchema i) =
+  describeIssue _ (InvalidSchema i) =
     para (emph "The schema is invalid: " <> text i <> ".")
-  describeIssue UnguardedRecursion =
+  describeIssue _ UnguardedRecursion =
     para "Encountered recursion that is too complex for OpenApi Diff to untangle."
 
 instance Behavable 'SchemaLevel 'TypedSchemaLevel where

@@ -134,13 +134,18 @@ instance Issuable 'ServerLevel where
     | ServerNotMatched
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue (EnumValueNotConsumed _ v) =
+  describeIssue Forward (EnumValueNotConsumed _ v) =
     para $ "Enum value " <> code v <> " has been removed."
-  describeIssue (ConsumerNotOpen _) =
+  describeIssue Backward (EnumValueNotConsumed _ v) =
+    para $ "Enum value " <> code v <> " has been added."
+  describeIssue Forward (ConsumerNotOpen _) =
     para $ "A variable has been changed from being open to being closed."
-  describeIssue (ServerVariableNotDefined k) =
+  describeIssue Backward (ConsumerNotOpen _) =
+    para $ "A variable has been changed from being closed to being open."
+  describeIssue _ (ServerVariableNotDefined k) =
     para $ "Variable " <> code k <> " is not defined."
-  describeIssue ServerNotMatched = para $ "The server was removed."
+  describeIssue Forward ServerNotMatched = para $ "The server was removed."
+  describeIssue Backward ServerNotMatched = para $ "The server was added."
 
 instance Subtree ProcessedServer where
   type SubtreeLevel ProcessedServer = 'ServerLevel

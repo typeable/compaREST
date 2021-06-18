@@ -69,13 +69,15 @@ instance Issuable 'PathFragmentLevel where
     | PathFragmentsDontMatch Text Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue ParamNameMismatch = para "The path fragments don't match."
-  describeIssue ParamEmptinessIncompatible = para "Expected that an empty parameter is allowed, but it isn't."
-  describeIssue ParamRequired = para "Parameter has become required."
-  describeIssue ParamPlaceIncompatible = para "Parameters in incompatible locations."
-  describeIssue ParamStyleMismatch = para "Different parameter styles (encodings)."
-  describeIssue ParamSchemaMismatch = para "Expected a schema, but didn't find one."
-  describeIssue (PathFragmentsDontMatch e a) = para $ "Parameter changed from " <> code e <> " to " <> code a <> "."
+  describeIssue _ ParamNameMismatch = para "The path fragments don't match."
+  describeIssue Forward ParamEmptinessIncompatible = para "The parameter can no longer be empty."
+  describeIssue Backward ParamEmptinessIncompatible = para "The parameter can now be empty."
+  describeIssue Forward ParamRequired = para "Parameter has become required."
+  describeIssue Backward ParamRequired = para "Parameter is no longer required."
+  describeIssue _ ParamPlaceIncompatible = para "Parameters in incompatible locations."
+  describeIssue _ ParamStyleMismatch = para "Different parameter styles (encodings)."
+  describeIssue _ ParamSchemaMismatch = para "Expected a schema, but didn't find one."
+  describeIssue _ (PathFragmentsDontMatch e a) = para $ "Parameter changed from " <> code e <> " to " <> code a <> "."
 
 instance Behavable 'PathFragmentLevel 'SchemaLevel where
   data Behave 'PathFragmentLevel 'SchemaLevel
