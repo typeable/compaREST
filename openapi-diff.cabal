@@ -105,6 +105,7 @@ library
                      , mtl
                      , aeson
                      , generic-data
+                     , doctemplates
   hs-source-dirs:      src
   exposed-modules:  Data.HList
                   , OpenAPI.Checker.Behavior
@@ -136,6 +137,7 @@ library
                   , Data.OpenUnion.Extra
                   , OpenAPI.Checker.Report.Jet
                   , OpenAPI.Checker.Run
+                  , OpenAPI.Checker.Report.Html.Template
 
 executable openapi-diff
   import:              common-options
@@ -151,6 +153,8 @@ executable openapi-diff
     , optparse-applicative
     , mtl
     , aeson
+    , containers
+    , doctemplates
   ghc-options:         -threaded
                        -rtsopts
                        -with-rtsopts=-N

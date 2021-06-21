@@ -38,11 +38,7 @@ main = do
         StdoutMode -> lift . T.putStrLn <=< runPandocIO . writeMarkdown options
         FileMode f -> case formatFromFilePath f of
           Nothing -> \_ -> throwError UnknownOutputFormat
-          Just (TextWriter writer) -> lift . T.writeFile f <=< runPandocIO . writer options
-          Just (ByteStringWriter writer) -> lift . BSL.writeFile f <=< runPandocIO . writer options
-      -- output :: Either (PathsPrefixTree Behave AnIssue 'APILevel) () -> ExceptT Errors IO ()
-      -- output inp = do
-      --   undefined
+          Just writer -> lift . BSL.writeFile f <=< runPandocIO . writer
       (report, status) = runReport (a, b)
   either handler pure <=< runExceptT $ write report
   case status of
