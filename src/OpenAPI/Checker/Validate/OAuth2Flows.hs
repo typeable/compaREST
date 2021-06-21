@@ -104,8 +104,9 @@ instance Issuable 'SecurityRequirementLevel where
     | UndefinedSecurityScheme Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue SecurityRequirementNotMet = para "Security scheme has been removed."
-  describeIssue (UndefinedSecurityScheme k) = para $ "Security scheme " <> code k <> " is not defined."
+  describeIssue Forward SecurityRequirementNotMet = para "Security scheme has been removed."
+  describeIssue Backward SecurityRequirementNotMet = para "Security scheme was added."
+  describeIssue _ (UndefinedSecurityScheme k) = para $ "Security scheme " <> code k <> " is not defined."
 
 instance Issuable 'SecuritySchemeLevel where
   data Issue 'SecuritySchemeLevel
@@ -129,26 +130,33 @@ instance Issuable 'SecuritySchemeLevel where
     | ScopeNotDefined Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue RefreshUrlsDontMatch = para "Refresh URL changed."
-  describeIssue (HttpSchemeTypesDontMatch _ _) = para "HTTP scheme type changed."
-  describeIssue (ApiKeyParamsDontMatch _ _) = para "API Key parameters changed."
-  describeIssue (OpenIdConnectUrlsDontMatch _ _) = para "OpenaId Connect URL changed."
-  describeIssue (CustomHttpSchemesDontMatch e a) =
+  describeIssue _ RefreshUrlsDontMatch = para "Refresh URL changed."
+  describeIssue _ (HttpSchemeTypesDontMatch _ _) = para "HTTP scheme type changed."
+  describeIssue _ (ApiKeyParamsDontMatch _ _) = para "API Key parameters changed."
+  describeIssue _ (OpenIdConnectUrlsDontMatch _ _) = para "OpenaId Connect URL changed."
+  describeIssue _ (CustomHttpSchemesDontMatch e a) =
     para $ "Changed HTTP scheme from " <> code e <> " to " <> code a <> "."
-  describeIssue ConsumerDoesNotSupportImplicitFlow = para "Implicit flow support has been removed."
-  describeIssue ConsumerDoesNotSupportPasswordFlow = para "Password flow support has been removed."
-  describeIssue ConsumerDoesNotSupportClientCridentialsFlow = para "Client Cridentials flow support has been removed."
-  describeIssue ConsumerDoesNotSupportAuthorizationCodeFlow = para "Authorization Code flow support has been removed."
-  describeIssue SecuritySchemeNotMatched = para "Security scheme has been removed."
-  describeIssue OAuth2ImplicitFlowNotEqual = para "Implicit Flow changed."
-  describeIssue OAuth2PasswordFlowNotEqual = para "Password Flow changed."
-  describeIssue OAuth2ClientCredentialsFlowNotEqual = para "Client Cridentials Flow changed."
-  describeIssue OAuth2AuthorizationCodeFlowNotEqual = para "Authorization Code Flow changed."
-  describeIssue (ScopesMissing ss) =
+  describeIssue Forward ConsumerDoesNotSupportImplicitFlow = para "Implicit flow support has been removed."
+  describeIssue Backward ConsumerDoesNotSupportImplicitFlow = para "Implicit flow support has been added."
+  describeIssue Forward ConsumerDoesNotSupportPasswordFlow = para "Password flow support has been removed."
+  describeIssue Backward ConsumerDoesNotSupportPasswordFlow = para "Password flow support has been added."
+  describeIssue Forward ConsumerDoesNotSupportClientCridentialsFlow = para "Client Cridentials flow support has been removed."
+  describeIssue Backward ConsumerDoesNotSupportClientCridentialsFlow = para "Client Cridentials flow support has been added."
+  describeIssue Forward ConsumerDoesNotSupportAuthorizationCodeFlow = para "Authorization Code flow support has been removed."
+  describeIssue Backward ConsumerDoesNotSupportAuthorizationCodeFlow = para "Authorization Code flow support has been added."
+  describeIssue Forward SecuritySchemeNotMatched = para "Security scheme has been removed."
+  describeIssue Backward SecuritySchemeNotMatched = para "Security scheme has been added."
+  describeIssue _ OAuth2ImplicitFlowNotEqual = para "Implicit Flow changed."
+  describeIssue _ OAuth2PasswordFlowNotEqual = para "Password Flow changed."
+  describeIssue _ OAuth2ClientCredentialsFlowNotEqual = para "Client Cridentials Flow changed."
+  describeIssue _ OAuth2AuthorizationCodeFlowNotEqual = para "Authorization Code Flow changed."
+  describeIssue Forward (ScopesMissing ss) =
     para "New scopes required:" <> bulletList (S.toList ss <&> codeBlock)
-  describeIssue DifferentSecuritySchemes = para "Completely different security scheme types."
-  describeIssue CanNotHaveScopes = para "The specified security scheme can not have scopes."
-  describeIssue (ScopeNotDefined k) = para $ "Scope with key " <> code k <> " is not defined."
+  describeIssue Backward (ScopesMissing ss) =
+    para "Scopes no longer required:" <> bulletList (S.toList ss <&> codeBlock)
+  describeIssue _ DifferentSecuritySchemes = para "Completely different security scheme types."
+  describeIssue _ CanNotHaveScopes = para "The specified security scheme can not have scopes."
+  describeIssue _ (ScopeNotDefined k) = para $ "Scope with key " <> code k <> " is not defined."
 
 instance Behavable 'SecurityRequirementLevel 'SecuritySchemeLevel where
   data Behave 'SecurityRequirementLevel 'SecuritySchemeLevel

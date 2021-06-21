@@ -72,10 +72,14 @@ instance Issuable 'ResponseLevel where
     | ResponseHeaderMissing HeaderName
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue (ResponseMediaTypeMissing t) =
+  describeIssue Forward (ResponseMediaTypeMissing t) =
+    para $ "Media type was removed: " <> (code . T.pack . show $ t) <> "."
+  describeIssue Backward (ResponseMediaTypeMissing t) =
     para $ "New media type was added: " <> (code . T.pack . show $ t) <> "."
-  describeIssue (ResponseHeaderMissing h) =
+  describeIssue Forward (ResponseHeaderMissing h) =
     para $ "New header was added " <> code h <> "."
+  describeIssue Backward (ResponseHeaderMissing h) =
+    para $ "Header was removed " <> code h <> "."
 
 instance Behavable 'ResponseLevel 'PayloadLevel where
   data Behave 'ResponseLevel 'PayloadLevel

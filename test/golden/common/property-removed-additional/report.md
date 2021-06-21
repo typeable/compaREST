@@ -8,11 +8,11 @@
 
 ## **POST** /test
 
-### 📱➡️ JSON Request
+### 📱⬅️ JSON Response – 200
 
-#### `$(String)`
+#### `$(Object)`
 
-The type has been removed.
+Property `property2` may not be present.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -20,6 +20,6 @@ The type has been removed.
 
 ### 📱➡️ JSON Request
 
-#### `$(Number)`
+#### `$(Object)`
 
-The type has been added.
+Property `property2` may not be present.

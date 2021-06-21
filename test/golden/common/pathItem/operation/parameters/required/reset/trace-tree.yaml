@@ -1,1 +1,5 @@
-Right: []
+breakingChanges: {}
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InParam "test1": ParamRequired

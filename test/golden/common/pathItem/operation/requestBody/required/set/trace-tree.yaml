@@ -1,4 +1,5 @@
-Left:
+breakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest: RequestBodyRequired
+nonBreakingChanges: {}

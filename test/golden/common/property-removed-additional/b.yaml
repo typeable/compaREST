@@ -1,0 +1,29 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Test
+servers:
+  - url: http://localhost/
+paths:
+  /test:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test"
+      responses:
+        "200":
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test"
+components:
+  schemas:
+    Test:
+      required:
+        - property1
+      properties:
+        property1:
+          type: string

@@ -20,7 +20,7 @@ packages:
     hackage: type-fun-0.1.3
 snapshots:
 - completed:
-    size: 585361
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2021/6/10.yaml
-    sha256: ef53458d54ca6084c6d8eb5219d03b38878e999af607cf006d5be86669d9a696
-  original: nightly-2021-06-10
+    size: 585393
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/0.yaml
+    sha256: c632012da648385b9fa3c29f4e0afd56ead299f1c5528ee789058be410e883c0
+  original: lts-18.0

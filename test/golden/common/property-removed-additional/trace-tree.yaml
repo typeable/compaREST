@@ -1,10 +1,6 @@
 breakingChanges:
   AtPath "/test":
     InOperation PostMethod:
-      InRequest:
-        InPayload:
-          PayloadSchema:
-            OfType Object: UnexpectedProperty "property2"
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
@@ -16,7 +12,3 @@ nonBreakingChanges:
         InPayload:
           PayloadSchema:
             OfType Object: PropertyNowRequired "property2"
-      WithStatusCode 200:
-        ResponsePayload:
-          PayloadSchema:
-            OfType Object: UnexpectedProperty "property2"

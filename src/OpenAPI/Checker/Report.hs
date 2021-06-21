@@ -1,15 +1,20 @@
 module OpenAPI.Checker.Report
   ( generateReport
+  , ReportInput (..)
+  , ReportStatus (..)
+  , Pandoc
   )
 where
 
 import Control.Monad.Free hiding (unfoldM)
 import Control.Monad.Reader
 import Control.Monad.Writer
+import Data.Aeson (ToJSON)
 import Data.Either
 import Data.Foldable
 import Data.Function
 import Data.Functor
+import Data.Functor.Const
 import Data.List.NonEmpty
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
@@ -22,6 +27,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import Data.TypeRepMap hiding (empty)
 import Data.Typeable
+import Generic.Data
 import OpenAPI.Checker.Behavior
 import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
@@ -31,27 +37,79 @@ import OpenAPI.Checker.Validate.OpenApi
 import OpenAPI.Checker.Validate.Schema
 import Text.Pandoc.Builder
 
-generateReport :: Either (P.PathsPrefixTree Behave AnIssue 'APILevel) () -> Pandoc
-generateReport (Right ()) = doc $ header 1 "No breaking changes found ✨"
-generateReport (Left errs) = doc $
-  runReportMonad jets $ do
-    let (unsupported, breaking) = P.partition (\(AnIssue i) -> issueIsUnsupported i) errs
-        breakingChangesPresent = not $ P.null breaking
-        unsupportedChangesPresent = not $ P.null unsupported
-    smartHeader "Summary"
-    tell $
-      simpleTable
-        (para
-           <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
-               , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
-               ])
-        [para . show' <$> [P.size breaking, P.size unsupported]]
-    when breakingChangesPresent $ do
-      smartHeader $ anchor breakingChangesId <> "⚠️ Breaking changes"
-      incrementHeaders $ showErrs breaking
-    when unsupportedChangesPresent $ do
-      smartHeader $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
-      incrementHeaders $ showErrs unsupported
+type Changes = P.PathsPrefixTree Behave AnIssue 'APILevel
+
+type ProcessedChanges a = P.PathsPrefixTree Behave (FunctorTuple (Const Orientation) AnIssue) a
+
+data FunctorTuple f g a = FunctorTuple (f a) (g a)
+  deriving stock (Eq, Ord)
+
+data ReportInput = ReportInput
+  { breakingChanges :: Changes
+  , nonBreakingChanges :: Changes
+  }
+  deriving stock (Generic)
+  deriving (Semigroup, Monoid) via (Generically ReportInput)
+  deriving anyclass (ToJSON)
+
+data ReportStatus
+  = BreakingChanges
+  | NoBreakingChanges
+  | -- | All changes that could be breaking are unsupported – we don't know if
+    -- there actually are any breaking changes.
+    OnlyUnsupportedChanges
+
+preprocessChanges :: Orientation -> Changes -> ProcessedChanges 'APILevel
+preprocessChanges initialO = P.fromList . fmap process . P.toList
+  where
+    process :: AnItem Behave AnIssue 'APILevel -> AnItem Behave (FunctorTuple (Const Orientation) AnIssue) 'APILevel
+    process (AnItem paths issue) = AnItem paths $ FunctorTuple (Const $ toggle initialO) issue
+      where
+        (Endo toggle) = togglePaths paths
+
+    togglePaths :: Paths Behave a c -> Endo Orientation
+    togglePaths Root = mempty
+    togglePaths (rest `Snoc` (_ :: Behave b c)) = case eqT @c @'ResponseLevel of
+      Just Refl -> Endo toggleOrientation <> togglePaths rest
+      Nothing -> togglePaths rest
+
+generateReport :: ReportInput -> (Pandoc, ReportStatus)
+generateReport inp =
+  let partitionUnsupported = P.partition (\(AnIssue i) -> issueIsUnsupported i)
+      (bUnsupported, preprocessChanges Forward -> breaking) =
+        partitionUnsupported $ breakingChanges inp
+      (nbUnsupported, preprocessChanges Backward -> nonBreaking) =
+        partitionUnsupported $ nonBreakingChanges inp
+      unsupported = preprocessChanges Forward $ bUnsupported <> nbUnsupported
+      breakingChangesPresent = not $ P.null breaking
+      nonBreakingChangesPresent = not $ P.null nonBreaking
+      unsupportedChangesPresent = not $ P.null unsupported
+      report = doc $
+        runReportMonad jets $ do
+          smartHeader "Summary"
+          tell $
+            simpleTable
+              (para
+                 <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+                     , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
+                     , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
+                     ])
+              [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
+          when breakingChangesPresent $ do
+            smartHeader $ anchor breakingChangesId <> "⚠️ Breaking changes"
+            incrementHeaders $ showErrs breaking
+          when nonBreakingChangesPresent $ do
+            smartHeader $ anchor nonBreakingChangesId <> "🙆 Non-breaking changes"
+            incrementHeaders $ showErrs nonBreaking
+          when unsupportedChangesPresent $ do
+            smartHeader $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
+            incrementHeaders $ showErrs unsupported
+      status =
+        if
+            | breakingChangesPresent -> BreakingChanges
+            | unsupportedChangesPresent -> OnlyUnsupportedChanges
+            | otherwise -> NoBreakingChanges
+   in (report, status)
   where
     anchor :: Text -> Inlines
     anchor a = spanWith (a, [], []) mempty
@@ -60,11 +118,10 @@ generateReport (Left errs) = doc $
     refOpt False _ i = i
     refOpt True a i = link ("#" <> a) "" i
 
-    breakingChangesId :: Text
+    breakingChangesId, nonBreakingChangesId, unsupportedChangesId :: Text
     breakingChangesId = "breaking-changes"
-
-    unsupportedChangesId :: Text
     unsupportedChangesId = "unsupported-changes"
+    nonBreakingChangesId = "non-breaking-changes"
 
 data ReportState = ReportState
   { sourceJets :: [ReportJet' Behave Inlines]
@@ -88,22 +145,24 @@ smartHeader i = do
   h <- asks headerLevel
   tell $ header h i
 
-showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
+showErrs :: forall a. Typeable a => ProcessedChanges a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
   let -- Extract this pattern if more cases like this arise
-      (removedPaths :: [Issue 'APILevel], otherIssues :: Set (AnIssue a)) = case eqT @a @'APILevel of
-        Just Refl ->
-          let (p, o) =
-                S.partition
-                  (\(AnIssue u) -> case u of
-                     NoPathsMatched {} -> True
-                     AllPathsFailed {} -> True)
-                  currentIssues
-              p' = S.toList p <&> (\(AnIssue i) -> i)
-           in (p', o)
-        Nothing -> (mempty, currentIssues)
+      ( removedPaths :: [Issue 'APILevel]
+        , otherIssues :: Set (FunctorTuple (Const Orientation) AnIssue a)
+        ) = case eqT @a @'APILevel of
+          Just Refl ->
+            let (p, o) =
+                  S.partition
+                    (\(FunctorTuple _ (AnIssue u)) -> case u of
+                       NoPathsMatched {} -> True
+                       AllPathsFailed {} -> True)
+                    currentIssues
+                p' = S.toList p <&> (\(FunctorTuple _ (AnIssue i)) -> i)
+             in (p', o)
+          Nothing -> (mempty, currentIssues)
   jts <- asks sourceJets
-  for_ otherIssues $ \(AnIssue i) -> tell . describeIssue $ i
+  for_ otherIssues $ \(FunctorTuple (Const ori) (AnIssue i)) -> tell . describeIssue ori $ i
   unless ([] == removedPaths) $ do
     smartHeader "Removed paths"
     tell $
@@ -135,9 +194,9 @@ jets =
     <$> [ constructReportJet jsonPathJet
         , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
             strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
-        , constructReportJet $ \InRequest InPayload PayloadSchema -> "JSON Request" :: Inlines
+        , constructReportJet $ \InRequest InPayload PayloadSchema -> "📱➡️ JSON Request" :: Inlines
         , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
-            "JSON Response – " <> str (T.pack . show $ c) :: Inlines
+            "📱⬅️ JSON Response – " <> str (T.pack . show $ c) :: Inlines
         ]
   where
     unwrapReportJetResult :: ReportJetResult Behave x -> ReportJet' Behave x
@@ -177,8 +236,8 @@ jets =
 
 observeJetShowErrs
   :: ReportJet' Behave Inlines
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
+  -> ProcessedChanges a
+  -> ReportMonad (ProcessedChanges a)
 observeJetShowErrs jet p = case observeJetShowErrs' jet p of
   Just m -> m
   Nothing -> pure p
@@ -186,8 +245,8 @@ observeJetShowErrs jet p = case observeJetShowErrs' jet p of
 observeJetShowErrs'
   :: forall a.
      ReportJet' Behave Inlines
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
+  -> ProcessedChanges a
+  -> Maybe (ReportMonad (ProcessedChanges a))
 observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
   let results =
         subIssues >>= \(WrapTypeable (AStep m)) ->

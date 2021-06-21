@@ -1,7 +1,12 @@
-Left:
+breakingChanges:
   AtPath "/pets":
     InOperation GetMethod:
       InServer "http://{x}variable.path/{y}/{openVariable1}/{openVariable2}":
       - EnumValueNotConsumed 1 "a"
       - ConsumerNotOpen 7
       InServer "http://missing.url": ServerNotMatched
+nonBreakingChanges:
+  AtPath "/pets":
+    InOperation GetMethod:
+      InServer "http://{x}variable.path/{y}/{openVariable1}/{openVariable2}": EnumValueNotConsumed
+        3 "bbb"

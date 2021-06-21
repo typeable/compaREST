@@ -7,16 +7,10 @@ import Control.Category
 import Control.Exception
 import qualified Data.ByteString.Lazy as BSL
 import Data.Default
-import Data.HList
-import Data.OpenApi
 import Data.Text (Text)
 import qualified Data.Text.Encoding as T
 import qualified Data.Yaml as Yaml
-import OpenAPI.Checker.Behavior
-import OpenAPI.Checker.Paths
-import OpenAPI.Checker.PathsPrefixTree
-import OpenAPI.Checker.Report
-import OpenAPI.Checker.Subtree
+import OpenAPI.Checker.Run
 import OpenAPI.Checker.Validate.OpenApi ()
 import Spec.Golden.Extra
 import Test.Tasty (TestTree, testGroup)
@@ -43,18 +37,9 @@ tests = do
       "report.md"
       ("a.yaml", "b.yaml")
       Yaml.decodeFileThrow
-      (runPandoc . writeMarkdown def {writerExtensions = githubMarkdownExtensions} . generateReport . runChecker)
+      (runPandoc . writeMarkdown def {writerExtensions = githubMarkdownExtensions} . fst . runReport)
 
   return $ testGroup "Golden tests" [traceTreeTests, reportTests]
 
 runPandoc :: PandocPure Text -> IO BSL.ByteString
 runPandoc = either throwIO (pure . BSL.fromStrict . T.encodeUtf8) . runPure
-
-runChecker :: (OpenApi, OpenApi) -> Either (PathsPrefixTree Behave AnIssue 'APILevel) ()
-runChecker = runCompatFormula . checkCompatibility HNil Root . toPC
-  where
-    toPC (c, s) =
-      ProdCons
-        { producer = traced (step ClientSchema) c
-        , consumer = traced (step ServerSchema) s
-        }

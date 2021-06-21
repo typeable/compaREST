@@ -31,10 +31,14 @@ instance Issuable 'RequestLevel where
     | RequestMediaTypeNotFound MediaType
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue RequestBodyRequired =
+  describeIssue Forward RequestBodyRequired =
     para "Request body has become required."
-  describeIssue (RequestMediaTypeNotFound t) =
+  describeIssue Backward RequestBodyRequired =
+    para "Request body is no longer required."
+  describeIssue Forward (RequestMediaTypeNotFound t) =
     para $ "Media type " <> (code . T.pack . show $ t) <> " has been removed."
+  describeIssue Backward (RequestMediaTypeNotFound t) =
+    para $ "Media type " <> (code . T.pack . show $ t) <> " has been added."
 
 instance Behavable 'RequestLevel 'PayloadLevel where
   data Behave 'RequestLevel 'PayloadLevel
