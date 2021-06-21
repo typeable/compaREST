@@ -1095,7 +1095,7 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Forward (UnexpectedProperty p) = para $ "Property " <> code p <> " has been removed."
   describeIssue Backward (UnexpectedProperty p) = para $ "Property " <> code p <> " has been added."
   describeIssue Forward (PropertyNowRequired p) = para $ "Property " <> code p <> " has become required."
-  describeIssue Backward (PropertyNowRequired p) = para $ "Property " <> code p <> " is no longer required."
+  describeIssue Backward (PropertyNowRequired p) = para $ "Property " <> code p <> " may not be present."
   describeIssue Forward NoAdditionalProperties = para "Additional properties have been removed."
   describeIssue Backward NoAdditionalProperties = para "Additional properties have been added."
   describeIssue Forward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been added: " <> show' n <> "."

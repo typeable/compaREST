@@ -2,17 +2,11 @@
 
 | [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
 |------------------------------------------|-------------------------------------------------|-------------------------------|
-| 2                                        | 2                                               | 0                             |
+| 1                                        | 1                                               | 0                             |
 
 # <span id="breaking-changes"></span>⚠️ Breaking changes
 
 ## **POST** /test
-
-### 📱➡️ JSON Request
-
-#### `$(Object)`
-
-Property `property2` has been removed.
 
 ### 📱⬅️ JSON Response – 200
 
@@ -29,9 +23,3 @@ Property `property2` may not be present.
 #### `$(Object)`
 
 Property `property2` may not be present.
-
-### 📱⬅️ JSON Response – 200
-
-#### `$(Object)`
-
-Property `property2` has been removed.
