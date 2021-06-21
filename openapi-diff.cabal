@@ -106,6 +106,7 @@ library
                      , aeson
                      , generic-data
                      , doctemplates
+                     , file-embed
   hs-source-dirs:      src
   exposed-modules:  Data.HList
                   , OpenAPI.Checker.Behavior
