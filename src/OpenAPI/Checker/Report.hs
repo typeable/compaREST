@@ -148,28 +148,32 @@ smartHeader i = do
 showErrs :: forall a. Typeable a => ProcessedChanges a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
   let -- Extract this pattern if more cases like this arise
-      ( removedPaths :: [Issue 'APILevel]
+      ( removedPaths :: Maybe (Orientation, [Issue 'APILevel])
         , otherIssues :: Set (FunctorTuple (Const Orientation) AnIssue a)
         ) = case eqT @a @'APILevel of
-          Just Refl ->
-            let (p, o) =
-                  S.partition
-                    (\(FunctorTuple _ (AnIssue u)) -> case u of
-                       NoPathsMatched {} -> True
-                       AllPathsFailed {} -> True)
-                    currentIssues
-                p' = S.toList p <&> (\(FunctorTuple _ (AnIssue i)) -> i)
-             in (p', o)
-          Nothing -> (mempty, currentIssues)
+          Just Refl
+            | (S.toList -> p@(FunctorTuple (Const ori) _ : _), o) <-
+                S.partition
+                  (\(FunctorTuple _ (AnIssue u)) -> case u of
+                     NoPathsMatched {} -> True
+                     AllPathsFailed {} -> True)
+                  currentIssues ->
+              let p' = p <&> (\(FunctorTuple _ (AnIssue i)) -> i)
+               in (Just (ori, p'), o)
+          _ -> (Nothing, currentIssues)
   jts <- asks sourceJets
   for_ otherIssues $ \(FunctorTuple (Const ori) (AnIssue i)) -> tell . describeIssue ori $ i
-  unless ([] == removedPaths) $ do
-    smartHeader "Removed paths"
-    tell $
-      bulletList $
-        removedPaths <&> \case
-          (NoPathsMatched p) -> para . code $ T.pack p
-          (AllPathsFailed p) -> para . code $ T.pack p
+  case removedPaths of
+    Just (ori, paths) -> do
+      smartHeader $ case ori of
+        Forward -> "Removed paths"
+        Backward -> "Added paths"
+      tell $
+        bulletList $
+          paths <&> \case
+            (NoPathsMatched p) -> para . code $ T.pack p
+            (AllPathsFailed p) -> para . code $ T.pack p
+    Nothing -> pure ()
   unfoldM x (observeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
     for_ subIssues $ \(WrapTypeable (AStep m)) ->
       for_ (M.toList m) $ \(bhv, subErrors) -> do
