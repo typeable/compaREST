@@ -1,0 +1,3 @@
+[submodule "awsm-css"]
+	path = awsm-css
+	url = https://github.com/igoradamenko/awsm.css.git
