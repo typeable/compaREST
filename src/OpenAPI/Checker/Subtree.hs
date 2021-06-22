@@ -18,7 +18,6 @@ module OpenAPI.Checker.Subtree
   , CompatFormula'
   , SemanticCompatFormula
   , ProdCons (..)
-  , HasUnsupportedFeature (..)
   , swapProdCons
   , runCompatFormula
   , issueAt
@@ -53,7 +52,6 @@ import Data.HList
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.Hashable
 import Data.Kind
-import Data.Monoid
 import Data.OpenApi
 import qualified Data.Set as S
 import Data.Typeable
@@ -235,32 +233,6 @@ iohmStructuralWith f pc = do
         (\eKey ->
            f eKey $ stepTraced (InsOrdHashMapKeyStep eKey) . fmap (IOHM.lookupDefault (error "impossible") eKey) <$> pc)
     else structuralIssue
-
-class HasUnsupportedFeature x where
-  hasUnsupportedFeature :: x -> Bool
-
-instance HasUnsupportedFeature () where
-  hasUnsupportedFeature () = False
-
-instance
-  (HasUnsupportedFeature a, HasUnsupportedFeature b)
-  => HasUnsupportedFeature (Either a b)
-  where
-  hasUnsupportedFeature (Left x) = hasUnsupportedFeature x
-  hasUnsupportedFeature (Right x) = hasUnsupportedFeature x
-
-instance Issuable l => HasUnsupportedFeature (Issue l) where
-  hasUnsupportedFeature = issueIsUnsupported
-
-instance HasUnsupportedFeature (AnIssue l) where
-  hasUnsupportedFeature (AnIssue issue) = hasUnsupportedFeature issue
-
-instance
-  (forall x. HasUnsupportedFeature (f x))
-  => HasUnsupportedFeature (P.PathsPrefixTree q f r)
-  where
-  hasUnsupportedFeature =
-    getAny . P.foldWith (\_ fa -> Any $ hasUnsupportedFeature fa)
 
 runCompatFormula
   :: CompatFormula' q f r a
