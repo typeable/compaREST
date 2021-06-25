@@ -460,7 +460,7 @@ type MonadProcess m =
 type SilentM = ReaderT (Traced (Definitions Schema)) (Silent Behave AnIssue 'SchemaLevel)
 
 warn :: MonadProcess m => Issue 'SchemaLevel -> m ()
-warn issue = tell $ P.singleton $ AnItem Root $ AnIssue issue
+warn issue = tell $ P.singleton $ AnItem Root $ anIssue issue
 
 -- | Ignore warnings but allow a recursive loop that lazily computes a recursive 'Condition'.
 silently :: MonadProcess m => SilentM a -> m a
@@ -810,7 +810,7 @@ checkFormulas
   -> SemanticCompatFormula ()
 checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
   case P.toList ep ++ P.toList ec of
-    issues@(_ : _) -> F.for_ issues $ \(AnItem t (AnIssue e)) -> issueAt (beh >>> t) e
+    issues@(_ : _) -> F.for_ issues $ embedFormula beh . anItem
     [] -> do
       -- We have the following isomorphisms:
       --   (A ⊂ X ∪ Y) = (A ⊂ X) \/ (A ⊂ Y)

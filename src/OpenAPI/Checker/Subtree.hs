@@ -21,6 +21,11 @@ module OpenAPI.Checker.Subtree
   , swapProdCons
   , runCompatFormula
   , issueAt
+  , anItem
+  , anIssue
+  , invertIssueOrientation
+  , invertIssueOrientationP
+  , embedFormula
   , anyOfAt
   , structuralIssue
 
@@ -240,8 +245,24 @@ runCompatFormula
 runCompatFormula (Compose f) =
   calculate . runIdentity . runMemo 0 . unCompatM $ f
 
+embedFormula :: Paths q r l -> CompatFormula' q f l a -> CompatFormula' q f r a
+embedFormula bhv (Compose x) = Compose $ mapErrors (P.embed bhv) <$> x
+
 issueAt :: Issuable l => Paths q r l -> Issue l -> CompatFormula' q AnIssue r a
-issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ AnIssue issue
+issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ anIssue issue
+
+anIssue :: Issuable l => Issue l -> AnIssue l
+anIssue = AnIssue Forward
+
+anItem :: AnItem q AnIssue r -> CompatFormula' q AnIssue r a
+anItem = Compose . pure . anError
+
+invertIssueOrientation :: CompatFormula' q AnIssue r a -> CompatFormula' q AnIssue r a
+invertIssueOrientation (Compose x) =
+  Compose $ mapErrors invertIssueOrientationP <$> x
+
+invertIssueOrientationP :: P.PathsPrefixTree q AnIssue r -> P.PathsPrefixTree q AnIssue r
+invertIssueOrientationP = P.map (\(AnIssue ori i) -> AnIssue (toggleOrientation ori) i)
 
 structuralIssue :: StructuralCompatFormula a
 structuralIssue = Compose $ pure $ anError $ AnItem Root Proxy
@@ -254,7 +275,7 @@ anyOfAt
   -> CompatFormula' q AnIssue r a
 anyOfAt _ _ [x] = x
 anyOfAt xs issue fs =
-  Compose $ (`eitherOf` AnItem xs (AnIssue issue)) <$> sequenceA (getCompose <$> fs)
+  Compose $ (`eitherOf` AnItem xs (anIssue issue)) <$> sequenceA (getCompose <$> fs)
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m

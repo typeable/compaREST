@@ -117,7 +117,7 @@ instance Subtree Response where
       checkMediaTypes = do
         -- Media types are sum-like entity
         let check mediaType mtObj =
-              let mtEnv = HCons mediaType $ env
+              let mtEnv = HCons mediaType env
                in checkCompatibility @MediaTypeObject mtEnv (beh >>> step ResponsePayload) mtObj
             elements = getEls <$> prodCons
             getEls resp = M.fromList . IOHM.toList $ tracedContent resp

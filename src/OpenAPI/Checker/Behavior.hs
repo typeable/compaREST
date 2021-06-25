@@ -58,7 +58,7 @@ class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLeve
   issueIsUnsupported :: Issue l -> Bool
 
 data Orientation = Forward | Backward
-  deriving stock (Eq, Ord)
+  deriving stock (Eq, Ord, Show)
 
 toggleOrientation :: Orientation -> Orientation
 toggleOrientation Forward = Backward
@@ -71,7 +71,7 @@ instance Issuable l => ToJSON (Issue l) where
   toJSON = toJSON . show
 
 data AnIssue (l :: BehaviorLevel) where
-  AnIssue :: Issuable l => Issue l -> AnIssue l
+  AnIssue :: Issuable l => Orientation -> Issue l -> AnIssue l
 
 deriving stock instance Show (AnIssue l)
 
@@ -80,4 +80,4 @@ deriving stock instance Eq (AnIssue l)
 deriving stock instance Ord (AnIssue l)
 
 instance ToJSON (AnIssue l) where
-  toJSON (AnIssue issue) = toJSON issue
+  toJSON (AnIssue _ issue) = toJSON issue
