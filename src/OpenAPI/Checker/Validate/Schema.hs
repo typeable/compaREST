@@ -803,7 +803,7 @@ schemaToFormula
 schemaToFormula defs rs = runWriter . (`runReaderT` defs) . runMemo () $ processSchema rs
 
 checkFormulas
-  :: (HasAll (CheckEnv Schema) xs)
+  :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
   -> Behavior 'SchemaLevel
   -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
@@ -867,7 +867,7 @@ checkContradiction
 checkContradiction beh _ = issueAt beh NoContradiction -- TODO #70
 
 checkImplication
-  :: (HasAll (CheckEnv Schema) xs)
+  :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
   -> Behavior 'TypedSchemaLevel
   -> [Condition t]

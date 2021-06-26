@@ -148,14 +148,12 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   type SubtreeLevel t :: BehaviorLevel
 
   checkStructuralCompatibility
-    :: (HasAll (CheckEnv t) xs)
-    => HList xs
+    :: HList (CheckEnv t)
     -> ProdCons (Traced t)
     -> StructuralCompatFormula ()
 
   checkSemanticCompatibility
-    :: (HasAll (CheckEnv t) xs)
-    => HList xs
+    :: HList (CheckEnv t)
     -> Behavior (SubtreeLevel t)
     -> ProdCons (Traced t)
     -> SemanticCompatFormula ()
@@ -165,25 +163,28 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
 {-# WARNING checkSemanticCompatibility "You should not be calling this directly. Use 'checkCompatibility'" #-}
 
 checkCompatibility
-  :: (HasAll (CheckEnv t) xs, Subtree t)
+  :: forall t xs.
+  (ReassembleHList xs (CheckEnv t), Subtree t)
   => Behavior (SubtreeLevel t)
   -> HList xs
   -> ProdCons (Traced t)
   -> SemanticCompatFormula ()
 checkCompatibility bhv e = memo bhv SemanticMemoKey $ \pc ->
   case runCompatFormula $ checkSubstructure e pc of
-    Left _ -> checkSemanticCompatibility e bhv pc
+    Left _ -> checkSemanticCompatibility (reassemble e) bhv pc
     Right () -> pure ()
+{-# INLINE checkCompatibility #-}
 
 checkSubstructure
-  :: (HasAll (CheckEnv t) xs, Subtree t)
+  :: (ReassembleHList xs (CheckEnv t), Subtree t)
   => HList xs
   -> ProdCons (Traced t)
   -> StructuralCompatFormula ()
-checkSubstructure e = memo Root StructuralMemoKey $ checkStructuralCompatibility e
+checkSubstructure e = memo Root StructuralMemoKey $ checkStructuralCompatibility (reassemble e)
+{-# INLINE checkSubstructure #-}
 
 structuralMaybe
-  :: (Subtree a, HasAll (CheckEnv a) xs)
+  :: (Subtree a, ReassembleHList xs (CheckEnv a))
   => HList xs
   -> ProdCons (Maybe (Traced a))
   -> StructuralCompatFormula ()
@@ -198,7 +199,7 @@ structuralMaybeWith _ (ProdCons Nothing Nothing) = pure ()
 structuralMaybeWith _ _ = structuralIssue
 
 structuralList
-  :: (Subtree a, HasAll (CheckEnv a) xs)
+  :: (Subtree a, ReassembleHList xs (CheckEnv a))
   => HList xs
   -> ProdCons [Traced a]
   -> StructuralCompatFormula ()
@@ -213,7 +214,7 @@ structuralEq :: (Eq a, Comonad w) => ProdCons (w a) -> StructuralCompatFormula (
 structuralEq (ProdCons a b) = if extract a == extract b then pure () else structuralIssue
 
 iohmStructural
-  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, Hashable k, Typeable k, Show k)
+  :: (ReassembleHList (k ': xs) (CheckEnv v), Ord k, Subtree v, Hashable k, Typeable k, Show k)
   => HList xs
   -> ProdCons (Traced (IOHM.InsOrdHashMap k v))
   -> StructuralCompatFormula ()
