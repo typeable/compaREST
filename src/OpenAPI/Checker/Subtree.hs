@@ -109,8 +109,36 @@ data ProdCons a = ProdCons
   }
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-swapProdCons :: ProdCons a -> ProdCons a
-swapProdCons (ProdCons a b) = ProdCons b a
+swapProdCons
+  :: SwapEnvRoles xs
+  => (HList xs -> ProdCons x -> y)
+  -> (HList xs -> ProdCons x -> y)
+swapProdCons f e (ProdCons p c) = f (swapEnvRoles e) (ProdCons c p)
+{-# INLINE swapProdCons #-}
+
+type family IsProdCons (x :: Type) :: Bool where
+  IsProdCons (ProdCons _) = 'True
+  IsProdCons _ = 'False
+
+type SwapEnvElementRoles x = SwapEnvElementRoles' x (IsProdCons x)
+
+class IsProdCons x ~ f => SwapEnvElementRoles' (x :: Type) f where
+  swapEnvElementRoles :: x -> x
+
+instance SwapEnvElementRoles' (ProdCons x) 'True where
+  swapEnvElementRoles (ProdCons p c) = ProdCons c p
+
+instance IsProdCons x ~ 'False => SwapEnvElementRoles' x 'False where
+  swapEnvElementRoles = id
+
+class SwapEnvRoles xs where
+  swapEnvRoles :: HList xs -> HList xs
+
+instance SwapEnvRoles '[] where
+  swapEnvRoles = id
+
+instance (SwapEnvElementRoles x, SwapEnvRoles xs) => SwapEnvRoles (x ': xs) where
+  swapEnvRoles (HCons x xs) = HCons (swapEnvElementRoles x) (swapEnvRoles xs)
 
 instance Applicative ProdCons where
   pure x = ProdCons x x

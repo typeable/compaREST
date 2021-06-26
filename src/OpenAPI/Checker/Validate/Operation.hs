@@ -203,8 +203,8 @@ instance Subtree MatchedOperation where
                       , required = fromMaybe False . _paramRequired . extract $ p
                       }
               pure (k, v)
-            check (_, name) param = do
-              checkCompatibility @Param (beh >>> step (InParam name)) (singletonH schemaDefs) param
+            check (_, name) param =
+              checkCompatibility @Param (beh >>> step (InParam name)) env param
         checkProducts beh (ParamNotMatched . snd) check elements
       checkPathParams :: ProdCons [Traced Param] -> SemanticCompatFormula ()
       checkPathParams pathParams = do
@@ -239,32 +239,16 @@ instance Subtree MatchedOperation where
                     }
                 )
         checkProducts beh (const NoRequestBody) (const check) elements
-      checkResponses = do
-        let respEnv =
-              HCons (swapProdCons respDefs) $
-                HCons (swapProdCons headerDefs) $
-                  HCons (swapProdCons schemaDefs) $
-                    HCons (swapProdCons linkDefs) HNil
-            resps = tracedResponses <$> prodCons
-        checkCompatibility beh respEnv $ swapProdCons resps
+      checkResponses =
+        swapProdCons (checkCompatibility beh) env $ tracedResponses <$> prodCons
       -- FIXME: https://github.com/typeable/openapi-diff/issues/27
       checkCallbacks = do
-        let env' =
-              HCons (swapProdCons respDefs) $
-                HCons (swapProdCons headerDefs) $
-                  HCons (swapProdCons schemaDefs) $
-                    HCons (swapProdCons securitySchemeDefs) $
-                      HCons (swapProdCons paramDefs) $
-                        HCons (swapProdCons serversDefs) $
-                          HCons (swapProdCons callbackDefs) $
-                            HCons (swapProdCons bodyDefs) $
-                              HCons (swapProdCons linkDefs) HNil
-        let ProdCons pCallbacks cCallbacks = swapProdCons $ tracedCallbacks <$> prodCons
+        let ProdCons pCallbacks cCallbacks = tracedCallbacks <$> prodCons
         for_ pCallbacks $ \(k, pCallback) -> do
           let beh' = beh >>> step (OperationCallback k)
           anyOfAt beh' CallbacksUnsupported $
             cCallbacks <&> \(_, cCallback) -> do
-              checkCompatibility beh' env' $ ProdCons pCallback cCallback
+              swapProdCons (checkCompatibility beh') env $ ProdCons pCallback cCallback
         pure ()
       -- FIXME: https://github.com/typeable/openapi-diff/issues/28
       checkOperationSecurity = do
@@ -280,14 +264,7 @@ instance Subtree MatchedOperation where
           se <- getH @(ProdCons [Server]) env
           pure $ Traced (ask x >>> step OperationServersStep) (getServers se (extract x))
       bodyDefs = getH @(ProdCons (Traced (Definitions RequestBody))) env
-      respDefs = getH @(ProdCons (Traced (Definitions Response))) env
-      headerDefs = getH @(ProdCons (Traced (Definitions Header))) env
-      schemaDefs = getH @(ProdCons (Traced (Definitions Schema))) env
       paramDefs = getH @(ProdCons (Traced (Definitions Param))) env
-      linkDefs = getH @(ProdCons (Traced (Definitions Link))) env
-      callbackDefs = getH @(ProdCons (Traced (Definitions Callback))) env
-      securitySchemeDefs = getH @(ProdCons (Traced (Definitions SecurityScheme))) env
-      serversDefs = getH @(ProdCons [Server]) env
 
 data OperationMethod
   = GetMethod
