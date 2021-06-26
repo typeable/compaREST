@@ -204,7 +204,7 @@ instance Subtree MatchedOperation where
                       }
               pure (k, v)
             check (_, name) param = do
-              checkCompatibility @Param (singletonH schemaDefs) (beh >>> step (InParam name)) param
+              checkCompatibility @Param (beh >>> step (InParam name)) (singletonH schemaDefs) param
         checkProducts beh (ParamNotMatched . snd) check elements
       checkPathParams :: ProdCons [Traced Param] -> SemanticCompatFormula ()
       checkPathParams pathParams = do
@@ -213,7 +213,7 @@ instance Subtree MatchedOperation where
             getFragments params mop = getPathFragments (extract mop) params
             -- Feed path parameters to the fragments getter
             check _ frags@(ProdCons (Traced _ p) _) =
-              checkCompatibility @PathFragmentParam env (beh >>> step (InFragment $ _paramName . extract <$> p)) frags
+              checkCompatibility @PathFragmentParam (beh >>> step (InFragment $ _paramName . extract <$> p)) env frags
             elements =
               fragments <&> \frags -> M.fromList $
                 zip [0 :: Int ..] $ do
@@ -225,7 +225,7 @@ instance Subtree MatchedOperation where
                       }
         checkProducts beh PathFragmentNotMatched check elements
       checkRequestBodies = do
-        let check reqBody = checkCompatibility @RequestBody env (beh >>> step InRequest) reqBody
+        let check reqBody = checkCompatibility @RequestBody (beh >>> step InRequest) env reqBody
             elements = getReqBody <$> bodyDefs <*> prodCons
             getReqBody bodyDef mop = M.fromList $ do
               bodyRef <- F.toList . tracedRequestBody $ mop
@@ -246,7 +246,7 @@ instance Subtree MatchedOperation where
                   HCons (swapProdCons schemaDefs) $
                     HCons (swapProdCons linkDefs) HNil
             resps = tracedResponses <$> prodCons
-        checkCompatibility respEnv beh $ swapProdCons resps
+        checkCompatibility beh respEnv $ swapProdCons resps
       -- FIXME: https://github.com/typeable/openapi-diff/issues/27
       checkCallbacks = do
         let env' =
@@ -264,7 +264,7 @@ instance Subtree MatchedOperation where
           let beh' = beh >>> step (OperationCallback k)
           anyOfAt beh' CallbacksUnsupported $
             cCallbacks <&> \(_, cCallback) -> do
-              checkCompatibility env' beh' $ ProdCons pCallback cCallback
+              checkCompatibility beh' env' $ ProdCons pCallback cCallback
         pure ()
       -- FIXME: https://github.com/typeable/openapi-diff/issues/28
       checkOperationSecurity = do
@@ -273,9 +273,9 @@ instance Subtree MatchedOperation where
           let beh' = beh >>> step (SecurityRequirementStep i)
           anyOfAt beh' SecurityRequirementNotMet $
             cSecs <&> \(_, cSec) ->
-              checkCompatibility env beh' $ ProdCons pSec cSec
+              checkCompatibility beh' env $ ProdCons pSec cSec
       checkServers =
-        checkCompatibility env beh $ do
+        checkCompatibility beh env $ do
           x <- prodCons
           se <- getH @(ProdCons [Server]) env
           pure $ Traced (ask x >>> step OperationServersStep) (getServers se (extract x))
@@ -399,10 +399,10 @@ instance Subtree ProcessedPathItems where
             F.toList $ matchingPathItems $ ProdCons prodItem consItem
       case matchedItems of
         [] -> issueAt beh $ NoPathsMatched prodPath
-        [match] -> checkCompatibility env beh' (retraced <$> pc <*> match)
+        [match] -> checkCompatibility beh' env (retraced <$> pc <*> match)
         matches -> anyOfAt beh (AllPathsFailed prodPath) $ do
           match <- matches
-          pure $ checkCompatibility env beh' (retraced <$> pc <*> match)
+          pure $ checkCompatibility beh' env (retraced <$> pc <*> match)
     where
       retraced pc mpi = traced (ask pc >>> step (MatchedPathStep $ matchedPath mpi)) mpi
 
@@ -535,7 +535,7 @@ instance Subtree MatchedPathItem where
           -- Got only Justs here
           let retraced = \op -> MatchedOperation {operation = op, pathParams, getPathFragments}
           pure (name, retraced <$> operation)
-        check name pc = checkCompatibility @MatchedOperation env (beh >>> step (InOperation name)) pc
+        check name pc = checkCompatibility @MatchedOperation (beh >>> step (InOperation name)) env pc
     -- Operations are sum-like entities. Use step to operation as key because
     -- why not
     checkSums beh OperationMissing check operations

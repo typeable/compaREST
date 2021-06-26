@@ -46,4 +46,4 @@ instance Subtree a => Subtree (Referenced a) where
           x <- pc'
           defs <- getH @(ProdCons (Traced (Definitions a))) env
           pure (dereference defs x)
-    checkCompatibility env bhv pc
+    checkCompatibility bhv env pc

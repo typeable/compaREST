@@ -166,11 +166,11 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
 
 checkCompatibility
   :: (HasAll (CheckEnv t) xs, Subtree t)
-  => HList xs
-  -> Behavior (SubtreeLevel t)
+  => Behavior (SubtreeLevel t)
+  -> HList xs
   -> ProdCons (Traced t)
   -> SemanticCompatFormula ()
-checkCompatibility e bhv = memo bhv SemanticMemoKey $ \pc ->
+checkCompatibility bhv e = memo bhv SemanticMemoKey $ \pc ->
   case runCompatFormula $ checkSubstructure e pc of
     Left _ -> checkSemanticCompatibility e bhv pc
     Right () -> pure ()

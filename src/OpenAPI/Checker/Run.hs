@@ -24,7 +24,7 @@ runChecker (client, server) =
         { producer = traced (step ClientSchema) p
         , consumer = traced (step ServerSchema) c
         }
-    run p c = either id mempty . runCompatFormula . checkCompatibility HNil Root $ toPC p c
+    run p c = either id mempty . runCompatFormula . checkCompatibility Root HNil $ toPC p c
 
 runReport :: (OpenApi, OpenApi) -> (Pandoc, ReportStatus)
 runReport = generateReport . runChecker

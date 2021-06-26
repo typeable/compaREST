@@ -79,7 +79,7 @@ instance Subtree MediaTypeObject where
       case tracedSchema p of
         Nothing -> issueAt beh MediaTypeSchemaRequired
         Just prodRef ->
-          checkCompatibility env (beh >>> step PayloadSchema) $
+          checkCompatibility (beh >>> step PayloadSchema) env $
             ProdCons prodRef consRef
     pure ()
     where
@@ -99,7 +99,7 @@ instance Subtree MediaTypeObject where
          in checkProducts
               beh
               MediaEncodingMissing
-              (const $ checkCompatibility env beh)
+              (const $ checkCompatibility beh env)
               encProdCons
 
 instance Subtree Encoding where

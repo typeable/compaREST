@@ -76,4 +76,4 @@ instance Subtree PathFragmentParam where
       then pure ()
       else issueAt beh (PathFragmentsDontMatch x y)
   checkSemanticCompatibility env beh prodCons = do
-    checkCompatibility env beh (tracedPathFragmentParam <$> prodCons)
+    checkCompatibility beh env (tracedPathFragmentParam <$> prodCons)

@@ -845,6 +845,8 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
           (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
             F.for_ cs $ checkImplication env beh' ps -- avoid disjuntion if there's only one conjunct
+            -- (TopFormula, DNF css) -> F.for_ css $ \(Conjunct cs) ->
+            --   F.for_ cs $ checkImplication env beh' []
           (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
             anyOfAt
               beh'
@@ -924,10 +926,10 @@ checkImplication env beh prods cons = case findExactly prods of
         then pure ()
         else issueAt beh (NoMatchingFormat f)
     Items _ cons' -> case findRelevant (<>) (\case Items _ rs -> Just (rs NE.:| []); _ -> Nothing) prods of
-      Just (rs NE.:| []) -> checkCompatibility env (beh >>> step InItems) $ ProdCons rs cons'
+      Just (rs NE.:| []) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
       Just rs -> do
         let sch = Inline mempty {_schemaAllOf = Just . NE.toList $ extract <$> rs}
-        checkCompatibility env (beh >>> step InItems) $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
+        checkCompatibility (beh >>> step InItems) env $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
       Nothing -> issueAt beh NoMatchingItems
     MaxItems m -> case findRelevant min (\case MaxItems m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
@@ -954,7 +956,7 @@ checkImplication env beh prods cons = case findExactly prods of
                 -- producer does not require field, but consumer does (can fail)
                 (False, True) -> issueAt beh (PropertyNowRequired k)
                 _ -> do
-                  let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
+                  let go sch sch' = checkCompatibility (beh >>> step (InProperty k)) env (ProdCons sch sch')
                   case (M.lookup k props', madd', M.lookup k props, madd) of
                     -- (producer, additional producer, consumer, additional consumer)
                     (Nothing, Nothing, _, _) -> pure () -- vacuously
@@ -967,7 +969,7 @@ checkImplication env beh prods cons = case findExactly prods of
             case (madd', madd) of
               (Nothing, _) -> pure () -- vacuously
               (_, Nothing) -> issueAt beh NoAdditionalProperties
-              (Just add', Just add) -> checkCompatibility env (beh >>> step InAdditionalProperty) (ProdCons add' add)
+              (Just add', Just add) -> checkCompatibility (beh >>> step InAdditionalProperty) env (ProdCons add' add)
             pure ()
       Nothing -> issueAt beh NoMatchingProperties
     MaxProperties m -> case findRelevant min (\case MaxProperties m' -> Just m'; _ -> Nothing) prods of

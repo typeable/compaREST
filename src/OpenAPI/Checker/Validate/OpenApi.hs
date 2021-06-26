@@ -78,6 +78,7 @@ instance Subtree OpenApi where
   checkStructuralCompatibility _ _ = structuralIssue
   checkSemanticCompatibility _ beh prodCons = do
     checkCompatibility @ProcessedPathItems
+      beh
       ((tracedRequestBodies <$> prodCons)
          `HCons` (tracedParameters <$> prodCons)
          `HCons` (tracedSecuritySchemes <$> prodCons)
@@ -88,7 +89,6 @@ instance Subtree OpenApi where
          `HCons` (tracedLinks <$> prodCons)
          `HCons` (tracedCallbacks <$> prodCons)
          `HCons` HNil)
-      beh
       (tracedPaths <$> prodCons)
 
 instance Steppable OpenApi ProcessedPathItems where
