@@ -1,4 +1,4 @@
 breakingChanges:
   AtPath "/test":
-    InOperation PostMethod: ResponseCodeNotFound 500
+    InOperation PostMethod: ConsumerDoesntHaveResponseCode 500
 nonBreakingChanges: {}

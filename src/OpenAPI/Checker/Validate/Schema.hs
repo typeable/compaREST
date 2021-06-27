@@ -1055,14 +1055,15 @@ instance Issuable 'TypedSchemaLevel where
       MatchingMinPropertiesWeak (ProdCons Integer)
     | -- | producer declares that the value must satisfy a disjunction of some conditions, but consumer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
       NoMatchingCondition [SomeCondition]
-    | -- | consumer indicates that values of this type are now allowed, but the producer does not do so (currently we only check immediate contradictions, c.f. #70)
+    | -- | producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
+      -- AKA consumer does not have the type
       NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
-  describeIssue Backward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
-  describeIssue Forward (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
-  describeIssue Backward (NoMatchingEnum v) = para "The following enum value has been added:" <> showJSONValue v
+  describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
+  describeIssue Backward (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
+  describeIssue Forward (NoMatchingEnum v) = para "The following enum value has been added:" <> showJSONValue v
+  describeIssue Backward (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
   describeIssue Forward (NoMatchingMaximum b) = para $ "Upper bound has been added:" <> showBound b <> "."
   describeIssue Backward (NoMatchingMaximum b) = para $ "Upper bound has been removed:" <> showBound b <> "."
   describeIssue _ (MatchingMaximumWeak (ProdCons p c)) = para $ "Upper bound changed from " <> showBound p <> " to " <> showBound c <> "."

@@ -7,6 +7,12 @@ servers:
 paths:
   /api/foo:
     get:
+      requestBody:
+        content:
+          application/json;charset=utf-8:
+            schema:
+              $ref: "#/components/schemas/Tree"
+
       responses:
         200:
           description: ""

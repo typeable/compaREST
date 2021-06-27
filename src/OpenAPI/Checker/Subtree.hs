@@ -111,9 +111,11 @@ data ProdCons a = ProdCons
 
 swapProdCons
   :: SwapEnvRoles xs
-  => (HList xs -> ProdCons x -> y)
-  -> (HList xs -> ProdCons x -> y)
-swapProdCons f e (ProdCons p c) = f (swapEnvRoles e) (ProdCons c p)
+  => (HList xs -> ProdCons x -> CompatFormula' q AnIssue r a)
+  -> (HList xs -> ProdCons x -> CompatFormula' q AnIssue r a)
+swapProdCons f e (ProdCons p c) =
+  invertIssueOrientation $
+    f (swapEnvRoles e) (ProdCons c p)
 {-# INLINE swapProdCons #-}
 
 type family IsProdCons (x :: Type) :: Bool where
@@ -217,6 +219,7 @@ structuralMaybe
   -> ProdCons (Maybe (Traced a))
   -> StructuralCompatFormula ()
 structuralMaybe e = structuralMaybeWith (checkSubstructure e)
+{-# INLINE structuralMaybe #-}
 
 structuralMaybeWith
   :: (ProdCons a -> StructuralCompatFormula ())
@@ -225,6 +228,7 @@ structuralMaybeWith
 structuralMaybeWith f (ProdCons (Just a) (Just b)) = f $ ProdCons a b
 structuralMaybeWith _ (ProdCons Nothing Nothing) = pure ()
 structuralMaybeWith _ _ = structuralIssue
+{-# INLINE structuralMaybeWith #-}
 
 structuralList
   :: (Subtree a, ReassembleHList xs (CheckEnv a))
@@ -237,9 +241,11 @@ structuralList e (ProdCons (a : aa) (b : bb)) = do
   structuralList e $ ProdCons aa bb
   pure ()
 structuralList _ _ = structuralIssue
+{-# INLINE structuralList #-}
 
 structuralEq :: (Eq a, Comonad w) => ProdCons (w a) -> StructuralCompatFormula ()
 structuralEq (ProdCons a b) = if extract a == extract b then pure () else structuralIssue
+{-# INLINE structuralEq #-}
 
 iohmStructural
   :: (ReassembleHList (k ': xs) (CheckEnv v), Ord k, Subtree v, Hashable k, Typeable k, Show k)
@@ -248,6 +254,7 @@ iohmStructural
   -> StructuralCompatFormula ()
 iohmStructural e =
   iohmStructuralWith (\k -> checkSubstructure (k `HCons` e))
+{-# INLINE iohmStructural #-}
 
 instance (Typeable k, Typeable v, Ord k, Show k) => Steppable (IOHM.InsOrdHashMap k v) v where
   data Step (IOHM.InsOrdHashMap k v) v = InsOrdHashMapKeyStep k
@@ -267,24 +274,29 @@ iohmStructuralWith f pc = do
         (\eKey ->
            f eKey $ stepTraced (InsOrdHashMapKeyStep eKey) . fmap (IOHM.lookupDefault (error "impossible") eKey) <$> pc)
     else structuralIssue
+{-# INLINE iohmStructuralWith #-}
 
 runCompatFormula
   :: CompatFormula' q f r a
   -> Either (P.PathsPrefixTree q f r) a
 runCompatFormula (Compose f) =
   calculate . runIdentity . runMemo 0 . unCompatM $ f
+{-# INLINE runCompatFormula #-}
 
 embedFormula :: Paths q r l -> CompatFormula' q f l a -> CompatFormula' q f r a
 embedFormula bhv (Compose x) = Compose $ mapErrors (P.embed bhv) <$> x
 
 issueAt :: Issuable l => Paths q r l -> Issue l -> CompatFormula' q AnIssue r a
 issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ anIssue issue
+{-# INLINE issueAt #-}
 
 anIssue :: Issuable l => Issue l -> AnIssue l
 anIssue = AnIssue Forward
+{-# INLINE anIssue #-}
 
 anItem :: AnItem q AnIssue r -> CompatFormula' q AnIssue r a
 anItem = Compose . pure . anError
+{-# INLINE anItem #-}
 
 invertIssueOrientation :: CompatFormula' q AnIssue r a -> CompatFormula' q AnIssue r a
 invertIssueOrientation (Compose x) =

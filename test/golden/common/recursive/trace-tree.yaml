@@ -1,4 +1,16 @@
-breakingChanges: {}
+breakingChanges:
+  AtPath "/api/foo":
+    InOperation GetMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Object:
+              InProperty "leaf":
+                OfType Object:
+                  InProperty "value":
+                    OfType Object:
+                      InProperty "foo":
+                        OfType String: NoMatchingEnum (String "a")
 nonBreakingChanges:
   AtPath "/api/foo":
     InOperation GetMethod:

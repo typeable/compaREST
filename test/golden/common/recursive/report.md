@@ -1,8 +1,22 @@
 # Summary
 
-| ⚠️ Breaking changes | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
-|---------------------|-------------------------------------------------|-------------------------------|
-| 0                   | 1                                               | 0                             |
+| [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
+|------------------------------------------|-------------------------------------------------|-------------------------------|
+| 1                                        | 1                                               | 0                             |
+
+# <span id="breaking-changes"></span>⚠️ Breaking changes
+
+## **GET** /api/foo
+
+### 📱➡️ JSON Request
+
+#### `$.leaf.value.foo(String)`
+
+The following enum value has been added:
+
+``` json
+"a"
+```
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -12,7 +26,7 @@
 
 #### `$.leaf.value.foo(String)`
 
-The following enum value has been removed:
+The following enum value has been added:
 
 ``` json
 "a"

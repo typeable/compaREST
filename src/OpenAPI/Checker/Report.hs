@@ -39,9 +39,6 @@ import Text.Pandoc.Builder
 
 type Changes = P.PathsPrefixTree Behave AnIssue 'APILevel
 
-data FunctorTuple f g a = FunctorTuple (f a) (g a)
-  deriving stock (Eq, Ord)
-
 data ReportInput = ReportInput
   { breakingChanges :: Changes
   , nonBreakingChanges :: Changes

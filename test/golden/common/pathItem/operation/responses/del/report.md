@@ -8,4 +8,4 @@
 
 ## **POST** /test
 
-Reponse code 500 has been removed.
+Response code 500 has been removed.

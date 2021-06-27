@@ -53,6 +53,9 @@ class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLeve
   -- based on the context the issue might need to be rendered as "opposite" ('Backward')
   -- – for example when rendering non-breaking changes everything should be
   -- reversed (a consequence of the way we generate non-breaking changes).
+  --
+  -- If _consumer_ doesn't have something, the element was "removed".
+  -- If _producer_ doesn't have something, the element was "added".
   describeIssue :: Orientation -> Issue l -> Blocks
 
   issueIsUnsupported :: Issue l -> Bool

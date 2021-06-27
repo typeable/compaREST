@@ -54,7 +54,7 @@ instance Subtree Responses where
         getEls respDef resps = M.fromList $ do
           (code, respRef) <- IOHM.toList $ tracedResponses resps
           pure (code, dereference respDef respRef)
-    checkSums beh ResponseCodeNotFound check elements
+    checkSums beh ConsumerDoesntHaveResponseCode check elements
 
 tracedContent :: Traced Response -> IOHM.InsOrdHashMap MediaType (Traced MediaTypeObject)
 tracedContent resp =
@@ -73,13 +73,13 @@ instance Issuable 'ResponseLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue Forward (ConsumerDoesntHaveMediaType t) =
-    para $ "Media type was added: " <> (code . T.pack . show $ t) <> "."
-  describeIssue Backward (ConsumerDoesntHaveMediaType t) =
     para $ "Media type was removed: " <> (code . T.pack . show $ t) <> "."
+  describeIssue Backward (ConsumerDoesntHaveMediaType t) =
+    para $ "Media type was added: " <> (code . T.pack . show $ t) <> "."
   describeIssue Forward (ProducerDoesntHaveResponseHeader h) =
-    para $ "New header was removed " <> code h <> "."
+    para $ "New header was added " <> code h <> "."
   describeIssue Backward (ProducerDoesntHaveResponseHeader h) =
-    para $ "Header was added " <> code h <> "."
+    para $ "Header was removed " <> code h <> "."
 
 instance Behavable 'ResponseLevel 'PayloadLevel where
   data Behave 'ResponseLevel 'PayloadLevel
