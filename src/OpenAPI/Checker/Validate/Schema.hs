@@ -167,12 +167,16 @@ showCondition = \case
     showForEachJsonFormula i =
       bulletList $
         foldType
-          (\t f ->
-             let (DNF conds') = f i
-                 conds = S.toList <$> S.toList conds'
-              in [ para (describeJSONType t)
-                     <> bulletList (conds <&> \cond -> bulletList (showCondition <$> cond))
-                 ])
+          (\t f -> case f i of
+             BottomFormula -> mempty
+             (DNF conds') ->
+               let conds = S.toList <$> S.toList conds'
+                in [ para (describeJSONType t)
+                       <> bulletList
+                         (conds <&> \case
+                            [] -> para "Empty"
+                            cond -> bulletList (showCondition <$> cond))
+                   ])
 
 satisfiesTyped :: TypedValue t -> Condition t -> Bool
 satisfiesTyped e (Exactly e') = e == e'
