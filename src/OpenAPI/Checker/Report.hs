@@ -3,6 +3,8 @@ module OpenAPI.Checker.Report
   , ReportInput (..)
   , ReportStatus (..)
   , Pandoc
+  , ReportConfig (..)
+  , ReportTreeStyle (..)
   )
 where
 
@@ -10,6 +12,7 @@ import Control.Monad.Free hiding (unfoldM)
 import Control.Monad.Reader
 import Control.Monad.Writer
 import Data.Aeson (ToJSON)
+import Data.Default
 import Data.Either
 import Data.Foldable
 import Data.Function
@@ -54,8 +57,20 @@ data ReportStatus
     -- there actually are any breaking changes.
     OnlyUnsupportedChanges
 
-generateReport :: ReportInput -> (Pandoc, ReportStatus)
-generateReport inp =
+data ReportConfig = ReportConfig
+  { treeStyle :: ReportTreeStyle
+  }
+
+instance Default ReportConfig where
+  def =
+    ReportConfig
+      { treeStyle = HeadersTreeStyle
+      }
+
+data ReportTreeStyle = HeadersTreeStyle | FoldingBlockquotesTreeStyle
+
+generateReport :: ReportConfig -> ReportInput -> (Pandoc, ReportStatus)
+generateReport cfg inp =
   let partitionUnsupported = P.partition (\(AnIssue _ i) -> issueIsUnsupported i)
       (bUnsupported, breaking) = partitionUnsupported $ breakingChanges inp
       (nbUnsupported, invertIssueOrientationP -> nonBreaking) = partitionUnsupported $ nonBreakingChanges inp
@@ -64,25 +79,25 @@ generateReport inp =
       nonBreakingChangesPresent = not $ P.null nonBreaking
       unsupportedChangesPresent = not $ P.null unsupported
       report = doc $
-        runReportMonad jets $ do
-          smartHeader "Summary"
-          tell $
-            simpleTable
-              (para
-                 <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
-                     , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
-                     , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
-                     ])
-              [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
+        runReportMonad cfg jets $ do
+          smartHeader "Summary" $
+            tell $
+              simpleTable
+                (para
+                   <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+                       , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
+                       , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
+                       ])
+                [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
           when breakingChangesPresent $ do
-            smartHeader $ anchor breakingChangesId <> "⚠️ Breaking changes"
-            incrementHeaders $ showErrs breaking
+            smartHeader (anchor breakingChangesId <> "⚠️ Breaking changes") $
+              incrementHeaders $ showErrs breaking
           when nonBreakingChangesPresent $ do
-            smartHeader $ anchor nonBreakingChangesId <> "🙆 Non-breaking changes"
-            incrementHeaders $ showErrs nonBreaking
+            smartHeader (anchor nonBreakingChangesId <> "🙆 Non-breaking changes") $
+              incrementHeaders $ showErrs nonBreaking
           when unsupportedChangesPresent $ do
-            smartHeader $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
-            incrementHeaders $ showErrs unsupported
+            smartHeader (anchor unsupportedChangesId <> "🤷 Unsupported feature changes") $
+              incrementHeaders $ showErrs unsupported
       status =
         if
             | breakingChangesPresent -> BreakingChanges
@@ -105,24 +120,45 @@ generateReport inp =
 data ReportState = ReportState
   { sourceJets :: [ReportJet' Behave Inlines]
   , headerLevel :: Int
+  , headerHandle :: Inlines -> ReportMonad () -> ReportMonad ()
+  , incrementHeadersHandle :: ReportState -> ReportState
   }
 
 type ReportMonad = ReaderT ReportState (Writer Blocks)
 
-runReportMonad :: [ReportJet' Behave Inlines] -> ReportMonad () -> Blocks
-runReportMonad jts =
+runReportMonad :: ReportConfig -> [ReportJet' Behave Inlines] -> ReportMonad () -> Blocks
+runReportMonad cfg jts =
   execWriter
     . flip
       runReaderT
       ReportState
         { sourceJets = jts
         , headerLevel = 1
+        , headerHandle =
+            case treeStyle cfg of
+              HeadersTreeStyle -> \i body -> do
+                h <- asks headerLevel
+                tell $ header h i
+                body
+              FoldingBlockquotesTreeStyle -> \i body -> do
+                tell $
+                  rawHtml "<details>"
+                    <> rawHtml "<summary>"
+                    <> plain i
+                    <> rawHtml "</summary>"
+                (mapReaderT . mapWriterT . fmap . fmap) blockQuote $ body
+                tell $ rawHtml "</details>"
+                where
+                  rawHtml = rawBlock "html"
+        , incrementHeadersHandle = case treeStyle cfg of
+            HeadersTreeStyle -> \l -> l {headerLevel = headerLevel l + 1}
+            FoldingBlockquotesTreeStyle -> id
         }
 
-smartHeader :: Inlines -> ReportMonad ()
-smartHeader i = do
-  h <- asks headerLevel
-  tell $ header h i
+smartHeader :: Inlines -> ReportMonad () -> ReportMonad ()
+smartHeader i body = do
+  f <- asks headerHandle
+  f i body
 
 showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
@@ -144,21 +180,22 @@ showErrs x@(P.PathsPrefixNode currentIssues _) = do
   for_ otherIssues $ \(AnIssue ori i) -> tell . describeIssue ori $ i
   case removedPaths of
     Just (ori, paths) -> do
-      smartHeader $ case ori of
-        Forward -> "Removed paths"
-        Backward -> "Added paths"
-      tell $
-        bulletList $
-          paths <&> \case
-            (NoPathsMatched p) -> para . code $ T.pack p
-            (AllPathsFailed p) -> para . code $ T.pack p
+      smartHeader
+        (case ori of
+           Forward -> "Removed paths"
+           Backward -> "Added paths")
+        $ tell $
+          bulletList $
+            paths <&> \case
+              (NoPathsMatched p) -> para . code $ T.pack p
+              (AllPathsFailed p) -> para . code $ T.pack p
     Nothing -> pure ()
   unfoldM x (observeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
     for_ subIssues $ \(WrapTypeable (AStep m)) ->
       for_ (M.toList m) $ \(bhv, subErrors) -> do
-        unless (P.null subErrors) $ do
-          smartHeader $ describeBehaviour bhv
-          incrementHeaders $ showErrs subErrors
+        unless (P.null subErrors) $
+          smartHeader (describeBehaviour bhv) $
+            incrementHeaders $ showErrs subErrors
 
 unfoldM :: Monad m => a -> [a -> m a] -> (a -> m ()) -> m ()
 unfoldM a [] g = g a
@@ -168,8 +205,8 @@ unfoldM a (f : ff) g = do
 
 incrementHeaders :: ReportMonad x -> ReportMonad x
 incrementHeaders m = do
-  l <- asks headerLevel
-  local (\x -> x {headerLevel = l + 1}) m
+  f <- asks incrementHeadersHandle
+  local f m
 
 jets :: [ReportJet' Behave Inlines]
 jets =
@@ -241,8 +278,7 @@ observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) 
                      Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
                      Pure h -> Just $ do
                        unless (P.null subErrs) $ do
-                         smartHeader h
-                         incrementHeaders $ showErrs subErrs
+                         smartHeader h $ incrementHeaders $ showErrs subErrs
                        return mempty)
    in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
         if any isRight results

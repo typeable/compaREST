@@ -108,6 +108,7 @@ library
                      , generic-data
                      , doctemplates
                      , file-embed
+                     , data-default
   hs-source-dirs:      src
   exposed-modules:  Data.HList
                   , OpenAPI.Checker.Behavior

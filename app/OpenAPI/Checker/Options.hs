@@ -8,6 +8,7 @@ module OpenAPI.Checker.Options
 where
 
 import GHC.Generics (Generic)
+import OpenAPI.Checker.Report
 import Options.Applicative
 
 data Options = Options
@@ -15,6 +16,7 @@ data Options = Options
   , serverFile :: FilePath
   , mode :: Mode
   , outputMode :: OutputMode
+  , reportConfig :: ReportConfig
   }
   deriving stock (Generic)
 
@@ -63,3 +65,4 @@ optionsParser =
                        <> help
                          "The file path where the output should be writtrn. \
                          \Leave blank to output result to stdout.")))
+    <*> (pure undefined)
