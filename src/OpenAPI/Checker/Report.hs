@@ -177,7 +177,9 @@ showErrs x@(P.PathsPrefixNode currentIssues _) = do
                in (Just (ori, p'), o)
           _ -> (Nothing, currentIssues)
   jts <- asks sourceJets
-  for_ otherIssues $ \(AnIssue ori i) -> tell . describeIssue ori $ i
+  tell $ case S.toList otherIssues of
+    [AnIssue ori i] -> describeIssue ori i
+    ii -> orderedList $ ii <&> (\(AnIssue ori i) -> describeIssue ori i)
   case removedPaths of
     Just (ori, paths) -> do
       smartHeader
