@@ -80,24 +80,24 @@ generateReport cfg inp =
       unsupportedChangesPresent = not $ P.null unsupported
       report = doc $
         runReportMonad cfg jets $ do
-          smartHeader "Summary" $
-            tell $
-              simpleTable
-                (para
-                   <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
-                       , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
-                       , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
-                       ])
-                [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
+          tell $ header 1 "Summary"
+          tell $
+            simpleTable
+              (para
+                 <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+                     , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
+                     , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
+                     ])
+              [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
           when breakingChangesPresent $ do
-            smartHeader (anchor breakingChangesId <> "⚠️ Breaking changes") $
-              incrementHeaders $ showErrs breaking
+            tell $ header 1 $ anchor breakingChangesId <> "⚠️ Breaking changes"
+            incrementHeaders $ showErrs breaking
           when nonBreakingChangesPresent $ do
-            smartHeader (anchor nonBreakingChangesId <> "🙆 Non-breaking changes") $
-              incrementHeaders $ showErrs nonBreaking
+            tell $ header 1 $ anchor nonBreakingChangesId <> "🙆 Non-breaking changes"
+            incrementHeaders $ showErrs nonBreaking
           when unsupportedChangesPresent $ do
-            smartHeader (anchor unsupportedChangesId <> "🤷 Unsupported feature changes") $
-              incrementHeaders $ showErrs unsupported
+            tell $ header 1 $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
+            incrementHeaders $ showErrs unsupported
       status =
         if
             | breakingChangesPresent -> BreakingChanges

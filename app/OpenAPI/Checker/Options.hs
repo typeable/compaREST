@@ -58,11 +58,27 @@ optionsParser =
                   "Report both incompatible and compatible changes. \
                   \Compatible changes will not trigger a failure exit code.")
            <|> pure All)
-    <*> (pure StdoutMode
-           <|> (FileMode
-                  <$> strOption
-                    (short 'o' <> long "output"
+    <*> ((FileMode
+            <$> strOption
+              (short 'o' <> long "output"
+                 <> help
+                   "The file path where the output should be writtrn. \
+                   \Leave blank to output result to stdout."))
+           <|> pure StdoutMode)
+    <*> (ReportConfig
+           <$> (flag'
+                  FoldingBlockquotesTreeStyle
+                  (long "folding-block-quotes-style"
+                     <> help
+                       "The report tree is structured using \
+                       \summary/detail HTML elements and indented using \
+                       \block quotes. This style renders well on GitHub.\
+                       \Intended for HTML output format. Markdown has rendering \
+                       \bugs on GitHub.")
+                  <|> flag'
+                    HeadersTreeStyle
+                    (long "header-style"
                        <> help
-                         "The file path where the output should be writtrn. \
-                         \Leave blank to output result to stdout.")))
-    <*> (pure undefined)
+                         "The report tree is structured using \
+                         \increasing levels of headers.")
+                  <|> pure HeadersTreeStyle))
