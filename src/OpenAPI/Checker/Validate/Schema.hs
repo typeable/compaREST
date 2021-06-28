@@ -844,9 +844,12 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
         case (ty fp, ty fc) of
           (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
-            F.for_ cs $ checkImplication env beh' ps -- avoid disjuntion if there's only one conjunct
-            -- (TopFormula, DNF css) -> F.for_ css $ \(Conjunct cs) ->
-            --   F.for_ cs $ checkImplication env beh' []
+            F.for_ cs $ checkImplication env beh' ps -- avoid disjunction if there's only one conjunct
+          (TopFormula, DNF css) ->
+            -- producer is "open" (allows any value), but consumer has restrictions.
+            -- In this case we want to show which restrictions were added. (instead
+            -- of showing an empty list restrictions that couldn't be satisfied.)
+            F.for_ css $ \(Conjunct cs) -> F.for_ cs $ checkImplication env beh' []
           (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
             anyOfAt
               beh'
