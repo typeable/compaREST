@@ -38,8 +38,8 @@ main = do
         StdoutMode -> lift . T.putStrLn <=< runPandocIO . writeMarkdown options
         FileMode f -> case formatFromFilePath f of
           Nothing -> \_ -> throwError UnknownOutputFormat
-          Just writer -> lift . BSL.writeFile f <=< runPandocIO . writer
-      (report, status) = runReport (a, b)
+          Just (writer, f') -> lift . BSL.writeFile f' <=< runPandocIO . writer
+      (report, status) = runReport (reportConfig opts) (a, b)
   either handler pure <=< runExceptT $ write report
   case status of
     NoBreakingChanges -> exitSuccess

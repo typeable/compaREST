@@ -26,5 +26,5 @@ runChecker (client, server) =
         }
     run p c = either id mempty . runCompatFormula . checkCompatibility Root HNil $ toPC p c
 
-runReport :: (OpenApi, OpenApi) -> (Pandoc, ReportStatus)
-runReport = generateReport . runChecker
+runReport :: ReportConfig -> (OpenApi, OpenApi) -> (Pandoc, ReportStatus)
+runReport cfg = generateReport cfg . runChecker

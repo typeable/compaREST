@@ -37,7 +37,7 @@ tests = do
       "report.md"
       ("a.yaml", "b.yaml")
       Yaml.decodeFileThrow
-      (runPandoc . writeMarkdown def {writerExtensions = githubMarkdownExtensions} . fst . runReport)
+      (runPandoc . writeMarkdown def {writerExtensions = githubMarkdownExtensions} . fst . runReport def)
 
   return $ testGroup "Golden tests" [traceTreeTests, reportTests]
 
