@@ -34,16 +34,16 @@ instance Subtree a => Subtree (Referenced a) where
   type CheckEnv (Referenced a) = ProdCons (Traced (Definitions a)) ': CheckEnv a
   type SubtreeLevel (Referenced a) = SubtreeLevel a
 
-  checkStructuralCompatibility env pc' = do
+  checkStructuralCompatibility (defs `HCons` env) pc' = do
     let pc = do
           x <- pc'
-          defs <- getH @(ProdCons (Traced (Definitions a))) env
-          pure (dereference defs x)
+          defs' <- defs
+          pure (dereference defs' x)
     checkSubstructure env pc
 
-  checkSemanticCompatibility env bhv pc' = do
+  checkSemanticCompatibility (defs `HCons` env) bhv pc' = do
     let pc = do
           x <- pc'
-          defs <- getH @(ProdCons (Traced (Definitions a))) env
-          pure (dereference defs x)
-    checkCompatibility env bhv pc
+          defs' <- defs
+          pure (dereference defs' x)
+    checkCompatibility bhv env pc

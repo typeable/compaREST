@@ -26,7 +26,7 @@ instance Subtree SecurityScheme where
     (ProdCons (Traced _ (SecuritySchemeApiKey pParams)) (Traced _ (SecuritySchemeApiKey cParams))) -> do
       unless (pParams == cParams) (issueAt bhv $ ApiKeyParamsDontMatch pParams cParams)
     (ProdCons (Traced pT (SecuritySchemeOAuth2 pFlows)) (Traced cT (SecuritySchemeOAuth2 cFlows))) -> do
-      checkCompatibility env bhv . fmap (stepTraced SecurityOAuthFlowsStep) $ ProdCons (Traced pT pFlows) (Traced cT cFlows)
+      checkCompatibility bhv env . fmap (stepTraced SecurityOAuthFlowsStep) $ ProdCons (Traced pT pFlows) (Traced cT cFlows)
     (ProdCons (Traced _ (SecuritySchemeOpenIdConnect pUrl)) (Traced _ (SecuritySchemeOpenIdConnect cUrl))) -> do
       unless (pUrl == cUrl) (issueAt bhv $ OpenIdConnectUrlsDontMatch pUrl cUrl)
     _ -> issueAt bhv DifferentSecuritySchemes

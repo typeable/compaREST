@@ -76,7 +76,7 @@ instance Subtree [Server] where
       anyOfAt
         bhv
         ServerNotMatched
-        [ checkCompatibility env bhv (ProdCons pUrl cUrl)
+        [ checkCompatibility bhv env (ProdCons pUrl cUrl)
         | cUrl <- potentiallyCompatible
         ]
     pure ()

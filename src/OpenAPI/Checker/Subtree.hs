@@ -18,10 +18,14 @@ module OpenAPI.Checker.Subtree
   , CompatFormula'
   , SemanticCompatFormula
   , ProdCons (..)
-  , HasUnsupportedFeature (..)
   , swapProdCons
   , runCompatFormula
   , issueAt
+  , anItem
+  , anIssue
+  , invertIssueOrientation
+  , invertIssueOrientationP
+  , embedFormula
   , anyOfAt
   , structuralIssue
 
@@ -53,7 +57,6 @@ import Data.HList
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.Hashable
 import Data.Kind
-import Data.Monoid
 import Data.OpenApi
 import qualified Data.Set as S
 import Data.Typeable
@@ -106,8 +109,38 @@ data ProdCons a = ProdCons
   }
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
 
-swapProdCons :: ProdCons a -> ProdCons a
-swapProdCons (ProdCons a b) = ProdCons b a
+swapProdCons
+  :: SwapEnvRoles xs
+  => (HList xs -> ProdCons x -> CompatFormula' q AnIssue r a)
+  -> (HList xs -> ProdCons x -> CompatFormula' q AnIssue r a)
+swapProdCons f e (ProdCons p c) =
+  invertIssueOrientation $
+    f (swapEnvRoles e) (ProdCons c p)
+{-# INLINE swapProdCons #-}
+
+type family IsProdCons (x :: Type) :: Bool where
+  IsProdCons (ProdCons _) = 'True
+  IsProdCons _ = 'False
+
+type SwapEnvElementRoles x = SwapEnvElementRoles' x (IsProdCons x)
+
+class IsProdCons x ~ f => SwapEnvElementRoles' (x :: Type) f where
+  swapEnvElementRoles :: x -> x
+
+instance SwapEnvElementRoles' (ProdCons x) 'True where
+  swapEnvElementRoles (ProdCons p c) = ProdCons c p
+
+instance IsProdCons x ~ 'False => SwapEnvElementRoles' x 'False where
+  swapEnvElementRoles = id
+
+class SwapEnvRoles xs where
+  swapEnvRoles :: HList xs -> HList xs
+
+instance SwapEnvRoles '[] where
+  swapEnvRoles = id
+
+instance (SwapEnvElementRoles x, SwapEnvRoles xs) => SwapEnvRoles (x ': xs) where
+  swapEnvRoles (HCons x xs) = HCons (swapEnvElementRoles x) (swapEnvRoles xs)
 
 instance Applicative ProdCons where
   pure x = ProdCons x x
@@ -145,14 +178,12 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
   type SubtreeLevel t :: BehaviorLevel
 
   checkStructuralCompatibility
-    :: (HasAll (CheckEnv t) xs)
-    => HList xs
+    :: HList (CheckEnv t)
     -> ProdCons (Traced t)
     -> StructuralCompatFormula ()
 
   checkSemanticCompatibility
-    :: (HasAll (CheckEnv t) xs)
-    => HList xs
+    :: HList (CheckEnv t)
     -> Behavior (SubtreeLevel t)
     -> ProdCons (Traced t)
     -> SemanticCompatFormula ()
@@ -162,29 +193,33 @@ class (Typeable t, Issuable (SubtreeLevel t)) => Subtree (t :: Type) where
 {-# WARNING checkSemanticCompatibility "You should not be calling this directly. Use 'checkCompatibility'" #-}
 
 checkCompatibility
-  :: (HasAll (CheckEnv t) xs, Subtree t)
-  => HList xs
-  -> Behavior (SubtreeLevel t)
+  :: forall t xs.
+  (ReassembleHList xs (CheckEnv t), Subtree t)
+  => Behavior (SubtreeLevel t)
+  -> HList xs
   -> ProdCons (Traced t)
   -> SemanticCompatFormula ()
-checkCompatibility e bhv = memo bhv SemanticMemoKey $ \pc ->
+checkCompatibility bhv e = memo bhv SemanticMemoKey $ \pc ->
   case runCompatFormula $ checkSubstructure e pc of
-    Left _ -> checkSemanticCompatibility e bhv pc
+    Left _ -> checkSemanticCompatibility (reassemble e) bhv pc
     Right () -> pure ()
+{-# INLINE checkCompatibility #-}
 
 checkSubstructure
-  :: (HasAll (CheckEnv t) xs, Subtree t)
+  :: (ReassembleHList xs (CheckEnv t), Subtree t)
   => HList xs
   -> ProdCons (Traced t)
   -> StructuralCompatFormula ()
-checkSubstructure e = memo Root StructuralMemoKey $ checkStructuralCompatibility e
+checkSubstructure e = memo Root StructuralMemoKey $ checkStructuralCompatibility (reassemble e)
+{-# INLINE checkSubstructure #-}
 
 structuralMaybe
-  :: (Subtree a, HasAll (CheckEnv a) xs)
+  :: (Subtree a, ReassembleHList xs (CheckEnv a))
   => HList xs
   -> ProdCons (Maybe (Traced a))
   -> StructuralCompatFormula ()
 structuralMaybe e = structuralMaybeWith (checkSubstructure e)
+{-# INLINE structuralMaybe #-}
 
 structuralMaybeWith
   :: (ProdCons a -> StructuralCompatFormula ())
@@ -193,9 +228,10 @@ structuralMaybeWith
 structuralMaybeWith f (ProdCons (Just a) (Just b)) = f $ ProdCons a b
 structuralMaybeWith _ (ProdCons Nothing Nothing) = pure ()
 structuralMaybeWith _ _ = structuralIssue
+{-# INLINE structuralMaybeWith #-}
 
 structuralList
-  :: (Subtree a, HasAll (CheckEnv a) xs)
+  :: (Subtree a, ReassembleHList xs (CheckEnv a))
   => HList xs
   -> ProdCons [Traced a]
   -> StructuralCompatFormula ()
@@ -205,17 +241,20 @@ structuralList e (ProdCons (a : aa) (b : bb)) = do
   structuralList e $ ProdCons aa bb
   pure ()
 structuralList _ _ = structuralIssue
+{-# INLINE structuralList #-}
 
 structuralEq :: (Eq a, Comonad w) => ProdCons (w a) -> StructuralCompatFormula ()
 structuralEq (ProdCons a b) = if extract a == extract b then pure () else structuralIssue
+{-# INLINE structuralEq #-}
 
 iohmStructural
-  :: (HasAll (CheckEnv v) (k ': xs), Ord k, Subtree v, Hashable k, Typeable k, Show k)
+  :: (ReassembleHList (k ': xs) (CheckEnv v), Ord k, Subtree v, Hashable k, Typeable k, Show k)
   => HList xs
   -> ProdCons (Traced (IOHM.InsOrdHashMap k v))
   -> StructuralCompatFormula ()
 iohmStructural e =
   iohmStructuralWith (\k -> checkSubstructure (k `HCons` e))
+{-# INLINE iohmStructural #-}
 
 instance (Typeable k, Typeable v, Ord k, Show k) => Steppable (IOHM.InsOrdHashMap k v) v where
   data Step (IOHM.InsOrdHashMap k v) v = InsOrdHashMapKeyStep k
@@ -235,41 +274,36 @@ iohmStructuralWith f pc = do
         (\eKey ->
            f eKey $ stepTraced (InsOrdHashMapKeyStep eKey) . fmap (IOHM.lookupDefault (error "impossible") eKey) <$> pc)
     else structuralIssue
-
-class HasUnsupportedFeature x where
-  hasUnsupportedFeature :: x -> Bool
-
-instance HasUnsupportedFeature () where
-  hasUnsupportedFeature () = False
-
-instance
-  (HasUnsupportedFeature a, HasUnsupportedFeature b)
-  => HasUnsupportedFeature (Either a b)
-  where
-  hasUnsupportedFeature (Left x) = hasUnsupportedFeature x
-  hasUnsupportedFeature (Right x) = hasUnsupportedFeature x
-
-instance Issuable l => HasUnsupportedFeature (Issue l) where
-  hasUnsupportedFeature = issueIsUnsupported
-
-instance HasUnsupportedFeature (AnIssue l) where
-  hasUnsupportedFeature (AnIssue issue) = hasUnsupportedFeature issue
-
-instance
-  (forall x. HasUnsupportedFeature (f x))
-  => HasUnsupportedFeature (P.PathsPrefixTree q f r)
-  where
-  hasUnsupportedFeature =
-    getAny . P.foldWith (\_ fa -> Any $ hasUnsupportedFeature fa)
+{-# INLINE iohmStructuralWith #-}
 
 runCompatFormula
   :: CompatFormula' q f r a
   -> Either (P.PathsPrefixTree q f r) a
 runCompatFormula (Compose f) =
   calculate . runIdentity . runMemo 0 . unCompatM $ f
+{-# INLINE runCompatFormula #-}
+
+embedFormula :: Paths q r l -> CompatFormula' q f l a -> CompatFormula' q f r a
+embedFormula bhv (Compose x) = Compose $ mapErrors (P.embed bhv) <$> x
 
 issueAt :: Issuable l => Paths q r l -> Issue l -> CompatFormula' q AnIssue r a
-issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ AnIssue issue
+issueAt xs issue = Compose $ pure $ anError $ AnItem xs $ anIssue issue
+{-# INLINE issueAt #-}
+
+anIssue :: Issuable l => Issue l -> AnIssue l
+anIssue = AnIssue Forward
+{-# INLINE anIssue #-}
+
+anItem :: AnItem q AnIssue r -> CompatFormula' q AnIssue r a
+anItem = Compose . pure . anError
+{-# INLINE anItem #-}
+
+invertIssueOrientation :: CompatFormula' q AnIssue r a -> CompatFormula' q AnIssue r a
+invertIssueOrientation (Compose x) =
+  Compose $ mapErrors invertIssueOrientationP <$> x
+
+invertIssueOrientationP :: P.PathsPrefixTree q AnIssue r -> P.PathsPrefixTree q AnIssue r
+invertIssueOrientationP = P.map (\(AnIssue ori i) -> AnIssue (toggleOrientation ori) i)
 
 structuralIssue :: StructuralCompatFormula a
 structuralIssue = Compose $ pure $ anError $ AnItem Root Proxy
@@ -282,7 +316,7 @@ anyOfAt
   -> CompatFormula' q AnIssue r a
 anyOfAt _ _ [x] = x
 anyOfAt xs issue fs =
-  Compose $ (`eitherOf` AnItem xs (AnIssue issue)) <$> sequenceA (getCompose <$> fs)
+  Compose $ (`eitherOf` AnItem xs (anIssue issue)) <$> sequenceA (getCompose <$> fs)
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m

@@ -167,12 +167,16 @@ showCondition = \case
     showForEachJsonFormula i =
       bulletList $
         foldType
-          (\t f ->
-             let (DNF conds') = f i
-                 conds = S.toList <$> S.toList conds'
-              in [ para (describeJSONType t)
-                     <> bulletList (conds <&> \cond -> bulletList (showCondition <$> cond))
-                 ])
+          (\t f -> case f i of
+             BottomFormula -> mempty
+             (DNF conds') ->
+               let conds = S.toList <$> S.toList conds'
+                in [ para (describeJSONType t)
+                       <> bulletList
+                         (conds <&> \case
+                            [] -> para "Empty"
+                            cond -> bulletList (showCondition <$> cond))
+                   ])
 
 satisfiesTyped :: TypedValue t -> Condition t -> Bool
 satisfiesTyped e (Exactly e') = e == e'
@@ -460,7 +464,7 @@ type MonadProcess m =
 type SilentM = ReaderT (Traced (Definitions Schema)) (Silent Behave AnIssue 'SchemaLevel)
 
 warn :: MonadProcess m => Issue 'SchemaLevel -> m ()
-warn issue = tell $ P.singleton $ AnItem Root $ AnIssue issue
+warn issue = tell $ P.singleton $ AnItem Root $ anIssue issue
 
 -- | Ignore warnings but allow a recursive loop that lazily computes a recursive 'Condition'.
 silently :: MonadProcess m => SilentM a -> m a
@@ -803,14 +807,14 @@ schemaToFormula
 schemaToFormula defs rs = runWriter . (`runReaderT` defs) . runMemo () $ processSchema rs
 
 checkFormulas
-  :: (HasAll (CheckEnv Schema) xs)
+  :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
   -> Behavior 'SchemaLevel
   -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
   -> SemanticCompatFormula ()
 checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
   case P.toList ep ++ P.toList ec of
-    issues@(_ : _) -> F.for_ issues $ \(AnItem t (AnIssue e)) -> issueAt (beh >>> t) e
+    issues@(_ : _) -> F.for_ issues $ embedFormula beh . anItem
     [] -> do
       -- We have the following isomorphisms:
       --   (A ⊂ X ∪ Y) = (A ⊂ X) \/ (A ⊂ Y)
@@ -844,7 +848,12 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
         case (ty fp, ty fc) of
           (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
-            F.for_ cs $ checkImplication env beh' ps -- avoid disjuntion if there's only one conjunct
+            F.for_ cs $ checkImplication env beh' ps -- avoid disjunction if there's only one conjunct
+          (TopFormula, DNF css) ->
+            -- producer is "open" (allows any value), but consumer has restrictions.
+            -- In this case we want to show which restrictions were added. (instead
+            -- of showing an empty list restrictions that couldn't be satisfied.)
+            F.for_ css $ \(Conjunct cs) -> F.for_ cs $ checkImplication env beh' []
           (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
             anyOfAt
               beh'
@@ -865,7 +874,7 @@ checkContradiction
 checkContradiction beh _ = issueAt beh NoContradiction -- TODO #70
 
 checkImplication
-  :: (HasAll (CheckEnv Schema) xs)
+  :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
   -> Behavior 'TypedSchemaLevel
   -> [Condition t]
@@ -924,10 +933,10 @@ checkImplication env beh prods cons = case findExactly prods of
         then pure ()
         else issueAt beh (NoMatchingFormat f)
     Items _ cons' -> case findRelevant (<>) (\case Items _ rs -> Just (rs NE.:| []); _ -> Nothing) prods of
-      Just (rs NE.:| []) -> checkCompatibility env (beh >>> step InItems) $ ProdCons rs cons'
+      Just (rs NE.:| []) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
       Just rs -> do
         let sch = Inline mempty {_schemaAllOf = Just . NE.toList $ extract <$> rs}
-        checkCompatibility env (beh >>> step InItems) $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
+        checkCompatibility (beh >>> step InItems) env $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
       Nothing -> issueAt beh NoMatchingItems
     MaxItems m -> case findRelevant min (\case MaxItems m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
@@ -954,7 +963,7 @@ checkImplication env beh prods cons = case findExactly prods of
                 -- producer does not require field, but consumer does (can fail)
                 (False, True) -> issueAt beh (PropertyNowRequired k)
                 _ -> do
-                  let go sch sch' = checkCompatibility env (beh >>> step (InProperty k)) (ProdCons sch sch')
+                  let go sch sch' = checkCompatibility (beh >>> step (InProperty k)) env (ProdCons sch sch')
                   case (M.lookup k props', madd', M.lookup k props, madd) of
                     -- (producer, additional producer, consumer, additional consumer)
                     (Nothing, Nothing, _, _) -> pure () -- vacuously
@@ -967,7 +976,7 @@ checkImplication env beh prods cons = case findExactly prods of
             case (madd', madd) of
               (Nothing, _) -> pure () -- vacuously
               (_, Nothing) -> issueAt beh NoAdditionalProperties
-              (Just add', Just add) -> checkCompatibility env (beh >>> step InAdditionalProperty) (ProdCons add' add)
+              (Just add', Just add) -> checkCompatibility (beh >>> step InAdditionalProperty) env (ProdCons add' add)
             pure ()
       Nothing -> issueAt beh NoMatchingProperties
     MaxProperties m -> case findRelevant min (\case MaxProperties m' -> Just m'; _ -> Nothing) prods of
@@ -1053,14 +1062,15 @@ instance Issuable 'TypedSchemaLevel where
       MatchingMinPropertiesWeak (ProdCons Integer)
     | -- | producer declares that the value must satisfy a disjunction of some conditions, but consumer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
       NoMatchingCondition [SomeCondition]
-    | -- | consumer indicates that values of this type are now allowed, but the producer does not do so (currently we only check immediate contradictions, c.f. #70)
+    | -- | producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
+      -- AKA consumer does not have the type
       NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
-  describeIssue Backward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
-  describeIssue Forward (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
-  describeIssue Backward (NoMatchingEnum v) = para "The following enum value has been added:" <> showJSONValue v
+  describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
+  describeIssue Backward (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
+  describeIssue Forward (NoMatchingEnum v) = para "The following enum value has been added:" <> showJSONValue v
+  describeIssue Backward (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
   describeIssue Forward (NoMatchingMaximum b) = para $ "Upper bound has been added:" <> showBound b <> "."
   describeIssue Backward (NoMatchingMaximum b) = para $ "Upper bound has been removed:" <> showBound b <> "."
   describeIssue _ (MatchingMaximumWeak (ProdCons p c)) = para $ "Upper bound changed from " <> showBound p <> " to " <> showBound c <> "."

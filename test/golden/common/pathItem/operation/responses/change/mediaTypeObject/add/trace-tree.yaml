@@ -1,5 +1,5 @@
 breakingChanges:
   AtPath "/test":
     InOperation PostMethod:
-      WithStatusCode 200: ResponseMediaTypeMissing application/x-www-form-urlencoded
+      WithStatusCode 200: ConsumerDoesntHaveMediaType application/x-www-form-urlencoded
 nonBreakingChanges: {}

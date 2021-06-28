@@ -14,6 +14,7 @@ module OpenAPI.Checker.PathsPrefixTree
   , embed
   , size
   , partition
+  , map
   )
 where
 
@@ -32,7 +33,7 @@ import qualified Data.Vector as V
 import qualified GHC.Exts as Exts
 import OpenAPI.Checker.Paths
 import Type.Reflection
-import Prelude hiding (filter, null)
+import Prelude hiding (filter, map, null)
 
 -- | A list of @AnItem r f@, but optimized into a prefix tree.
 data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPrefixTree
@@ -40,6 +41,10 @@ data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPref
   , snocItems :: !(TRM.TypeRepMap (AStep q f r))
   }
   deriving stock (Show)
+
+map :: (forall x. f x -> f x) -> PathsPrefixTree q f r -> PathsPrefixTree q f r
+map f (PathsPrefixTree roots branches) =
+  PathsPrefixTree (mapASet f roots) (TRM.hoist (mapAStep f) branches)
 
 -- TODO: optimize
 partition :: (forall a. f a -> Bool) -> PathsPrefixTree q f r -> (PathsPrefixTree q f r, PathsPrefixTree q f r)
@@ -116,6 +121,10 @@ data ASet (a :: Type) where
   AnEmptySet :: ASet a
   ASet :: Ord a => S.Set a -> ASet a
 
+mapASet :: (Ord a => Ord b) => (a -> b) -> ASet a -> ASet b
+mapASet _ AnEmptySet = AnEmptySet
+mapASet f (ASet s) = ASet $ S.map f s
+
 deriving stock instance Show a => Show (ASet a)
 
 toSet :: ASet a -> S.Set a
@@ -148,6 +157,9 @@ data AStep (q :: k -> k -> Type) (f :: k -> Type) (r :: k) (a :: k) where
     :: NiceQuiver q r a =>
     !(M.Map (q r a) (PathsPrefixTree q f a))
     -> AStep q f r a
+
+mapAStep :: (forall x. f x -> f x) -> AStep q f r a -> AStep q f r a
+mapAStep f (AStep m) = AStep $ M.map (map f) m
 
 deriving stock instance Eq (AStep q f r a)
 

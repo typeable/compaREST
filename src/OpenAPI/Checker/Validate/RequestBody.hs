@@ -64,7 +64,7 @@ instance Subtree RequestBody where
       then issueAt beh RequestBodyRequired
       else -- Media type object are sums-like entities.
 
-        let check mediaType pc = checkCompatibility @MediaTypeObject (HCons mediaType env) (beh >>> step InPayload) pc
+        let check mediaType pc = checkCompatibility @MediaTypeObject (beh >>> step InPayload) (HCons mediaType env) pc
             sumElts = getSum <$> prodCons
             getSum rb = M.fromList . IOHM.toList $ tracedContent rb
          in checkSums beh RequestMediaTypeNotFound check sumElts

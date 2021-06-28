@@ -49,12 +49,12 @@ instance Subtree Responses where
   -- one element
   checkSemanticCompatibility env beh prodCons = do
     let defs = getH @(ProdCons (Traced (Definitions Response))) env
-        check code resps = checkCompatibility @Response env (beh >>> step (WithStatusCode code)) resps
+        check code resps = checkCompatibility @Response (beh >>> step (WithStatusCode code)) env resps
         elements = getEls <$> defs <*> prodCons
         getEls respDef resps = M.fromList $ do
           (code, respRef) <- IOHM.toList $ tracedResponses resps
           pure (code, dereference respDef respRef)
-    checkSums beh ResponseCodeNotFound check elements
+    checkSums beh ConsumerDoesntHaveResponseCode check elements
 
 tracedContent :: Traced Response -> IOHM.InsOrdHashMap MediaType (Traced MediaTypeObject)
 tracedContent resp =
@@ -68,17 +68,17 @@ tracedHeaders resp =
 
 instance Issuable 'ResponseLevel where
   data Issue 'ResponseLevel
-    = ResponseMediaTypeMissing MediaType
-    | ResponseHeaderMissing HeaderName
+    = ConsumerDoesntHaveMediaType MediaType
+    | ProducerDoesntHaveResponseHeader HeaderName
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
-  describeIssue Forward (ResponseMediaTypeMissing t) =
+  describeIssue Forward (ConsumerDoesntHaveMediaType t) =
     para $ "Media type was removed: " <> (code . T.pack . show $ t) <> "."
-  describeIssue Backward (ResponseMediaTypeMissing t) =
-    para $ "New media type was added: " <> (code . T.pack . show $ t) <> "."
-  describeIssue Forward (ResponseHeaderMissing h) =
+  describeIssue Backward (ConsumerDoesntHaveMediaType t) =
+    para $ "Media type was added: " <> (code . T.pack . show $ t) <> "."
+  describeIssue Forward (ProducerDoesntHaveResponseHeader h) =
     para $ "New header was added " <> code h <> "."
-  describeIssue Backward (ResponseHeaderMissing h) =
+  describeIssue Backward (ProducerDoesntHaveResponseHeader h) =
     para $ "Header was removed " <> code h <> "."
 
 instance Behavable 'ResponseLevel 'PayloadLevel where
@@ -117,15 +117,15 @@ instance Subtree Response where
       checkMediaTypes = do
         -- Media types are sum-like entity
         let check mediaType mtObj =
-              let mtEnv = HCons mediaType $ env
-               in checkCompatibility @MediaTypeObject mtEnv (beh >>> step ResponsePayload) mtObj
+              let mtEnv = HCons mediaType env
+               in checkCompatibility @MediaTypeObject (beh >>> step ResponsePayload) mtEnv mtObj
             elements = getEls <$> prodCons
             getEls resp = M.fromList . IOHM.toList $ tracedContent resp
-        checkSums beh ResponseMediaTypeMissing check elements
+        checkSums beh ConsumerDoesntHaveMediaType check elements
 
       checkHeaders = do
         -- Headers are product-like entities
-        let check name hdrs = checkCompatibility @Header env (beh >>> step (InHeader name)) hdrs
+        let check name hdrs = checkCompatibility @Header (beh >>> step (InHeader name)) env hdrs
             elements = getEls <$> headerDefs <*> prodCons
             getEls headerDef resp = M.fromList $ do
               (hname, headerRef) <- IOHM.toList $ tracedHeaders resp
@@ -137,7 +137,7 @@ instance Subtree Response where
                     , required = fromMaybe False . _headerRequired . extract $ header
                     }
                 )
-        checkProducts beh ResponseHeaderMissing check elements
+        checkProducts beh ProducerDoesntHaveResponseHeader check elements
       headerDefs = getH @(ProdCons (Traced (Definitions Header))) env
 
 instance Steppable Responses (Referenced Response) where

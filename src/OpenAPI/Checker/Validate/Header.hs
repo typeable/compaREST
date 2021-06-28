@@ -34,7 +34,7 @@ instance Subtree Header where
     for_ (tracedSchema c) $ \consRef ->
       case tracedSchema p of
         Nothing -> issueAt beh HeaderSchemaRequired
-        Just prodRef -> checkCompatibility env (beh >>> step InSchema) (ProdCons prodRef consRef)
+        Just prodRef -> checkCompatibility (beh >>> step InSchema) env (ProdCons prodRef consRef)
     pure ()
 
 instance Steppable Header (Referenced Schema) where

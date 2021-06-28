@@ -37,7 +37,7 @@ instance Subtree OAuth2Flows where
           -- producer can attempt a flow the consumer does not know about
           (ProdCons (Just _) Nothing) -> issueAt bhv i
           (ProdCons (Just p) (Just c)) ->
-            checkCompatibility env bhv $ ProdCons p c
+            checkCompatibility bhv env $ ProdCons p c
         getFlow
           :: Typeable x
           => (OAuth2Flows -> Maybe (OAuth2Flow x))
@@ -62,7 +62,7 @@ instance (Typeable t, Subtree t, SubtreeLevel (OAuth2Flow t) ~ SubtreeLevel t) =
     let ProdCons pScopes cScopes = S.fromList . IOHM.keys . _oAuth2Scopes . extract <$> prodCons
         missingScopes = cScopes S.\\ pScopes
     unless (S.null missingScopes) (issueAt bhv $ ScopesMissing missingScopes)
-    checkCompatibility env bhv $ retraced (>>> step (OAuth2FlowParamsStep Proxy)) . fmap _oAuth2Params <$> prodCons
+    checkCompatibility bhv env $ retraced (>>> step (OAuth2FlowParamsStep Proxy)) . fmap _oAuth2Params <$> prodCons
     unless (((==) `on` _oAath2RefreshUrl . extract) p c) $ issueAt bhv RefreshUrlsDontMatch
     pure ()
 

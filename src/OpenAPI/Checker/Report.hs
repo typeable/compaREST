@@ -14,7 +14,6 @@ import Data.Either
 import Data.Foldable
 import Data.Function
 import Data.Functor
-import Data.Functor.Const
 import Data.List.NonEmpty
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
@@ -33,16 +32,12 @@ import OpenAPI.Checker.Paths
 import OpenAPI.Checker.PathsPrefixTree hiding (empty)
 import qualified OpenAPI.Checker.PathsPrefixTree as P hiding (empty)
 import OpenAPI.Checker.Report.Jet
+import OpenAPI.Checker.Subtree (invertIssueOrientationP)
 import OpenAPI.Checker.Validate.OpenApi
 import OpenAPI.Checker.Validate.Schema
 import Text.Pandoc.Builder
 
 type Changes = P.PathsPrefixTree Behave AnIssue 'APILevel
-
-type ProcessedChanges a = P.PathsPrefixTree Behave (FunctorTuple (Const Orientation) AnIssue) a
-
-data FunctorTuple f g a = FunctorTuple (f a) (g a)
-  deriving stock (Eq, Ord)
 
 data ReportInput = ReportInput
   { breakingChanges :: Changes
@@ -59,28 +54,12 @@ data ReportStatus
     -- there actually are any breaking changes.
     OnlyUnsupportedChanges
 
-preprocessChanges :: Orientation -> Changes -> ProcessedChanges 'APILevel
-preprocessChanges initialO = P.fromList . fmap process . P.toList
-  where
-    process :: AnItem Behave AnIssue 'APILevel -> AnItem Behave (FunctorTuple (Const Orientation) AnIssue) 'APILevel
-    process (AnItem paths issue) = AnItem paths $ FunctorTuple (Const $ toggle initialO) issue
-      where
-        (Endo toggle) = togglePaths paths
-
-    togglePaths :: Paths Behave a c -> Endo Orientation
-    togglePaths Root = mempty
-    togglePaths (rest `Snoc` (_ :: Behave b c)) = case eqT @c @'ResponseLevel of
-      Just Refl -> Endo toggleOrientation <> togglePaths rest
-      Nothing -> togglePaths rest
-
 generateReport :: ReportInput -> (Pandoc, ReportStatus)
 generateReport inp =
-  let partitionUnsupported = P.partition (\(AnIssue i) -> issueIsUnsupported i)
-      (bUnsupported, preprocessChanges Forward -> breaking) =
-        partitionUnsupported $ breakingChanges inp
-      (nbUnsupported, preprocessChanges Backward -> nonBreaking) =
-        partitionUnsupported $ nonBreakingChanges inp
-      unsupported = preprocessChanges Forward $ bUnsupported <> nbUnsupported
+  let partitionUnsupported = P.partition (\(AnIssue _ i) -> issueIsUnsupported i)
+      (bUnsupported, breaking) = partitionUnsupported $ breakingChanges inp
+      (nbUnsupported, invertIssueOrientationP -> nonBreaking) = partitionUnsupported $ nonBreakingChanges inp
+      unsupported = bUnsupported <> nbUnsupported
       breakingChangesPresent = not $ P.null breaking
       nonBreakingChangesPresent = not $ P.null nonBreaking
       unsupportedChangesPresent = not $ P.null unsupported
@@ -145,24 +124,24 @@ smartHeader i = do
   h <- asks headerLevel
   tell $ header h i
 
-showErrs :: forall a. Typeable a => ProcessedChanges a -> ReportMonad ()
+showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
 showErrs x@(P.PathsPrefixNode currentIssues _) = do
   let -- Extract this pattern if more cases like this arise
       ( removedPaths :: Maybe (Orientation, [Issue 'APILevel])
-        , otherIssues :: Set (FunctorTuple (Const Orientation) AnIssue a)
+        , otherIssues :: Set (AnIssue a)
         ) = case eqT @a @'APILevel of
           Just Refl
-            | (S.toList -> p@(FunctorTuple (Const ori) _ : _), o) <-
+            | (S.toList -> p@((AnIssue ori _) : _), o) <-
                 S.partition
-                  (\(FunctorTuple _ (AnIssue u)) -> case u of
+                  (\((AnIssue _ u)) -> case u of
                      NoPathsMatched {} -> True
                      AllPathsFailed {} -> True)
                   currentIssues ->
-              let p' = p <&> (\(FunctorTuple _ (AnIssue i)) -> i)
+              let p' = p <&> (\(AnIssue _ i) -> i)
                in (Just (ori, p'), o)
           _ -> (Nothing, currentIssues)
   jts <- asks sourceJets
-  for_ otherIssues $ \(FunctorTuple (Const ori) (AnIssue i)) -> tell . describeIssue ori $ i
+  for_ otherIssues $ \(AnIssue ori i) -> tell . describeIssue ori $ i
   case removedPaths of
     Just (ori, paths) -> do
       smartHeader $ case ori of
@@ -240,8 +219,8 @@ jets =
 
 observeJetShowErrs
   :: ReportJet' Behave Inlines
-  -> ProcessedChanges a
-  -> ReportMonad (ProcessedChanges a)
+  -> P.PathsPrefixTree Behave AnIssue a
+  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs jet p = case observeJetShowErrs' jet p of
   Just m -> m
   Nothing -> pure p
@@ -249,8 +228,8 @@ observeJetShowErrs jet p = case observeJetShowErrs' jet p of
 observeJetShowErrs'
   :: forall a.
      ReportJet' Behave Inlines
-  -> ProcessedChanges a
-  -> Maybe (ReportMonad (ProcessedChanges a))
+  -> P.PathsPrefixTree Behave AnIssue a
+  -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
 observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
   let results =
         subIssues >>= \(WrapTypeable (AStep m)) ->

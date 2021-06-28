@@ -119,7 +119,7 @@ instance Subtree Param where
       issueAt beh ParamStyleMismatch
     case tracedSchema <$> pc of
       ProdCons (Just prodSchema) (Just consSchema) -> do
-        checkCompatibility env (beh >>> step InParamSchema) $ ProdCons prodSchema consSchema
+        checkCompatibility (beh >>> step InParamSchema) env $ ProdCons prodSchema consSchema
       ProdCons Nothing Nothing -> pure ()
       ProdCons Nothing (Just _consSchema) -> issueAt beh ParamSchemaMismatch
       ProdCons (Just _prodSchema) Nothing -> pure ()

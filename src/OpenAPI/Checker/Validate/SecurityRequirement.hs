@@ -102,7 +102,7 @@ instance Subtree SecurityRequirement where
             (SecuritySchemeOAuth2 {}, SecuritySchemeOAuth2 {}) -> pure ()
             _ -> unless (null pScopes && null cScopes) $ issueAt bhv CanNotHaveScopes
           for_ errs $ issueAt bhv
-          checkCompatibility env bhv pc'
+          checkCompatibility bhv env pc'
           pure ()
     pure ()
 

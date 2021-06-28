@@ -79,7 +79,7 @@ instance Subtree MediaTypeObject where
       case tracedSchema p of
         Nothing -> issueAt beh MediaTypeSchemaRequired
         Just prodRef ->
-          checkCompatibility env (beh >>> step PayloadSchema) $
+          checkCompatibility (beh >>> step PayloadSchema) env $
             ProdCons prodRef consRef
     pure ()
     where
@@ -99,7 +99,7 @@ instance Subtree MediaTypeObject where
          in checkProducts
               beh
               MediaEncodingMissing
-              (const $ checkCompatibility env beh)
+              (const $ checkCompatibility beh env)
               encProdCons
 
 instance Subtree Encoding where
@@ -147,17 +147,17 @@ instance Behavable 'OperationLevel 'ResponseLevel where
 
 instance Issuable 'OperationLevel where
   data Issue 'OperationLevel
-    = ResponseCodeNotFound HttpStatusCode
+    = ConsumerDoesntHaveResponseCode HttpStatusCode
     | ParamNotMatched Text
     | PathFragmentNotMatched Int
     | NoRequestBody
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
     _ -> False
-  describeIssue Forward (ResponseCodeNotFound c) =
-    para $ "Reponse code " <> (str . T.pack . show $ c) <> " has been added."
-  describeIssue Backward (ResponseCodeNotFound c) =
-    para $ "Reponse code " <> (str . T.pack . show $ c) <> " has been removed."
+  describeIssue Forward (ConsumerDoesntHaveResponseCode c) =
+    para $ "Response code " <> (str . T.pack . show $ c) <> " has been removed."
+  describeIssue Backward (ConsumerDoesntHaveResponseCode c) =
+    para $ "Response code " <> (str . T.pack . show $ c) <> " has been added."
   describeIssue Forward (ParamNotMatched param) =
     para $ "Parameter " <> code param <> " has become required."
   describeIssue Backward (ParamNotMatched param) =
