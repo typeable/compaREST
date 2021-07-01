@@ -1177,10 +1177,10 @@ instance Issuable 'SchemaLevel where
     para "Encountered recursion that is too complex for OpenApi Diff to untangle."
   describeIssue Forward (TypesRestricted tys) = case tys of
     [] -> para "No longer has any valid values." -- weird
-    _ -> para "The following types were added: " <> bulletList (para . describeJSONType <$> tys)
+    _ -> para "Values are now limited to the following types: " <> bulletList (para . describeJSONType <$> tys)
   describeIssue Backward (TypesRestricted tys) = case tys of
     [] -> para "Any value of any type is now allowed." -- weird
-    _ -> para "The following types were removed: " <> bulletList (para . describeJSONType <$> tys)
+    _ -> para "Values are no longer limited to the following types: " <> bulletList (para . describeJSONType <$> tys)
   describeIssue Forward AdditionalToProperty = para "The property was previously implicitly described by the catch-all \"additional properties\" case. It is now explicitly defined."
   describeIssue Backward AdditionalToProperty = para "The property was previously explicitly defined. It is now implicitly described by the catch-all \"additional properties\" case."
   describeIssue Forward PropertyToAdditional = para "The property was previously explicitly defined. It is now implicitly described by the catch-all \"additional properties\" case."

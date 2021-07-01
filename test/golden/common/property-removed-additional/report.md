@@ -12,7 +12,7 @@
 
 #### `$.property2`
 
-1.  The following types were removed:
+1.  Values are no longer limited to the following types:
 
     -   Number
 
@@ -29,7 +29,7 @@
 
 #### `$.property2`
 
-1.  The following types were removed:
+1.  Values are no longer limited to the following types:
 
     -   Number
 

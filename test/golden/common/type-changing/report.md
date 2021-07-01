@@ -10,7 +10,7 @@
 
 ### 📱➡️ JSON Request
 
-The following types were added:
+Values are now limited to the following types:
 
 -   Array
 
@@ -18,7 +18,7 @@ The following types were added:
 
 ### 📱➡️ JSON Request
 
-The following types were added:
+Values are now limited to the following types:
 
 -   Number
 
@@ -46,7 +46,7 @@ The type has been removed.
 
 ### 📱➡️ JSON Request
 
-The following types were added:
+Values are now limited to the following types:
 
 -   Number
 
@@ -60,7 +60,7 @@ Value is now a multiple of 1.0.
 
 ### 📱⬅️ JSON Response – 200
 
-The following types were added:
+Values are now limited to the following types:
 
 -   Array
 
@@ -68,7 +68,7 @@ The following types were added:
 
 ### 📱⬅️ JSON Response – 200
 
-The following types were added:
+Values are now limited to the following types:
 
 -   Number
 
@@ -96,7 +96,7 @@ The type has been removed.
 
 ### 📱⬅️ JSON Response – 200
 
-The following types were added:
+Values are now limited to the following types:
 
 -   Number
 
