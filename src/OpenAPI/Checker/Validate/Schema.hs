@@ -869,9 +869,10 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
               [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
       pure ()
   where
-    anyBottomTypes f = getAny $ foldType $ \_ ty -> case ty f of
-      BottomFormula -> Any True
-      _ -> mempty
+    anyBottomTypes f = getAny $
+      foldType $ \_ ty -> case ty f of
+        BottomFormula -> Any True
+        _ -> mempty
     nonBottomTypes f = foldType $ \tyName ty -> case ty f of
       BottomFormula -> mempty
       _ -> [tyName]
@@ -974,21 +975,24 @@ checkImplication env beh prods cons = case findExactly prods of
         anyOfAt beh NoMatchingProperties $
           NE.toList pm <&> \(props', madd') -> do
             F.for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
+              let beh' = beh >>> step (InProperty k)
+                  go sch sch' = checkCompatibility beh' env (ProdCons sch sch')
               case (maybe False propRequired $ M.lookup k props', maybe False propRequired $ M.lookup k props) of
                 -- producer does not require field, but consumer does (can fail)
-                (False, True) -> issueAt beh (PropertyNowRequired k)
+                (False, True) -> issueAt beh' PropertyNowRequired
                 _ -> pure ()
-              let go sch sch' = checkCompatibility (beh >>> step (InProperty k)) env (ProdCons sch sch')
               case (M.lookup k props', madd', M.lookup k props, madd) of
                 -- (producer, additional producer, consumer, additional consumer)
                 (Nothing, Nothing, _, _) -> pure () -- vacuously: the producer asserts that this field cannot exist,
                 -- and the consumer either doesn't require it, or it does and we've already raised an error about it.
-                (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
+                (_, _, Nothing, Nothing) -> issueAt beh' UnexpectedProperty
                 (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
                 (Nothing, Just add', Just p, _) ->
-                  clarifyIssue beh (AdditionalToProperty k) $ go add' (propRefSchema p)
+                  clarifyIssue (AnItem beh' (anIssue AdditionalToProperty)) $
+                    go add' (propRefSchema p)
                 (Just p', _, Nothing, Just add) ->
-                  clarifyIssue beh (PropertyToAdditional k) $ go (propRefSchema p') add
+                  clarifyIssue (AnItem beh' (anIssue PropertyToAdditional)) $
+                    go (propRefSchema p') add
                 (Nothing, Just _, Nothing, Just _) -> pure ()
               pure ()
             case (madd', madd) of
@@ -1064,10 +1068,6 @@ instance Issuable 'TypedSchemaLevel where
       NoMatchingUniqueItems
     | -- | consumer declares the properties of an object must satisfy some condition, producer doesn't
       NoMatchingProperties
-    | -- | producer allows a property that is not allowed in the consumer
-      UnexpectedProperty Text
-    | -- | consumer requires a property that is not required/allowed in the producer
-      PropertyNowRequired Text
     | -- | producer allows additional properties, consumer doesn't
       NoAdditionalProperties
     | -- | consumer declares a maximum number of properties in the object ($1), producer doesn't.
@@ -1083,10 +1083,6 @@ instance Issuable 'TypedSchemaLevel where
     | -- | producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
       -- AKA consumer does not have the type
       NoContradiction
-    | -- | in the producer this field used to be handled as part of "additionalProperties", and the consumer this is a specific "properties" entry. Only thrown when this change actually causes other issues
-      AdditionalToProperty Text
-    | -- | in the consumer this field used to be handled as part of "additionalProperties", and the producer this is a specific "properties" entry. Only thrown when this change actually causes other issues
-      PropertyToAdditional Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
@@ -1124,10 +1120,6 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Backward NoMatchingUniqueItems = para "Items are no longer required to be unique."
   describeIssue Forward NoMatchingProperties = para "Property added."
   describeIssue Backward NoMatchingProperties = para "Property removed."
-  describeIssue Forward (UnexpectedProperty p) = para $ "Property " <> code p <> " has been removed."
-  describeIssue Backward (UnexpectedProperty p) = para $ "Property " <> code p <> " has been added."
-  describeIssue Forward (PropertyNowRequired p) = para $ "Property " <> code p <> " has become required."
-  describeIssue Backward (PropertyNowRequired p) = para $ "Property " <> code p <> " may not be present."
   describeIssue Forward NoAdditionalProperties = para "Additional properties have been removed."
   describeIssue Backward NoAdditionalProperties = para "Additional properties have been added."
   describeIssue Forward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been added: " <> show' n <> "."
@@ -1141,10 +1133,6 @@ instance Issuable 'TypedSchemaLevel where
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
   describeIssue Forward NoContradiction = para "The type has been removed."
   describeIssue Backward NoContradiction = para "The type has been added."
-  describeIssue Forward (AdditionalToProperty p) = para $ "Property " <> code p <> " is now handled by a specific \"properties\" clause."
-  describeIssue Backward (AdditionalToProperty p) = para $ "Property " <> code p <> " was handled by a specific \"properties\" clause."
-  describeIssue Forward (PropertyToAdditional p) = para $ "Property " <> code p <> " is longer handled by a specific \"properties\" clause."
-  describeIssue Backward (PropertyToAdditional p) = para $ "Property " <> code p <> " was not handled by a specific \"properties\" clause."
 
 showJSONValue :: A.Value -> Blocks
 showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
@@ -1152,11 +1140,6 @@ showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStr
 showBound :: Show a => Bound a -> Inlines
 showBound (Inclusive x) = show' x <> " inclusive"
 showBound (Exclusive x) = show' x <> " exclusive"
-
-orList :: NE.NonEmpty Inlines -> Inlines
-orList (x NE.:| []) = x
-orList (x NE.:| [y]) = x <> ", or " <> y
-orList (x NE.:| y:ys) = x <> ", " <> orList (y NE.:| ys)
 
 show' :: Show x => x -> Inlines
 show' = str . T.pack . show
@@ -1171,10 +1154,20 @@ instance Issuable 'SchemaLevel where
       UnguardedRecursion
     | -- | Producer doesn't place any restrictions on the types, but the consumer does. List what types remain available in the consumer.
       TypesRestricted [JsonType]
+    | -- | in the producer this field used to be handled as part of "additionalProperties", and the consumer this is a specific "properties" entry. Only thrown when this change actually causes other issues
+      AdditionalToProperty
+    | -- | in the consumer this field used to be handled as part of "additionalProperties", and the producer this is a specific "properties" entry. Only thrown when this change actually causes other issues
+      PropertyToAdditional
+    | -- | consumer requires a property that is not required/allowed in the producer
+      PropertyNowRequired
+    | -- | producer allows a property that is not allowed in the consumer
+      UnexpectedProperty
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
-    TypesRestricted _ -> False
-    _ -> True
+    NotSupported _ -> True
+    InvalidSchema _ -> True
+    UnguardedRecursion -> True
+    _ -> False
 
   describeIssue _ (NotSupported i) =
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
@@ -1182,12 +1175,20 @@ instance Issuable 'SchemaLevel where
     para (emph "The schema is invalid: " <> text i <> ".")
   describeIssue _ UnguardedRecursion =
     para "Encountered recursion that is too complex for OpenApi Diff to untangle."
-  describeIssue Forward (TypesRestricted tys) = case NE.nonEmpty tys of
-    Nothing -> para "No values of any type are now allowed" -- weird
-    Just tys' -> para $ "Type is now required to be " <> orList (describeJSONType <$> tys') <> "."
-  describeIssue Backward (TypesRestricted tys) = case NE.nonEmpty tys of
-    Nothing -> para "No values of any type were allowed" -- weird
-    Just tys' -> para $ "Type was required to be " <> orList (describeJSONType <$> tys') <> "."
+  describeIssue Forward (TypesRestricted tys) = case tys of
+    [] -> para "No longer has any valid values." -- weird
+    _ -> para "The following types were added: " <> bulletList (para . describeJSONType <$> tys)
+  describeIssue Backward (TypesRestricted tys) = case tys of
+    [] -> para "Any value of any type is now allowed." -- weird
+    _ -> para "The following types were removed: " <> bulletList (para . describeJSONType <$> tys)
+  describeIssue Forward AdditionalToProperty = para "The property was previously implicitly described by the catch-all \"additional properties\" case. It is now explicitly defined."
+  describeIssue Backward AdditionalToProperty = para "The property was previously explicitly defined. It is now implicitly described by the catch-all \"additional properties\" case."
+  describeIssue Forward PropertyToAdditional = para "The property was previously explicitly defined. It is now implicitly described by the catch-all \"additional properties\" case."
+  describeIssue Backward PropertyToAdditional = para "The property was previously implicitly described by the catch-all \"additional properties\" case. It is now explicitly defined."
+  describeIssue Forward PropertyNowRequired = para "The property has become required."
+  describeIssue Backward PropertyNowRequired = para "The property may not be present."
+  describeIssue Forward UnexpectedProperty = para "The property has been removed."
+  describeIssue Backward UnexpectedProperty = para "The property has been added."
 
 instance Behavable 'SchemaLevel 'TypedSchemaLevel where
   data Behave 'SchemaLevel 'TypedSchemaLevel

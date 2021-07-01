@@ -10,13 +10,21 @@
 
 ### 📱➡️ JSON Request
 
-Type is now required to be Array.
+The following types were added:
+
+-   Array
 
 ## **POST** /test2
 
 ### 📱➡️ JSON Request
 
-Type is now required to be Number, Array, or Object.
+The following types were added:
+
+-   Number
+
+-   Array
+
+-   Object
 
 ## **POST** /test3
 
@@ -38,7 +46,9 @@ The type has been removed.
 
 ### 📱➡️ JSON Request
 
-Type is now required to be Number.
+The following types were added:
+
+-   Number
 
 #### `$(Number)`
 
@@ -50,13 +60,21 @@ Value is now a multiple of 1.0.
 
 ### 📱⬅️ JSON Response – 200
 
-Type is now required to be Array.
+The following types were added:
+
+-   Array
 
 ## **POST** /test2
 
 ### 📱⬅️ JSON Response – 200
 
-Type is now required to be Number, Array, or Object.
+The following types were added:
+
+-   Number
+
+-   Array
+
+-   Object
 
 ## **POST** /test3
 
@@ -78,7 +96,9 @@ The type has been removed.
 
 ### 📱⬅️ JSON Response – 200
 
-Type is now required to be Number.
+The following types were added:
+
+-   Number
 
 #### `$(Number)`
 

@@ -12,13 +12,14 @@
 
 #### `$.property2`
 
-Type was required to be Number.
+1.  The following types were removed:
 
-#### Object
+    -   Number
 
-1.  Property `property2` may not be present.
+2.  The property was previously explicitly defined. It is now implicitly
+    described by the catch-all "additional properties" case.
 
-2.  Property `property2` was handled by a specific "properties" clause.
+3.  The property may not be present.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -28,10 +29,11 @@ Type was required to be Number.
 
 #### `$.property2`
 
-Type was required to be Number.
+1.  The following types were removed:
 
-#### Object
+    -   Number
 
-1.  Property `property2` may not be present.
+2.  The property was previously explicitly defined. It is now implicitly
+    described by the catch-all "additional properties" case.
 
-2.  Property `property2` was handled by a specific "properties" clause.
+3.  The property may not be present.

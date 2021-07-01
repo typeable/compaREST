@@ -321,13 +321,11 @@ anyOfAt xs issue fs =
 
 -- | If the given formula contains any issues, add another issue on top. Otherwise succeed.
 clarifyIssue
-  :: Issuable l
-  => Paths q r l
-  -> Issue l
+  :: AnItem q AnIssue r
   -> CompatFormula' q AnIssue r a
   -> CompatFormula' q AnIssue r a
-clarifyIssue xs issue f =
-  Compose ((`eitherOf` AnItem xs (anIssue issue)) <$> pure <$> getCompose f) *> f
+clarifyIssue item f =
+  Compose ((`eitherOf` item) <$> pure <$> getCompose f) *> f
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m

@@ -5,9 +5,10 @@ breakingChanges:
         ResponsePayload:
           PayloadSchema:
             OfType Object:
-            - PropertyNowRequired "property2"
-            - AdditionalToProperty "property2"
-            - InProperty "property2": TypesRestricted [Number]
+              InProperty "property2":
+              - TypesRestricted [Number]
+              - AdditionalToProperty
+              - PropertyNowRequired
 nonBreakingChanges:
   AtPath "/test":
     InOperation PostMethod:
@@ -15,6 +16,7 @@ nonBreakingChanges:
         InPayload:
           PayloadSchema:
             OfType Object:
-            - PropertyNowRequired "property2"
-            - AdditionalToProperty "property2"
-            - InProperty "property2": TypesRestricted [Number]
+              InProperty "property2":
+              - TypesRestricted [Number]
+              - AdditionalToProperty
+              - PropertyNowRequired
