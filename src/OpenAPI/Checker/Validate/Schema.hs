@@ -843,10 +843,18 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
       --   (⋃_i ⋂_j A[i,j]) ⊂ ∅ = /\_i (⋂_j A[i,j]) ⊂ ∅
       -- where we again delegate (⋂_j A[j]) ⊂ ∅ to a heuristic, though here the
       -- shortcut of \/_j A[j] ⊂ ∅ hardly helps.
+      let typesRestricted = not (anyBottomTypes fp) && anyBottomTypes fc
+      -- Specifically handle the case when a schema's type has been
+      -- restricted from "all" to specific types: if all types were allowed
+      -- in the producer and not all types are allowed in the consumer, it's
+      -- usually easier to say what's left than what's removed
+      when typesRestricted $ issueAt beh $ TypesRestricted $ nonBottomTypes fc
       forType_ $ \tyName ty -> do
         let beh' = beh >>> step (OfType tyName)
         case (ty fp, ty fc) of
-          (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
+          (DNF pss, BottomFormula) -> unless typesRestricted $ do
+            -- don't repeat the TypesRestricted issue
+            F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
             F.for_ cs $ checkImplication env beh' ps -- avoid disjunction if there's only one conjunct
           (TopFormula, DNF css) ->
@@ -859,7 +867,14 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
               beh'
               (issueFromConjunct ps)
               [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
+      pure ()
   where
+    anyBottomTypes f = getAny $ foldType $ \_ ty -> case ty f of
+      BottomFormula -> Any True
+      _ -> mempty
+    nonBottomTypes f = foldType $ \tyName ty -> case ty f of
+      BottomFormula -> mempty
+      _ -> [tyName]
     issueFromConjunct :: Typeable t => [Condition t] -> Issue 'TypedSchemaLevel
     issueFromConjunct ps
       | Just e <- findExactly ps
@@ -962,17 +977,18 @@ checkImplication env beh prods cons = case findExactly prods of
               case (maybe False propRequired $ M.lookup k props', maybe False propRequired $ M.lookup k props) of
                 -- producer does not require field, but consumer does (can fail)
                 (False, True) -> issueAt beh (PropertyNowRequired k)
-                _ -> do
-                  let go sch sch' = checkCompatibility (beh >>> step (InProperty k)) env (ProdCons sch sch')
-                  case (M.lookup k props', madd', M.lookup k props, madd) of
-                    -- (producer, additional producer, consumer, additional consumer)
-                    (Nothing, Nothing, _, _) -> pure () -- vacuously
-                    -- this ^ seems fishy. Producer does not produce anything, but consumer might expect a field.
-                    (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
-                    (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
-                    (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
-                    (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
-                    (Nothing, Just _, Nothing, Just _) -> pure ()
+                _ -> pure ()
+              let go sch sch' = checkCompatibility (beh >>> step (InProperty k)) env (ProdCons sch sch')
+              case (M.lookup k props', madd', M.lookup k props, madd) of
+                -- (producer, additional producer, consumer, additional consumer)
+                (Nothing, Nothing, _, _) -> pure () -- vacuously: the producer asserts that this field cannot exist,
+                -- and the consumer either doesn't require it, or it does and we've already raised an error about it.
+                (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
+                (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
+                (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
+                (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
+                (Nothing, Just _, Nothing, Just _) -> pure ()
+              pure ()
             case (madd', madd) of
               (Nothing, _) -> pure () -- vacuously
               (_, Nothing) -> issueAt beh NoAdditionalProperties
@@ -1110,10 +1126,10 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Backward NoAdditionalProperties = para "Additional properties have been added."
   describeIssue Forward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been removed: " <> show' n <> "."
-  describeIssue _ (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Maximum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue _ (MatchingMaxPropertiesWeak (ProdCons p c)) = para $ "Maximum number of properties has changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue Forward (NoMatchingMinProperties n) = para $ "Minimum number of properties added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMinProperties n) = para $ "Minimum number of properties removed: " <> show' n <> "."
-  describeIssue _ (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Minimum  number of properties has changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue _ (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Minimum number of properties has changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue _ (NoMatchingCondition conds) =
     para "Expected the following conditions to hold, but they didn't (please file a bug if you see this):"
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
@@ -1127,6 +1143,11 @@ showBound :: Show a => Bound a -> Inlines
 showBound (Inclusive x) = show' x <> " inclusive"
 showBound (Exclusive x) = show' x <> " exclusive"
 
+orList :: NE.NonEmpty Inlines -> Inlines
+orList (x NE.:| []) = x
+orList (x NE.:| [y]) = x <> ", or " <> y
+orList (x NE.:| y:ys) = x <> ", " <> orList (y NE.:| ys)
+
 show' :: Show x => x -> Inlines
 show' = str . T.pack . show
 
@@ -1138,8 +1159,12 @@ instance Issuable 'SchemaLevel where
       InvalidSchema Text
     | -- | The schema contains a reference loop along "anyOf"/"allOf"/"oneOf".
       UnguardedRecursion
+    | -- | Producer doesn't place any restrictions on the types, but the consumer does. List what types remain available in the consumer.
+      TypesRestricted [JsonType]
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = True
+  issueIsUnsupported = \case
+    TypesRestricted _ -> False
+    _ -> True
 
   describeIssue _ (NotSupported i) =
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
@@ -1147,6 +1172,12 @@ instance Issuable 'SchemaLevel where
     para (emph "The schema is invalid: " <> text i <> ".")
   describeIssue _ UnguardedRecursion =
     para "Encountered recursion that is too complex for OpenApi Diff to untangle."
+  describeIssue Forward (TypesRestricted tys) = case NE.nonEmpty tys of
+    Nothing -> para "No values of any type are now allowed" -- weird
+    Just tys' -> para $ "Type is now required to be " <> orList (describeJSONType <$> tys') <> "."
+  describeIssue Backward (TypesRestricted tys) = case NE.nonEmpty tys of
+    Nothing -> para "No values of any type were allowed" -- weird
+    Just tys' -> para $ "Type was required to be " <> orList (describeJSONType <$> tys') <> "."
 
 instance Behavable 'SchemaLevel 'TypedSchemaLevel where
   data Behave 'SchemaLevel 'TypedSchemaLevel

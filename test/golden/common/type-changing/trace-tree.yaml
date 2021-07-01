@@ -1,0 +1,60 @@
+breakingChanges:
+  AtPath "/test5":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+          - TypesRestricted [Number]
+          - OfType Number: NoMatchingMultipleOf 1.0
+  AtPath "/test3":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array: NoContradiction
+  AtPath "/test4":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Object: NoContradiction
+  AtPath "/test1":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema: TypesRestricted [Array]
+  AtPath "/test2":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema: TypesRestricted [Number,Array,Object]
+nonBreakingChanges:
+  AtPath "/test5":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+          - TypesRestricted [Number]
+          - OfType Number: NoMatchingMultipleOf 1.0
+  AtPath "/test3":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array: NoContradiction
+  AtPath "/test4":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Object: NoContradiction
+  AtPath "/test1":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema: TypesRestricted [Array]
+  AtPath "/test2":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema: TypesRestricted [Number,Array,Object]

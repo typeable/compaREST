@@ -2,7 +2,7 @@
 
 | [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
 |------------------------------------------|-------------------------------------------------|-------------------------------|
-| 1                                        | 1                                               | 0                             |
+| 2                                        | 2                                               | 0                             |
 
 # <span id="breaking-changes"></span>⚠️ Breaking changes
 
@@ -10,7 +10,11 @@
 
 ### 📱⬅️ JSON Response – 200
 
-#### `$(Object)`
+#### `$.property2`
+
+Type was required to be Number.
+
+#### Object
 
 Property `property2` may not be present.
 
@@ -20,6 +24,10 @@ Property `property2` may not be present.
 
 ### 📱➡️ JSON Request
 
-#### `$(Object)`
+#### `$.property2`
+
+Type was required to be Number.
+
+#### Object
 
 Property `property2` may not be present.
