@@ -27,6 +27,7 @@ module OpenAPI.Checker.Subtree
   , invertIssueOrientationP
   , embedFormula
   , anyOfAt
+  , clarifyIssue
   , structuralIssue
 
     -- * Structural helpers
@@ -316,7 +317,17 @@ anyOfAt
   -> CompatFormula' q AnIssue r a
 anyOfAt _ _ [x] = x
 anyOfAt xs issue fs =
-  Compose $ (`eitherOf` AnItem xs (anIssue issue)) <$> sequenceA (getCompose <$> fs)
+  Compose $ (`eitherOf` AnItem xs (anIssue issue)) <$> traverse getCompose fs
+
+-- | If the given formula contains any issues, add another issue on top. Otherwise succeed.
+clarifyIssue
+  :: Issuable l
+  => Paths q r l
+  -> Issue l
+  -> CompatFormula' q AnIssue r a
+  -> CompatFormula' q AnIssue r a
+clarifyIssue xs issue f =
+  Compose ((`eitherOf` AnItem xs (anIssue issue)) <$> pure <$> getCompose f) *> f
 
 fixpointKnot
   :: MonadState (MemoState VarRef) m

@@ -985,8 +985,10 @@ checkImplication env beh prods cons = case findExactly prods of
                 -- and the consumer either doesn't require it, or it does and we've already raised an error about it.
                 (_, _, Nothing, Nothing) -> issueAt beh (UnexpectedProperty k)
                 (Just p', _, Just p, _) -> go (propRefSchema p') (propRefSchema p)
-                (Nothing, Just add', Just p, _) -> go add' (propRefSchema p)
-                (Just p', _, Nothing, Just add) -> go (propRefSchema p') add
+                (Nothing, Just add', Just p, _) ->
+                  clarifyIssue beh (AdditionalToProperty k) $ go add' (propRefSchema p)
+                (Just p', _, Nothing, Just add) ->
+                  clarifyIssue beh (PropertyToAdditional k) $ go (propRefSchema p') add
                 (Nothing, Just _, Nothing, Just _) -> pure ()
               pure ()
             case (madd', madd) of
@@ -1081,6 +1083,10 @@ instance Issuable 'TypedSchemaLevel where
     | -- | producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
       -- AKA consumer does not have the type
       NoContradiction
+    | -- | in the producer this field used to be handled as part of "additionalProperties", and the consumer this is a specific "properties" entry. Only thrown when this change actually causes other issues
+      AdditionalToProperty Text
+    | -- | in the consumer this field used to be handled as part of "additionalProperties", and the producer this is a specific "properties" entry. Only thrown when this change actually causes other issues
+      PropertyToAdditional Text
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
@@ -1135,6 +1141,10 @@ instance Issuable 'TypedSchemaLevel where
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
   describeIssue Forward NoContradiction = para "The type has been removed."
   describeIssue Backward NoContradiction = para "The type has been added."
+  describeIssue Forward (AdditionalToProperty p) = para $ "Property " <> code p <> " is now handled by a specific \"properties\" clause."
+  describeIssue Backward (AdditionalToProperty p) = para $ "Property " <> code p <> " was handled by a specific \"properties\" clause."
+  describeIssue Forward (PropertyToAdditional p) = para $ "Property " <> code p <> " is longer handled by a specific \"properties\" clause."
+  describeIssue Backward (PropertyToAdditional p) = para $ "Property " <> code p <> " was not handled by a specific \"properties\" clause."
 
 showJSONValue :: A.Value -> Blocks
 showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)

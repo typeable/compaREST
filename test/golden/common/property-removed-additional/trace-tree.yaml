@@ -6,6 +6,7 @@ breakingChanges:
           PayloadSchema:
             OfType Object:
             - PropertyNowRequired "property2"
+            - AdditionalToProperty "property2"
             - InProperty "property2": TypesRestricted [Number]
 nonBreakingChanges:
   AtPath "/test":
@@ -15,4 +16,5 @@ nonBreakingChanges:
           PayloadSchema:
             OfType Object:
             - PropertyNowRequired "property2"
+            - AdditionalToProperty "property2"
             - InProperty "property2": TypesRestricted [Number]
