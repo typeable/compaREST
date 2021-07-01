@@ -10,15 +10,15 @@
 
 ### 📱➡️ JSON Request
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` has been removed.
+The property has been removed.
 
 ### 📱⬅️ JSON Response – 200
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` may not be present.
+The property may not be present.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -26,12 +26,12 @@ Property `property2` may not be present.
 
 ### 📱➡️ JSON Request
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` may not be present.
+The property may not be present.
 
 ### 📱⬅️ JSON Response – 200
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` has been removed.
+The property has been removed.

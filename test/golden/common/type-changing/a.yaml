@@ -1,0 +1,113 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Test
+servers:
+  - url: http://localhost/
+paths:
+  /test1:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test1"
+      responses:
+        "200":
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test1"
+  /test2:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test2"
+      responses:
+        "200":
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test2"
+  /test3:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test3"
+      responses:
+        "200":
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test3"
+  /test4:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test4"
+      responses:
+        "200":
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test4"
+  /test5:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test5"
+      responses:
+        "200":
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test5"
+components:
+  schemas:
+    Test1:
+      multipleOf: 1
+      minLength: 1
+      minItems: 1
+    Test2:
+      multipleOf: 1
+      minLength: 1
+      minItems: 1
+    Test3:
+      anyOf:
+        - type: number
+          multipleOf: 1
+        - type: array
+          minItems: 1
+        - type: string
+          minLength: 1
+        - type: object
+    Test4:
+      anyOf:
+        - type: number
+          multipleOf: 1
+        - type: array
+          minItems: 1
+        - type: string
+          minLength: 1
+        - type: object
+    Test5:
+      anyOf:
+        - type: number
+          multipleOf: 1
+        - type: array
+          minItems: 1
+        - type: object
+        - minLength: 1

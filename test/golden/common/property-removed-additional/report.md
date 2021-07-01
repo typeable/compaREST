@@ -2,7 +2,7 @@
 
 | [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
 |------------------------------------------|-------------------------------------------------|-------------------------------|
-| 1                                        | 1                                               | 0                             |
+| 3                                        | 3                                               | 0                             |
 
 # <span id="breaking-changes"></span>⚠️ Breaking changes
 
@@ -10,9 +10,16 @@
 
 ### 📱⬅️ JSON Response – 200
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` may not be present.
+1.  Values are no longer limited to the following types:
+
+    -   Number
+
+2.  The property was previously explicitly defined. It is now implicitly
+    described by the catch-all "additional properties" case.
+
+3.  The property may not be present.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -20,6 +27,13 @@ Property `property2` may not be present.
 
 ### 📱➡️ JSON Request
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` may not be present.
+1.  Values are no longer limited to the following types:
+
+    -   Number
+
+2.  The property was previously explicitly defined. It is now implicitly
+    described by the catch-all "additional properties" case.
+
+3.  The property may not be present.

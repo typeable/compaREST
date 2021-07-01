@@ -10,9 +10,9 @@
 
 ### 📱➡️ JSON Request
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` has become required.
+The property has become required.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -20,6 +20,6 @@ Property `property2` has become required.
 
 ### 📱⬅️ JSON Response – 200
 
-#### `$(Object)`
+#### `$.property2`
 
-Property `property2` has become required.
+The property has become required.

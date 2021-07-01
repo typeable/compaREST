@@ -4,11 +4,19 @@ breakingChanges:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType Object: PropertyNowRequired "property2"
+            OfType Object:
+              InProperty "property2":
+              - TypesRestricted [Number]
+              - AdditionalToProperty
+              - PropertyNowRequired
 nonBreakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
         InPayload:
           PayloadSchema:
-            OfType Object: PropertyNowRequired "property2"
+            OfType Object:
+              InProperty "property2":
+              - TypesRestricted [Number]
+              - AdditionalToProperty
+              - PropertyNowRequired
