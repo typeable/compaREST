@@ -5,6 +5,7 @@ module OpenAPI.Checker.Report
   , Pandoc
   , ReportConfig (..)
   , ReportTreeStyle (..)
+  , ReportMode (..)
   )
 where
 
@@ -56,17 +57,25 @@ data ReportStatus
     -- there actually are any breaking changes.
     OnlyUnsupportedChanges
 
+data ReportMode = OnlyErrors | All
+  deriving stock (Eq)
+
 data ReportConfig = ReportConfig
   { treeStyle :: ReportTreeStyle
+  , reportMode :: ReportMode
   }
 
 instance Default ReportConfig where
   def =
     ReportConfig
       { treeStyle = HeadersTreeStyle
+      , reportMode = All
       }
 
 data ReportTreeStyle = HeadersTreeStyle | FoldingBlockquotesTreeStyle
+
+twoRowTable :: [(Inlines, Inlines)] -> Blocks
+twoRowTable x = simpleTable (para . fst <$> x) [para . snd <$> x]
 
 generateReport :: ReportConfig -> ReportInput -> (Pandoc, ReportStatus)
 generateReport cfg inp =
@@ -77,23 +86,34 @@ generateReport cfg inp =
       breakingChangesPresent = not $ P.null breaking
       nonBreakingChangesPresent = not $ P.null nonBreaking
       unsupportedChangesPresent = not $ P.null unsupported
+      nonBreakingChangesShown = case reportMode cfg of
+        All -> True
+        OnlyErrors -> False
       builder = buildReport cfg
       report =
         doc $
           header 1 "Summary"
-            <> simpleTable
-              (para
-                 <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
-                     , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
-                     , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
-                     ])
-              [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
+            <> twoRowTable
+              ([ ( refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+                 , show' $ P.size breaking
+                 )
+               ]
+                 ++ when'
+                   nonBreakingChangesShown
+                   [ ( refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
+                     , show' $ P.size nonBreaking
+                     )
+                   ]
+                 ++ [ ( refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
+                      , show' $ P.size unsupported
+                      )
+                    ])
             <> when'
               breakingChangesPresent
               (header 1 (anchor breakingChangesId <> "⚠️ Breaking changes")
                  <> builder (showErrs breaking))
             <> when'
-              nonBreakingChangesPresent
+              (nonBreakingChangesPresent && nonBreakingChangesShown)
               (header 1 (anchor nonBreakingChangesId <> "🙆 Non-breaking changes")
                  <> builder (showErrs nonBreaking))
             <> when'
