@@ -170,7 +170,7 @@ unfoldFunctions initA fs g = unfoldFunctions' initA fs
     unfoldFunctions' a [] = unfoldFunctions a fs g
     unfoldFunctions' a (f : ff) =
       let (m, a') = f a
-       in m <> unfoldFunctions' a' ff
+       in unfoldFunctions' a' ff <> m
 
 jets :: [ReportJet' Behave Inlines]
 jets =
