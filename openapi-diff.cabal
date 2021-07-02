@@ -109,6 +109,7 @@ library
                      , doctemplates
                      , file-embed
                      , data-default
+                     , ordered-containers
   hs-source-dirs:      src
   exposed-modules:  Data.HList
                   , OpenAPI.Checker.Behavior
