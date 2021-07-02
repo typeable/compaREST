@@ -9,17 +9,16 @@ module OpenAPI.Checker.Report
 where
 
 import Control.Monad.Free hiding (unfoldM)
-import Control.Monad.Reader
-import Control.Monad.Writer
 import Data.Aeson (ToJSON)
 import Data.Default
 import Data.Either
-import Data.Foldable
 import Data.Function
 import Data.Functor
 import Data.List.NonEmpty
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
+import Data.Map.Ordered (OMap)
+import qualified Data.Map.Ordered as OM
 import Data.Maybe
 import Data.OpenUnion
 import Data.OpenUnion.Extra
@@ -78,26 +77,29 @@ generateReport cfg inp =
       breakingChangesPresent = not $ P.null breaking
       nonBreakingChangesPresent = not $ P.null nonBreaking
       unsupportedChangesPresent = not $ P.null unsupported
-      report = doc $
-        runReportMonad cfg jets $ do
-          tell $ header 1 "Summary"
-          tell $
-            simpleTable
+      builder = buildReport cfg
+      report =
+        doc $
+          header 1 "Summary"
+            <> simpleTable
               (para
                  <$> [ refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
                      , refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
                      , refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
                      ])
               [para . show' <$> [P.size breaking, P.size nonBreaking, P.size unsupported]]
-          when breakingChangesPresent $ do
-            tell $ header 1 $ anchor breakingChangesId <> "⚠️ Breaking changes"
-            incrementHeaders $ showErrs breaking
-          when nonBreakingChangesPresent $ do
-            tell $ header 1 $ anchor nonBreakingChangesId <> "🙆 Non-breaking changes"
-            incrementHeaders $ showErrs nonBreaking
-          when unsupportedChangesPresent $ do
-            tell $ header 1 $ anchor unsupportedChangesId <> "🤷 Unsupported feature changes"
-            incrementHeaders $ showErrs unsupported
+            <> when'
+              breakingChangesPresent
+              (header 1 (anchor breakingChangesId <> "⚠️ Breaking changes")
+                 <> builder (showErrs breaking))
+            <> when'
+              nonBreakingChangesPresent
+              (header 1 (anchor nonBreakingChangesId <> "🙆 Non-breaking changes")
+                 <> builder (showErrs nonBreaking))
+            <> when'
+              unsupportedChangesPresent
+              (header 1 (anchor unsupportedChangesId <> "🤷 Unsupported feature changes")
+                 <> builder (showErrs unsupported))
       status =
         if
             | breakingChangesPresent -> BreakingChanges
@@ -117,51 +119,12 @@ generateReport cfg inp =
     unsupportedChangesId = "unsupported-changes"
     nonBreakingChangesId = "non-breaking-changes"
 
-data ReportState = ReportState
-  { sourceJets :: [ReportJet' Behave Inlines]
-  , headerLevel :: Int
-  , headerHandle :: Inlines -> ReportMonad () -> ReportMonad ()
-  , incrementHeadersHandle :: ReportState -> ReportState
-  }
+    when' :: Monoid m => Bool -> m -> m
+    when' True m = m
+    when' False _ = mempty
 
-type ReportMonad = ReaderT ReportState (Writer Blocks)
-
-runReportMonad :: ReportConfig -> [ReportJet' Behave Inlines] -> ReportMonad () -> Blocks
-runReportMonad cfg jts =
-  execWriter
-    . flip
-      runReaderT
-      ReportState
-        { sourceJets = jts
-        , headerLevel = 1
-        , headerHandle =
-            case treeStyle cfg of
-              HeadersTreeStyle -> \i body -> do
-                h <- asks headerLevel
-                tell $ header h i
-                body
-              FoldingBlockquotesTreeStyle -> \i body -> do
-                tell $
-                  rawHtml "<details>"
-                    <> rawHtml "<summary>"
-                    <> plain i
-                    <> rawHtml "</summary>"
-                (mapReaderT . mapWriterT . fmap . fmap) blockQuote $ body
-                tell $ rawHtml "</details>"
-                where
-                  rawHtml = rawBlock "html"
-        , incrementHeadersHandle = case treeStyle cfg of
-            HeadersTreeStyle -> \l -> l {headerLevel = headerLevel l + 1}
-            FoldingBlockquotesTreeStyle -> id
-        }
-
-smartHeader :: Inlines -> ReportMonad () -> ReportMonad ()
-smartHeader i body = do
-  f <- asks headerHandle
-  f i body
-
-showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> ReportMonad ()
-showErrs x@(P.PathsPrefixNode currentIssues _) = do
+showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> Report
+showErrs x@(P.PathsPrefixNode currentIssues _) =
   let -- Extract this pattern if more cases like this arise
       ( removedPaths :: Maybe (Orientation, [Issue 'APILevel])
         , otherIssues :: Set (AnIssue a)
@@ -176,39 +139,38 @@ showErrs x@(P.PathsPrefixNode currentIssues _) = do
               let p' = p <&> (\(AnIssue _ i) -> i)
                in (Just (ori, p'), o)
           _ -> (Nothing, currentIssues)
-  jts <- asks sourceJets
-  tell $ case S.toList otherIssues of
-    [AnIssue ori i] -> describeIssue ori i
-    ii -> orderedList $ ii <&> (\(AnIssue ori i) -> describeIssue ori i)
-  case removedPaths of
-    Just (ori, paths) -> do
-      smartHeader
-        (case ori of
-           Forward -> "Removed paths"
-           Backward -> "Added paths")
-        $ tell $
-          bulletList $
-            paths <&> \case
-              (NoPathsMatched p) -> para . code $ T.pack p
-              (AllPathsFailed p) -> para . code $ T.pack p
-    Nothing -> pure ()
-  unfoldM x (observeJetShowErrs <$> jts) $ \(P.PathsPrefixNode _ subIssues) -> do
-    for_ subIssues $ \(WrapTypeable (AStep m)) ->
-      for_ (M.toList m) $ \(bhv, subErrors) -> do
-        unless (P.null subErrors) $
-          smartHeader (describeBehaviour bhv) $
-            incrementHeaders $ showErrs subErrors
+      issues = singletonBody $ case S.toList otherIssues of
+        [AnIssue ori i] -> describeIssue ori i
+        ii -> orderedList $ ii <&> (\(AnIssue ori i) -> describeIssue ori i)
+      paths = case removedPaths of
+        Just (ori, ps) -> do
+          singletonHeader
+            (case ori of
+               Forward -> "Removed paths"
+               Backward -> "Added paths")
+            $ singletonBody $
+              bulletList $
+                ps <&> \case
+                  (NoPathsMatched p) -> para . code $ T.pack p
+                  (AllPathsFailed p) -> para . code $ T.pack p
+        Nothing -> mempty
+      rest = unfoldFunctions x (observeJetShowErrs <$> jets) $ \(P.PathsPrefixNode _ subIssues) -> do
+        flip foldMap subIssues $ \(WrapTypeable (AStep m)) ->
+          flip foldMap (M.toList m) $ \(bhv, subErrors) ->
+            if P.null subErrors
+              then mempty
+              else singletonHeader (describeBehaviour bhv) $ showErrs subErrors
+   in issues <> paths <> rest
 
-unfoldM :: Monad m => a -> [a -> m a] -> (a -> m ()) -> m ()
-unfoldM a [] g = g a
-unfoldM a (f : ff) g = do
-  a' <- f a
-  unfoldM a' ff g
-
-incrementHeaders :: ReportMonad x -> ReportMonad x
-incrementHeaders m = do
-  f <- asks incrementHeadersHandle
-  local f m
+unfoldFunctions :: forall m a. (Monoid m, Eq a) => a -> [a -> (m, a)] -> (a -> m) -> m
+unfoldFunctions initA fs g = unfoldFunctions' initA fs
+  where
+    unfoldFunctions' :: a -> [a -> (m, a)] -> m
+    unfoldFunctions' a [] | a == initA = g a
+    unfoldFunctions' a [] = unfoldFunctions a fs g
+    unfoldFunctions' a (f : ff) =
+      let (m, a') = f a
+       in m <> unfoldFunctions' a' ff
 
 jets :: [ReportJet' Behave Inlines]
 jets =
@@ -259,16 +221,16 @@ jets =
 observeJetShowErrs
   :: ReportJet' Behave Inlines
   -> P.PathsPrefixTree Behave AnIssue a
-  -> ReportMonad (P.PathsPrefixTree Behave AnIssue a)
+  -> (Report, P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs jet p = case observeJetShowErrs' jet p of
   Just m -> m
-  Nothing -> pure p
+  Nothing -> (mempty, p)
 
 observeJetShowErrs'
   :: forall a.
      ReportJet' Behave Inlines
   -> P.PathsPrefixTree Behave AnIssue a
-  -> Maybe (ReportMonad (P.PathsPrefixTree Behave AnIssue a))
+  -> Maybe (Report, P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
   let results =
         subIssues >>= \(WrapTypeable (AStep m)) ->
@@ -278,23 +240,75 @@ observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) 
                 & mapMaybe
                   (\case
                      Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
-                     Pure h -> Just $ do
-                       unless (P.null subErrs) $ do
-                         smartHeader h $ incrementHeaders $ showErrs subErrs
-                       return mempty)
+                     Pure h ->
+                       if P.null subErrs
+                         then Just mempty
+                         else Just (singletonHeader h (showErrs subErrs), mempty))
    in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
         if any isRight results
           then
             Just $
-              catMapM
+              foldMap
                 (\case
-                   Left e -> pure e
+                   Left e -> (mempty, e)
                    Right m -> m)
                 results
           else Nothing
 
-catMapM :: (Monad m, Monoid b) => (a -> m b) -> [a] -> m b
-catMapM f xs = mconcat <$> mapM f xs
+data Report = Report {headers :: OMap Inlines Report, body :: Blocks}
+  deriving stock (Generic)
+
+instance Semigroup Report where
+  (Report headers1 b1) <> (Report headers2 b2) = Report (OM.unionWithL (const (<>)) headers1 headers2) (b1 <> b2)
+
+instance Monoid Report where
+  mempty = Report OM.empty mempty
+
+buildReport :: ReportConfig -> Report -> Blocks
+buildReport cfg = case treeStyle cfg of
+  HeadersTreeStyle -> headerStyleBuilder 2
+  FoldingBlockquotesTreeStyle -> foldingStyleBuilder
+  where
+    headerStyleBuilder :: HeaderLevel -> Report -> Blocks
+    headerStyleBuilder level rprt =
+      body rprt
+        <> foldOMapWithKey
+          (headers rprt)
+          (\k v ->
+             header level k <> subBuilder v)
+      where
+        subBuilder = headerStyleBuilder (level + 1)
+
+    foldingStyleBuilder :: Report -> Blocks
+    foldingStyleBuilder rprt =
+      body rprt
+        <> foldOMapWithKey
+          (headers rprt)
+          (\k v ->
+             if (OM.size . headers $ rprt) < 2
+               then para k <> blockQuote (subBuilder v)
+               else
+                 rawHtml "<details>"
+                   <> rawHtml "<summary>"
+                   <> plain k
+                   <> rawHtml "</summary>"
+                   <> blockQuote (subBuilder v)
+                   <> rawHtml "</details>")
+      where
+        subBuilder = foldingStyleBuilder
+
+    rawHtml = rawBlock "html"
+
+type HeaderLevel = Int
+
+singletonHeader :: Inlines -> Report -> Report
+singletonHeader i b = Report (OM.singleton (i, b)) mempty
+
+singletonBody :: Blocks -> Report
+singletonBody = Report OM.empty
 
 show' :: Show x => x -> Inlines
 show' = str . T.pack . show
+
+foldOMapWithKey :: Monoid m => OMap k v -> (k -> v -> m) -> m
+foldOMapWithKey m f = foldMap (uncurry f) $ OM.assocs m
