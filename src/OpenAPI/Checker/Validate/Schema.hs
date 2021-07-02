@@ -424,6 +424,13 @@ instance Steppable Schema (Referenced Schema) where
     | NotStep
     deriving stock (Eq, Ord, Show)
 
+instance Steppable (Referenced Schema) (Referenced Schema) where
+  data Step (Referenced Schema) (Referenced Schema)
+    = ConjunctedWith (NE.NonEmpty (Trace (Referenced Schema)))
+    -- ^ Invariant (for better memoization only): the "tail" of the trace is
+    -- the "least" of the traces of the conjuncted schemata
+    deriving stock (Eq, Ord, Show)
+
 instance Steppable Schema (Definitions (Referenced Schema)) where
   data Step Schema (Definitions (Referenced Schema)) = PropertiesStep
     deriving stock (Eq, Ord, Show)
@@ -889,6 +896,12 @@ checkContradiction
   -> SemanticCompatFormula ()
 checkContradiction beh _ = issueAt beh NoContradiction -- TODO #70
 
+tracedConjunct :: NE.NonEmpty (Traced (Referenced Schema)) -> Traced (Referenced Schema)
+tracedConjunct refSchemas = case NE.sortWith ask refSchemas of
+  (rs NE.:| []) -> rs
+  (rs1 NE.:| rs2:rss) -> traced (ask rs1 >>> step (ConjunctedWith $ ask <$> rs2 NE.:| rss)) $
+    Inline mempty {_schemaAllOf = Just $ extract <$> rs1:rs2:rss}
+
 checkImplication
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
@@ -949,10 +962,7 @@ checkImplication env beh prods cons = case findExactly prods of
         then pure ()
         else issueAt beh (NoMatchingFormat f)
     Items _ cons' -> case findRelevant (<>) (\case Items _ rs -> Just (rs NE.:| []); _ -> Nothing) prods of
-      Just (rs NE.:| []) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
-      Just rs -> do
-        let sch = Inline mempty {_schemaAllOf = Just . NE.toList $ extract <$> rs}
-        checkCompatibility (beh >>> step InItems) env $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
+      Just (tracedConjunct -> rs) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
       Nothing -> issueAt beh NoMatchingItems
     MaxItems m -> case findRelevant min (\case MaxItems m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
