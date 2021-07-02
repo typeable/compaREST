@@ -178,9 +178,9 @@ jets =
     <$> [ constructReportJet jsonPathJet
         , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
             strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
-        , constructReportJet $ \InRequest InPayload PayloadSchema -> "📱➡️ JSON Request" :: Inlines
         , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
             "📱⬅️ JSON Response – " <> str (T.pack . show $ c) :: Inlines
+        , constructReportJet $ \InRequest InPayload PayloadSchema -> "📱➡️ JSON Request" :: Inlines
         ]
   where
     unwrapReportJetResult :: ReportJetResult Behave x -> ReportJet' Behave x
