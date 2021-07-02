@@ -5,6 +5,7 @@ import Control.Monad.Except
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Default
+import Data.Maybe
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import FormatHeuristic
@@ -39,8 +40,15 @@ main = do
         FileMode f -> case formatFromFilePath f of
           Nothing -> \_ -> throwError UnknownOutputFormat
           Just (writer, f') -> lift . BSL.writeFile f' <=< runPandocIO . writer
-      (report, status) = runReport (reportConfig opts) (a, b)
-  either handler pure <=< runExceptT $ write report
+      reportConfig =
+        ReportConfig
+          { treeStyle = reportTreeStyle opts
+          , reportMode = fromMaybe All $ mode opts
+          }
+      (report, status) = runReport reportConfig (a, b)
+  case mode opts of
+    Just _ -> either handler pure <=< runExceptT $ write report
+    Nothing -> pure ()
   case status of
     NoBreakingChanges -> exitSuccess
     BreakingChanges -> exitWith $ ExitFailure 1
