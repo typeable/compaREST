@@ -1,0 +1,68 @@
+{
+    "atlassian-openapi-diff": {
+        "branch": "master",
+        "repo": "https://bitbucket.org/atlassian/openapi-diff.git",
+        "rev": "68a0ebce1ec07f21b8e51a008321208c58eab1d6",
+        "type": "git"
+    },
+    "haskellNix": {
+        "branch": "master",
+        "description": "Alternative Haskell Infrastructure for Nixpkgs",
+        "homepage": "https://input-output-hk.github.io/haskell.nix",
+        "owner": "input-output-hk",
+        "repo": "haskell.nix",
+        "rev": "062a0317b6f1ec231864df49cb9c0fcc838e9c8a",
+        "sha256": "0s5f8hnwqmz9anz175a53vay20f0185m92vyiga6yrslsar3vpin",
+        "type": "tarball",
+        "url": "https://github.com/input-output-hk/haskell.nix/archive/062a0317b6f1ec231864df49cb9c0fcc838e9c8a.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "mavenix": {
+        "branch": "master",
+        "description": "Deterministic Maven builds using Nix [maintainer=@icetan]",
+        "homepage": "",
+        "owner": "nix-community",
+        "repo": "mavenix",
+        "rev": "7416dbd2861520d44a4d6ecee9d94f89737412dc",
+        "sha256": "0gkn29q63y2l700vravfl8nqjvd0zx7nvfcb3vj64fal3prh1l7y",
+        "type": "tarball",
+        "url": "https://github.com/nix-community/mavenix/archive/7416dbd2861520d44a4d6ecee9d94f89737412dc.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "niv": {
+        "branch": "master",
+        "description": "Easy dependency management for Nix projects",
+        "homepage": "https://github.com/nmattia/niv",
+        "owner": "nmattia",
+        "repo": "niv",
+        "rev": "e0ca65c81a2d7a4d82a189f1e23a48d59ad42070",
+        "sha256": "1pq9nh1d8nn3xvbdny8fafzw87mj7gsmp6pxkdl65w2g18rmcmzx",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/niv/archive/e0ca65c81a2d7a4d82a189f1e23a48d59ad42070.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "npmNix": {
+        "branch": "master",
+        "description": "Organize JavaScript packages with the Nix package manager.",
+        "homepage": "https://medium.com/commitlog/the-internet-is-at-the-mercy-of-a-handful-of-people-73fac4bc5068",
+        "owner": "ip1981",
+        "repo": "npm.nix",
+        "rev": "dd31fae2cfe7d4ed21fc9a9f226a81f382b86022",
+        "sha256": "1a0aqawv6hslxn756yzb3f8ajf4gcms8b1abw2dwm0ck81jq2snc",
+        "type": "tarball",
+        "url": "https://github.com/ip1981/npm.nix/archive/dd31fae2cfe7d4ed21fc9a9f226a81f382b86022.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "openapitools-openapi-diff": {
+        "branch": "master",
+        "description": "Utility for comparing two OpenAPI specifications.",
+        "homepage": null,
+        "owner": "OpenAPITools",
+        "repo": "openapi-diff",
+        "rev": "1ae6fb0baa56cd7b61b50904f2c664cd86d64547",
+        "sha256": "1aigv0hgzxfz3i3d0qxn7jp1hgkrlmhwcilpzza2y9j5qdfxkrvs",
+        "type": "tarball",
+        "url": "https://github.com/OpenAPITools/openapi-diff/archive/1ae6fb0baa56cd7b61b50904f2c664cd86d64547.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}
