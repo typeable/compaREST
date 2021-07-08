@@ -1,6 +1,13 @@
 { sources ? import ./nix/sources.nix
 , haskellNix ? import sources.haskellNix { }
-, pkgs ? import haskellNix.sources.nixpkgs-2105 haskellNix.nixpkgsArgs
+, gomod2nix ? sources.gomod2nix
+, pkgs ? import haskellNix.sources.nixpkgs-2105 (haskellNix.nixpkgsArgs // {
+    overlays = haskellNix.nixpkgsArgs.overlays ++ [
+      (self: super: {
+        buildGoApplication = super.callPackage (gomod2nix + "/builder") { };
+      })
+    ];
+  })
 , npmNix ? import (sources.npmNix + "/npmPackages") { inherit pkgs; }
 , mavenix ? import (sources.mavenix) { inherit pkgs; }
 }:
@@ -58,6 +65,22 @@ let
     exit 0
   '';
 
+  oasdiff = pkgs.pkgs.buildGoApplication {
+    pname = "oasdiff";
+    version = "0.1";
+    src = sources.oasdiff;
+    modules = ./oasdiff/gomod2nix.toml;
+  };
+  oasdiff-differ = pkgs.writeScript "oasdiff-differ" ''
+    #!${pkgs.stdenv.shell}
+    set +e
+    ${oasdiff}/bin/oasdiff -base $1 -revision $2 -format text >$3/oasdiff.txt 2>$3/oasdiff.error.txt
+    if [ ! -s $3/oasdiff.error.txt ]; then
+      rm $3/oasdiff.error.txt
+    fi
+    exit 0
+  '';
+
   getInputs = with pkgs;
     dir: lib.flatten (lib.mapAttrsToList
       (name: type:
@@ -87,6 +110,7 @@ let
         typeable-openapi-diff-differ
         atlassian-openapi-diff-differ
         openapitools-openapi-diff-differ
+        oasdiff-differ
       ];
     }
     ''
