@@ -10,6 +10,8 @@
   })
 , npmNix ? import (sources.npmNix + "/npmPackages") { inherit pkgs; }
 , mavenix ? import (sources.mavenix) { inherit pkgs; }
+, bumpToken ? null
+, bumpDocumentation ? null
 }:
 let
   typeable-openapi-diff = (pkgs.haskell-nix.stackProject {
@@ -81,6 +83,27 @@ let
     exit 0
   '';
 
+  bump-differ = { bumpToken, bumpDocumentation }: pkgs.writeScript "bump-differ" ''
+    #!${pkgs.stdenv.shell}
+
+    ${pkgs.httpie}/bin/https --ignore-stdin POST bump.sh/api/v1/versions definition=@$1 documentation=${bumpDocumentation} -a ${bumpToken}: >/dev/null
+    id=$(${pkgs.httpie}/bin/https --ignore-stdin POST bump.sh/api/v1/versions definition=@$2 documentation=${bumpDocumentation} -a ${bumpToken}: | ${pkgs.jq}/bin/jq -r .id)
+
+    if [ -z "$id" ]
+    then
+      echo "Not changed" > $3/bump.txt
+    else
+      state=""
+
+      while [ "$state" != "deployed" ]
+      do
+        state=$(${pkgs.httpie}/bin/https --ignore-stdin GET bump.sh/api/v1/versions/$id -a ${bumpToken}: | ${pkgs.jq}/bin/jq -r .state)
+      done
+
+      ${pkgs.httpie}/bin/https --ignore-stdin GET bump.sh/api/v1/versions/$id -a ${bumpToken}: | ${pkgs.jq}/bin/jq -r .diff_summary > $3/bump.txt
+    fi
+  '';
+
   getInputs = with pkgs;
     dir: lib.flatten (lib.mapAttrsToList
       (name: type:
@@ -111,7 +134,11 @@ let
         atlassian-openapi-diff-differ
         openapitools-openapi-diff-differ
         oasdiff-differ
-      ];
+      ] ++ (
+        if bumpToken == null || bumpDocumentation == null
+        then builtins.trace "Warning: bumpToken or bumpDocumentation not provided. Skipping bump.sh benchmarks." [ ]
+        else [ (bump-differ { inherit bumpToken bumpDocumentation; }) ]
+      );
     }
     ''
       echo "Running compatibility checks:"
