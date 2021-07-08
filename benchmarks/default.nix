@@ -79,7 +79,8 @@ let
       dirs = map
         (path: builtins.toJSON {
           relativePath = pkgs.lib.removePrefix (builtins.toString root) (builtins.toString path);
-          inherit path;
+          a = path + "/a.yaml";
+          b = path + "/b.yaml";
         })
         (getInputs root);
       differs = [
@@ -92,15 +93,18 @@ let
       echo "Running compatibility checks:"
       for dir in $dirs
       do
-        path=$(echo $dir | ${pkgs.jq}/bin/jq -r .path)
+        a=$(echo $dir | ${pkgs.jq}/bin/jq -r .a)
+        b=$(echo $dir | ${pkgs.jq}/bin/jq -r .b)
         relativePath=$(echo $dir | ${pkgs.jq}/bin/jq -r .relativePath)
         echo "''\t$relativePath"
         output=$out$relativePath
         mkdir -p $output
         for differ in $differs
         do
-          $differ $path/a.yaml $path/b.yaml $output
+          $differ $a $b $output
         done
+        cp $a $output/a.yaml
+        cp $b $output/b.yaml
       done
     '';
 
