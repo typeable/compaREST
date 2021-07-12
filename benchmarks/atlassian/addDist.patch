@@ -1,0 +1,10 @@
+diff --git a/gulpfile.js b/gulpfile.js
+index c3161cf..c123cc0 100644
+--- a/gulpfile.js
++++ b/gulpfile.js
+@@ -153,3 +153,5 @@ exports.watch = gulp.series(
+ exports.watchE2e = function () {
+     gulp.watch(['build-output/lib/**/*', 'build-output/test/e2e/**/*', 'test/e2e/**/*.json'], gulp.series(e2eTest));
+ };
++
++exports.compileDist = compileDist
