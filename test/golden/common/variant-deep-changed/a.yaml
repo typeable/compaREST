@@ -24,23 +24,24 @@ components:
     Test:
       oneOf:
         - type: object
-          required: ["tag", "prop_A"]
+          required: ["desc", "prop_A"]
           properties:
-            tag:
-              enum: ["A"]
+            desc:
+              type: object
+              required: ["name"]
+              properties:
+                name:
+                  enum: ["A"]
             prop_A:
               type: string
         - type: object
-          required: ["tag", "prop_B"]
+          required: ["desc", "prop_B"]
           properties:
-            tag:
-              enum: ["B"]
+            desc:
+              type: object
+              required: ["name"]
+              properties:
+                name:
+                  enum: ["B"]
             prop_B:
-              type: number
-        - type: object
-          required: ["tag", "prop_C"]
-          properties:
-            tag:
-              enum: ["C"]
-            prop_C:
               type: number

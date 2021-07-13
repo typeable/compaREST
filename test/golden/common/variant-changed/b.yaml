@@ -36,11 +36,4 @@ components:
             tag:
               enum: ["B"]
             prop_B:
-              type: number
-        - type: object
-          required: ["tag", "prop_C"]
-          properties:
-            tag:
-              enum: ["C"]
-            prop_C:
-              type: number
+              type: string
