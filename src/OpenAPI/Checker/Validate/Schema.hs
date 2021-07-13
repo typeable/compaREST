@@ -901,16 +901,18 @@ checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
             -- of showing an empty list restrictions that couldn't be satisfied.)
             F.for_ css $ \(Conjunct cs) -> F.for_ cs $ checkImplication env beh' []
           (pss', css') -> F.for_ (tryPartition defs $ ProdCons (JsonFormula pss') (JsonFormula css')) $ \case
-            (mPart, ProdCons pf cf) -> case (getJsonFormula pf, getJsonFormula cf) of
-              (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' mPart ps
-              (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
-                F.for_ cs $ checkImplication env beh' ps
-              -- unlucky:
-              (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
-                anyOfAt
-                  beh'
-                  (issueFromConjunct Nothing ps)
-                  [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
+            (mPart, ProdCons pf cf) -> do
+              let beh'' = foldr ((<<<) . step . InPartition) beh' mPart
+              case (getJsonFormula pf, getJsonFormula cf) of
+                (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' mPart ps
+                (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
+                  F.for_ cs $ checkImplication env beh'' ps
+                -- unlucky:
+                (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
+                  anyOfAt
+                    beh'
+                    (issueFromConjunct Nothing ps)
+                    [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
       pure ()
   where
     anyBottomTypes f = getAny $
@@ -1525,6 +1527,13 @@ describeJSONType = \case
   String -> "String"
   Array -> "Array"
   Object -> "Object"
+
+instance Behavable 'TypedSchemaLevel 'TypedSchemaLevel where
+  data Behave 'TypedSchemaLevel 'TypedSchemaLevel
+    = InPartition (PartitionLocation, PartitionChoice)
+    deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (InPartition locPart) = "In partition " <> code (T.pack $ show locPart)
 
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel

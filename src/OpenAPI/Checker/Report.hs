@@ -211,6 +211,7 @@ jets =
       :: NonEmpty
            ( Union
                '[ Behave 'SchemaLevel 'TypedSchemaLevel
+                , Behave 'TypedSchemaLevel 'TypedSchemaLevel
                 , Behave 'TypedSchemaLevel 'SchemaLevel
                 ]
            )
@@ -220,16 +221,20 @@ jets =
         showParts
           :: [ Union
                  '[ Behave 'SchemaLevel 'TypedSchemaLevel
+                  , Behave 'TypedSchemaLevel 'TypedSchemaLevel
                   , Behave 'TypedSchemaLevel 'SchemaLevel
                   ]
              ]
           -> Text
         showParts [] = mempty
+        showParts (SingletonUnion (OfType _) : xs@((SingletonUnion (InPartition _)) : _)) = showParts xs
         showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion (InProperty _)) : _)) = showParts xs
         showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion InAdditionalProperty) : _)) = showParts xs
         showParts (SingletonUnion (OfType Array) : xs@(SingletonUnion InItems : _)) = showParts xs
         showParts (y : ys) =
           ((\(OfType t) -> "(" <> describeJSONType t <> ")")
+             @@> (\case
+                    InPartition (loc, part) -> "|" <> T.pack (show loc) <> "|" <> T.pack (show part) <> "|")
              @@> (\case
                     InItems -> "[*]"
                     InProperty p -> "." <> p
