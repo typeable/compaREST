@@ -4,11 +4,11 @@ breakingChanges:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType Number: NoContradiction
+            OfType Number: NoContradiction Nothing
 nonBreakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType String: NoContradiction
+            OfType String: NoContradiction Nothing
