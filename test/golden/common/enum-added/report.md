@@ -12,7 +12,11 @@
 
 #### `$(String)`
 
-The case that `$` is one of: `"C"` -- has been added.
+The following enum value was added:
+
+``` json
+"C"
+```
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -22,4 +26,8 @@ The case that `$` is one of: `"C"` -- has been added.
 
 #### `$(String)`
 
-The case that `$` is one of: `"C"` -- has been added.
+The following enum value was added:
+
+``` json
+"C"
+```

@@ -1076,6 +1076,8 @@ selectPartition (Lift (Partitions m)) =
     go [] = Nothing
     -- Skip partitioning by property for now
     go ((_, DByProperties _):ps) = go ps
+    -- Don't partition by enum value at the root (this reports removed enum values as contradictions in their respective partitions)
+    go ((PHere, DByEnumValue _):ps) = go ps
     go ((loc, DByEnumValue (DNF xss)):ps)
       -- Check that no disjunction branches are unresticted
       | Just enums <- traverse (fmap (foldr1 S.intersection) . NE.nonEmpty . S.toList) . S.toList $ xss
