@@ -24,7 +24,7 @@ let
   typeable-openapi-diff-differ = pkgs.writeScript "typeable-openapi-diff-differ" ''
     #!${pkgs.stdenv.shell}
     set +e
-    ${typeable-openapi-diff-exe} -s $1 -c $2 -o $3/typeable.md
+    ${typeable-openapi-diff-exe} -c $1 -s $2 -o $3/typeable.md
     exit 0
   '';
 
@@ -159,6 +159,27 @@ let
       done
     '';
 
+  benchmarkReportTemplate = root:
+    let
+      tools = [
+        "Typeable"
+        "Atlassian"
+        "OpenApi Tools"
+        "oasdiff"
+        "Bump.sh"
+      ];
+      foo = with pkgs.lib.strings;
+        concatMapStrings (x: "| " + x) ([ "" ] ++ tools) + "| \n" + concatMapStrings (_: "|---") ([ "" ] ++ tools) + "| \n" +
+        concatMapStrings
+          (path:
+            let
+              relativePath = pkgs.lib.removePrefix (builtins.toString root + "/") (builtins.toString path);
+
+            in
+            "[${relativePath}](./${relativePath})${concatMapStrings (_: " | ✅❌") tools} \n")
+          (getInputs root);
+    in
+    foo;
 
 in
 runBenchmark ../test/golden/common
