@@ -1535,22 +1535,20 @@ instance Behavable 'TypedSchemaLevel 'TypedSchemaLevel where
 showPartition :: (PartitionLocation, PartitionChoice) -> Inlines
 showPartition = \case
   (partition, CByEnumValue (S.toList -> [v])) ->
-    "In cases where " <> renderPartitionLocation partition <> " is " <> showJSONValueInline v <> "."
+    "In cases where " <> renderPartitionLocation partition <> " is " <> showJSONValueInline v
   (partition, CByEnumValue (S.toList -> vs)) ->
     "In cases where " <> renderPartitionLocation partition <> " has values: "
       <> (fold . L.intersperse ", " . fmap showJSONValueInline $ vs)
-      <> "."
   (partition, CByProperties (S.toList -> incl) (S.toList -> [])) ->
-    "In cases where " <> renderPartitionLocation partition <> " contains the properties: " <> listCodes incl <> "."
+    "In cases where " <> renderPartitionLocation partition <> " contains the properties: " <> listCodes incl
   (partition, CByProperties (S.toList -> []) (S.toList -> excl)) ->
-    "In cases where " <> renderPartitionLocation partition <> " does not contain the properties: " <> listCodes excl <> "."
+    "In cases where " <> renderPartitionLocation partition <> " does not contain the properties: " <> listCodes excl
   (partition, CByProperties (S.toList -> incl) (S.toList -> excl)) ->
     "In cases where " <> renderPartitionLocation partition
       <> " contains the properties "
       <> listCodes incl
       <> " and does not contain the properties "
       <> listCodes excl
-      <> "."
   where
     listCodes :: [Text] -> Inlines
     listCodes = fold . L.intersperse ", " . fmap code

@@ -10,7 +10,7 @@
 
 ### 📱⬅️ JSON Response – 200
 
-#### In cases where `$.tag` is `"C"`.
+#### In cases where `$.tag` is `"C"`
 
 The value has been added.
 
@@ -20,6 +20,6 @@ The value has been added.
 
 ### 📱➡️ JSON Request
 
-#### In cases where `$.tag` is `"C"`.
+#### In cases where `$.tag` is `"C"`
 
 The value has been added.
