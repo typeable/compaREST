@@ -1,0 +1,18 @@
+breakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema: OneOfNotDisjoint
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema: OneOfNotDisjoint
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema: OneOfNotDisjoint
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema: OneOfNotDisjoint

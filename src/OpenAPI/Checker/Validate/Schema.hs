@@ -568,7 +568,7 @@ processSchema sch@(extract -> Schema {..}) = do
     Just xs -> do
       checkOneOfDisjoint xs >>= \case
         True -> pure ()
-        False -> warn (NotSupported "Could not determine that oneOf branches are disjoint")
+        False -> warn OneOfNotDisjoint
       joins <$> mapM processRefSchema xs
 
   case _schemaNot of
@@ -813,7 +813,16 @@ processSchema sch@(extract -> Schema {..}) = do
 {- TODO: ReadOnly/WriteOnly #68 -}
 
 checkOneOfDisjoint :: MonadProcess m => [Traced (Referenced Schema)] -> m Bool
-checkOneOfDisjoint = const $ pure True -- TODO #69
+checkOneOfDisjoint schs = do
+  defs <- R.ask
+  pure $ case selectPartition $ joins $ runPartitionM defs $ traverse partitionRefSchema schs of
+    Nothing -> False
+    Just (loc, parts) ->
+      let intersects part sch = case runIntersectionM defs $ intersectRefSchema loc part sch of
+            Disjoint -> False
+            _ -> True
+       in all (\part -> 1 >= length (filter (intersects part) schs)) parts
+  where
 
 schemaToFormula
   :: Traced (Definitions Schema)
@@ -1064,6 +1073,9 @@ partitionCondition = \case
     pure $ byProps /\ meets inProps
   _ -> pure top
 
+runPartitionM :: Traced (Definitions Schema) -> PartitionM a -> a
+runPartitionM defs = runIdentity . runMemo () . (`runReaderT` defs)
+
 partitionJsonFormulas
   :: ProdCons (Traced (Definitions Schema))
   -> ProdCons (JsonFormula t)
@@ -1071,7 +1083,7 @@ partitionJsonFormulas
 partitionJsonFormulas defs pc = producer pcPart \/ consumer pcPart
   where
     pcPart = partitionFormula <$> defs <*> pc
-    partitionFormula def (JsonFormula xss) = runIdentity . runMemo () . (`runReaderT` def) $ do
+    partitionFormula def (JsonFormula xss) = runPartitionM def $ do
       getLiftA . foldLattice (LiftA . partitionCondition) $ xss
 
 selectPartition :: Lifted Partitions -> Maybe (PartitionLocation, S.Set PartitionChoice)
@@ -1110,6 +1122,15 @@ catchBottom act handler = R.liftCatch (W.liftCatch (\a h -> a <|> h ())) act (\_
 
 mChange :: IntersectionM ()
 mChange = tell $ Any True
+
+data IntersectionResult a = Disjoint | Same a | New a
+  deriving stock (Eq, Ord, Show)
+
+runIntersectionM :: Traced (Definitions Schema) -> IntersectionM a -> IntersectionResult a
+runIntersectionM defs act = case runWriterT $ runReaderT act defs of
+  Nothing -> Disjoint
+  Just (x, Any False) -> Same x
+  Just (x, Any True) -> New x
 
 intersectSchema
   :: PartitionLocation
@@ -1172,12 +1193,12 @@ intersectCondition _defs PHere (CByEnumValue values) cond@(Exactly x) =
   if untypeValue x `S.member` values then SingleConjunct [cond] else bottom
 intersectCondition defs (PInProperty k loc) part cond@(Properties props add madd) = case M.lookup k props of
   Nothing -> SingleConjunct [cond] -- shouldn't happen
-  Just prop -> case runWriterT . (`runReaderT` defs) $ intersectRefSchema loc part $ propRefSchema prop of
-    Just (rs', Any True) ->
+  Just prop -> case runIntersectionM defs $ intersectRefSchema loc part $ propRefSchema prop of
+    New rs' ->
       let trs' = traced (ask (propRefSchema prop) >>> step (Partitioned loc part)) rs'
        in SingleConjunct [Properties (M.insert k prop {propRefSchema = trs'} props) add madd]
-    Just (_, Any False) -> SingleConjunct [cond]
-    Nothing -> bottom
+    Same _ -> SingleConjunct [cond]
+    Disjoint -> bottom
 intersectCondition _defs _loc _part cond = SingleConjunct [cond]
 
 intersectFormula :: Traced (Definitions Schema) -> PartitionLocation -> PartitionChoice -> JsonFormula t -> JsonFormula t
@@ -1467,6 +1488,8 @@ instance Issuable 'SchemaLevel where
   data Issue 'SchemaLevel
     = -- | Some (openapi-supported) feature that we do not support was encountered in the schema
       NotSupported Text
+    | -- | We couldn't prove that the branches of a oneOf are disjoint, and we will treat it as an anyOf, meaning we don't check whether the overlaps are excluded in a compatible way
+      OneOfNotDisjoint
     | -- | The schema is actually invalid
       InvalidSchema Text
     | -- | The schema contains a reference loop along "anyOf"/"allOf"/"oneOf".
@@ -1484,12 +1507,15 @@ instance Issuable 'SchemaLevel where
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported = \case
     NotSupported _ -> True
+    OneOfNotDisjoint -> True
     InvalidSchema _ -> True
     UnguardedRecursion -> True
     _ -> False
 
   describeIssue _ (NotSupported i) =
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
+  describeIssue _ OneOfNotDisjoint =
+    para (emph "Treating oneOf as anyOf (couldn't check overlaps)")
   describeIssue _ (InvalidSchema i) =
     para (emph "The schema is invalid: " <> text i <> ".")
   describeIssue _ UnguardedRecursion =
