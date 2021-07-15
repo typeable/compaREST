@@ -9,6 +9,7 @@ where
 import GHC.Generics (Generic)
 import OpenAPI.Checker.Report
 import Options.Applicative
+import Options.Applicative.Help hiding (fullDesc)
 
 data Options = Options
   { clientFile :: FilePath
@@ -28,7 +29,20 @@ optionsParserInfo =
     (helper <*> optionsParser)
     (fullDesc
        <> header "openapi-diff"
-       <> progDesc "A tool to check compatibility between two OpenApi specifications.")
+       <> progDescDoc
+         (Just $
+            par "A tool to check compatibility between two OpenApi specifications."
+              <$$> hardline <> par "Usage examples" <> hardline
+              <$$> indent
+                4
+                (par "Compare files old.yaml with new.yaml and output the resulting report to stdout:"
+                   <$$> hardline <> indent 4 "openapi-diff -c old.yaml -s new.yaml"
+                   <$$> hardline <> par "Only output breaking changes and write a styled HTML report to file report.html:"
+                   <$$> hardline <> indent 4 "openapi-diff -c old.yaml -s new.yaml --only-breaking -o report"
+                   <$$> hardline <> par "Don't output anything, only fail if there are breaking changes:"
+                   <$$> hardline <> indent 4 "openapi-diff -c old.json -s new.json --silent"
+                   <$$> hardline <> par "Write full report suitable for embedding into a GitHub comment to report.html:"
+                   <$$> hardline <> indent 4 "openapi-diff -c old.json -s new.json --folding-block-quotes-style -o report.html")))
 
 optionsParser :: Parser Options
 optionsParser =
@@ -36,19 +50,23 @@ optionsParser =
     <$> strOption
       (short 'c'
          <> long "client"
-         <> help "The specification that will be used for the client of the API.")
+         <> help
+           "A path to the file containing the specification that will be \
+           \used for the client of the API. Can be either a YAML or JSON file.")
     <*> strOption
       (short 's'
          <> long "server"
-         <> help "The specification that will be used for the server of the API.")
+         <> help
+           "A path to the file containing the specification that will be \
+           \used for the server of the API. Can be either a YAML or JSON file.")
     <*> (flag'
            Nothing
            (long "silent"
               <> help "Silence all output.")
            <|> flag'
              (Just OnlyErrors)
-             (long "only-errors"
-                <> help "Only report incompatibility errors in the output.")
+             (long "only-breaking"
+                <> help "Only report breaking changes in the output.")
            <|> flag'
              (Just All)
              (long "all"
@@ -59,9 +77,12 @@ optionsParser =
     <*> ((FileMode
             <$> strOption
               (short 'o' <> long "output"
-                 <> help
-                   "The file path where the output should be writtrn. \
-                   \Leave blank to output result to stdout."))
+                 <> helpDoc
+                   (Just $
+                      par "The file path where the output should be writtrn. Leave blank to output result to stdout."
+                        <$$> hardline <> par "The file extension is used to determine the type of the output file."
+                        <$$> hardline <> par "Supports many formats such as markdown, html, rtf, doc, txt, rst, and many more."
+                        <$$> hardline <> par "Leave off the extensionto produce a self-contained HTML report with styling.")))
            <|> pure StdoutMode)
     <*> (flag'
            FoldingBlockquotesTreeStyle
@@ -79,3 +100,6 @@ optionsParser =
                   "The report tree is structured using \
                   \increasing levels of headers.")
            <|> pure HeadersTreeStyle)
+
+par :: String -> Doc
+par = foldr1 (</>) . fmap string . words
