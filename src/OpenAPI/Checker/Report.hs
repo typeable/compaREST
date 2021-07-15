@@ -192,10 +192,14 @@ unfoldFunctions initA fs g = unfoldFunctions' initA fs
       let (m, a') = f a
        in unfoldFunctions' a' ff <> m
 
-jets :: [ReportJet' Behave Inlines]
+jets :: [ReportJet' Behave (Maybe Inlines)]
 jets =
   unwrapReportJetResult
-    <$> [ constructReportJet jsonPathJet
+    <$> [ constructReportJet $
+            curry $ \case
+              (OfType Object, p@(InPartition _)) -> Just $ describeBehaviour p :: Maybe Inlines
+              _ -> Nothing
+        , constructReportJet jsonPathJet
         , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
             strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
         , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
@@ -239,7 +243,7 @@ jets =
             <> showParts ys
 
 observeJetShowErrs
-  :: ReportJet' Behave Inlines
+  :: ReportJet' Behave (Maybe Inlines)
   -> P.PathsPrefixTree Behave AnIssue a
   -> (Report, P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs jet p = case observeJetShowErrs' jet p of
@@ -248,7 +252,7 @@ observeJetShowErrs jet p = case observeJetShowErrs' jet p of
 
 observeJetShowErrs'
   :: forall a.
-     ReportJet' Behave Inlines
+     ReportJet' Behave (Maybe Inlines)
   -> P.PathsPrefixTree Behave AnIssue a
   -> Maybe (Report, P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
@@ -260,10 +264,11 @@ observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) 
                 & mapMaybe
                   (\case
                      Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
-                     Pure h ->
+                     Pure (Just h) ->
                        if P.null subErrs
                          then Just mempty
-                         else Just (singletonHeader h (showErrs subErrs), mempty))
+                         else Just (singletonHeader h (showErrs subErrs), mempty)
+                     Pure Nothing -> Nothing)
    in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
         if any isRight results
           then

@@ -1,0 +1,34 @@
+breakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Object:
+              InPartition (PInProperty "tag" PHere,CByEnumValue (fromList [String "B"])):
+                InProperty "prop_B":
+                  OfType Number: NoContradiction
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Object:
+              InPartition (PInProperty "tag" PHere,CByEnumValue (fromList [String "B"])):
+                InProperty "prop_B":
+                  OfType String: NoContradiction
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Object:
+              InPartition (PInProperty "tag" PHere,CByEnumValue (fromList [String "B"])):
+                InProperty "prop_B":
+                  OfType String: NoContradiction
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Object:
+              InPartition (PInProperty "tag" PHere,CByEnumValue (fromList [String "B"])):
+                InProperty "prop_B":
+                  OfType Number: NoContradiction

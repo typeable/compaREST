@@ -8,22 +8,26 @@
 
 ## **POST** /test
 
-### Parameter test
+### 📱⬅️ JSON Response – 200
 
-#### JSON Schema
+#### `$(String)`
 
-##### `$(String)`
+The following enum value was added:
 
-The value has been removed.
+``` json
+"C"
+```
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
 ## **POST** /test
 
-### Parameter test
+### 📱➡️ JSON Request
 
-#### JSON Schema
+#### `$(String)`
 
-##### `$(Number)`
+The following enum value was added:
 
-The value has been added.
+``` json
+"C"
+```

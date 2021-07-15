@@ -25,13 +25,16 @@ import Text.Pandoc.Builder
 --
 -- The pattern fits well for simplifying 'Behaviour' tree paths.
 class ConstructReportJet x f where
-  constructReportJet :: x -> ReportJetResult f Inlines
+  constructReportJet :: x -> ReportJetResult f (Maybe Inlines)
 
 instance (ConstructReportJet b f, JetArg a) => ConstructReportJet (a -> b) f where
   constructReportJet f = Free (fmap f <$> consumeJetArg @a) >>= constructReportJet
 
-instance ConstructReportJet Inlines f where
+instance ConstructReportJet (Maybe Inlines) f where
   constructReportJet x = Pure x
+
+instance ConstructReportJet Inlines f where
+  constructReportJet x = Pure $ Just x
 
 class JetArg a where
   consumeJetArg :: ReportJet' f a

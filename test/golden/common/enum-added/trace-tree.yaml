@@ -1,0 +1,14 @@
+breakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType String: EnumDoesntSatisfy (String "C")
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType String: EnumDoesntSatisfy (String "C")

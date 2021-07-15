@@ -8,22 +8,18 @@
 
 ## **POST** /test
 
-### Parameter test
+### 📱⬅️ JSON Response – 200
 
-#### JSON Schema
+#### In cases where `$.tag` is `"C"`
 
-##### `$(String)`
-
-The value has been removed.
+The value has been added.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
 ## **POST** /test
 
-### Parameter test
+### 📱➡️ JSON Request
 
-#### JSON Schema
-
-##### `$(Number)`
+#### In cases where `$.tag` is `"C"`
 
 The value has been added.

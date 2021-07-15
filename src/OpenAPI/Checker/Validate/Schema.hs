@@ -16,16 +16,20 @@ module OpenAPI.Checker.Validate.Schema
 where
 
 import Algebra.Lattice
+import Algebra.Lattice.Lifted
 import Control.Applicative
 import Control.Arrow
 import Control.Comonad.Env hiding (env)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
 import Control.Monad.State
+import qualified Control.Monad.Trans.Reader as R (liftCatch)
+import qualified Control.Monad.Trans.Writer as W (liftCatch)
 import Control.Monad.Writer
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import Data.Coerce
+import Data.Foldable
 import qualified Data.Foldable as F
 import Data.Functor
 import Data.Functor.Identity
@@ -34,6 +38,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.Int
 import Data.Kind
+import Data.List (sortBy)
+import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import Data.Maybe
@@ -167,7 +173,7 @@ showCondition = \case
     showForEachJsonFormula i =
       bulletList $
         foldType
-          (\t f -> case f i of
+          (\t f -> case getJsonFormula $ f i of
              BottomFormula -> mempty
              (DNF conds') ->
                let conds = S.toList <$> S.toList conds'
@@ -243,28 +249,25 @@ instance Ord SomeCondition where
 
 deriving stock instance Show SomeCondition
 
--- | A boolean formula (without "not") of 'Condition's. Represented as a
--- Disjunctive Normal Form: the formula is a disjunction of a set of conjuncts,
--- each of which is a conjunction of a set of 'Condition's.
-newtype JsonFormula t
-  = DNF (S.Set (S.Set (Condition t)))
+-- | A boolean formula (without "not") represented as a Disjunctive Normal Form:
+-- the formula is a disjunction of a set of conjuncts, each of which is a
+-- conjunction of a set of some elementary formulas.
+newtype DNF a
+  = DNF (S.Set (S.Set a))
   deriving stock (Eq, Ord, Show)
 
-disjAdd
-  :: JsonFormula t
-  -> S.Set (Condition t)
-  -> JsonFormula t
+disjAdd :: Ord a => DNF a -> S.Set a -> DNF a
 disjAdd (DNF yss) xs
   | any (`S.isSubsetOf` xs) yss = DNF yss
   | otherwise = DNF $ S.insert xs $ S.filter (not . S.isSubsetOf xs) yss
 
-instance Lattice (JsonFormula t) where
+instance Ord a => Lattice (DNF a) where
   xss \/ DNF yss = S.foldl' disjAdd xss yss
   DNF xss /\ DNF yss =
     F.foldl' disjAdd bottom $
       liftA2 S.union (S.toList xss) (S.toList yss)
 
-pattern BottomFormula :: JsonFormula t
+pattern BottomFormula :: DNF a
 pattern BottomFormula <-
   DNF (S.null -> True)
   where
@@ -275,7 +278,7 @@ isSingleton s
   | S.size s == 1 = S.lookupMin s
   | otherwise = Nothing
 
-pattern Conjunct :: [Condition t] -> S.Set (Condition t)
+pattern Conjunct :: Ord a => [a] -> S.Set a
 pattern Conjunct xs <-
   (S.toList -> xs)
   where
@@ -283,28 +286,28 @@ pattern Conjunct xs <-
 
 {-# COMPLETE Conjunct #-}
 
-pattern SingleConjunct :: [Condition t] -> JsonFormula t
+pattern SingleConjunct :: Ord a => [a] -> DNF a
 pattern SingleConjunct xs <-
   DNF (isSingleton -> Just (Conjunct xs))
   where
     SingleConjunct xs = DNF $ S.singleton $ Conjunct xs
 
-pattern TopFormula :: JsonFormula t
+pattern TopFormula :: DNF a
 pattern TopFormula <-
   DNF (isSingleton -> Just (S.null -> True))
   where
     TopFormula = DNF $ S.singleton S.empty
 
-instance BoundedJoinSemiLattice (JsonFormula t) where
+instance Ord a => BoundedJoinSemiLattice (DNF a) where
   bottom = BottomFormula
 
-instance BoundedMeetSemiLattice (JsonFormula t) where
+instance Ord a => BoundedMeetSemiLattice (DNF a) where
   top = TopFormula
 
 foldLattice
   :: BoundedLattice l
-  => (Condition t -> l)
-  -> JsonFormula t
+  => (a -> l)
+  -> DNF a
   -> l
 foldLattice f (DNF xss) =
   S.foldl'
@@ -313,8 +316,12 @@ foldLattice f (DNF xss) =
     bottom
     xss
 
+newtype JsonFormula t = JsonFormula {getJsonFormula :: DNF (Condition t)}
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (Lattice, BoundedJoinSemiLattice, BoundedMeetSemiLattice)
+
 satisfiesFormula :: TypedValue t -> JsonFormula t -> Bool
-satisfiesFormula val = foldLattice (satisfiesTyped val)
+satisfiesFormula val = foldLattice (satisfiesTyped val) . getJsonFormula
 
 data ForeachType (f :: JsonType -> Type) = ForeachType
   { forNull :: f 'Null
@@ -422,6 +429,14 @@ instance Steppable Schema (Referenced Schema) where
     | ItemsArrayStep Int
     | AdditionalPropertiesStep
     | NotStep
+    deriving stock (Eq, Ord, Show)
+
+instance Steppable (Referenced Schema) (Referenced Schema) where
+  data Step (Referenced Schema) (Referenced Schema)
+    = -- | Invariant (for better memoization only): the "tail" of the trace is
+      -- the "least" of the traces of the conjuncted schemata
+      ConjunctedWith (NE.NonEmpty (Trace (Referenced Schema)))
+    | Partitioned PartitionLocation PartitionChoice
     deriving stock (Eq, Ord, Show)
 
 instance Steppable Schema (Definitions (Referenced Schema)) where
@@ -535,7 +550,7 @@ processSchema
   -> m (ForeachType JsonFormula)
 processSchema sch@(extract -> Schema {..}) = do
   let singletonFormula :: Condition t -> JsonFormula t
-      singletonFormula f = SingleConjunct [f]
+      singletonFormula f = JsonFormula $ SingleConjunct [f]
 
   allClauses <- case tracedAllOf sch of
     Nothing -> pure []
@@ -730,11 +745,11 @@ processSchema sch@(extract -> Schema {..}) = do
             pure (addProps, fromMaybe fakeSchema addPropSchema)
     pure (k, Property (k `elem` _schemaRequired) f psch)
   let allBottom f = getAll $
-        foldType $ \_ ty -> case ty f of
+        foldType $ \_ ty -> case getJsonFormula $ ty f of
           BottomFormula -> All True
           _ -> All False
       allTop f = getAll $
-        foldType $ \_ ty -> case ty f of
+        foldType $ \_ ty -> case getJsonFormula $ ty f of
           TopFormula -> All True
           _ -> All False
       -- remove optional fields whose schemata match that of additional props
@@ -810,9 +825,10 @@ checkFormulas
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
   -> Behavior 'SchemaLevel
+  -> ProdCons (Traced (Definitions Schema))
   -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
   -> SemanticCompatFormula ()
-checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
+checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
   case P.toList ep ++ P.toList ec of
     issues@(_ : _) -> F.for_ issues $ embedFormula beh . anItem
     [] -> do
@@ -826,23 +842,47 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
       --   1) (A ⊂ ∅) <= 0
       --   2) (X ∩ Y ⊂ B) <= (X ⊂ B) \/ (Y ⊂ B)
       --   3) (⊤ ⊂ B) <= 0
-      -- Therefore we have the isomorphisms:
+      -- Therefore we have the isomorphisms with (∃ and ∀ being the N-ary
+      -- versions of \/ and /\ respectively):
       --   (⋃_i ⋂_j A[i,j]) ⊂ (⋃_k ⋂_l B[k,l])
-      --   = \/_k /\_l /\_i (⋂_j A[i,j]) ⊂ B[k,l]
-      --   = /\_i \/_k /\_l (⋂_j A[i,j]) ⊂ B[k,l]
+      --   = ∃k ∀l ∀i, (⋂_j A[i,j]) ⊂ B[k,l]
+      --   = ∀i ∃k ∀l, (⋂_j A[i,j]) ⊂ B[k,l]
       -- with the caveat that the the set over which k ranges is nonempty.
       -- This is because 1) is not an isomorphism.
       -- Our disjunction loses information, so it makes sense to nest it as
       -- deeply as possible, hence we choose the latter representation.
       --
       -- We delegate the verification of (⋂_j A[j]) ⊂ B to a separate heuristic
-      -- function, with the understanding that \/_j A[j] ⊂ B is a sufficient,
+      -- function, with the understanding that ∃j, A[j] ⊂ B is a sufficient,
       -- but not necessary condition (because of 2) and 3)).
       --
       -- If k ranges over an empty set, we have the isomorphism:
-      --   (⋃_i ⋂_j A[i,j]) ⊂ ∅ = /\_i (⋂_j A[i,j]) ⊂ ∅
+      --   (⋃_i ⋂_j A[i,j]) ⊂ ∅ = ∀i, (⋂_j A[i,j]) ⊂ ∅
       -- where we again delegate (⋂_j A[j]) ⊂ ∅ to a heuristic, though here the
-      -- shortcut of \/_j A[j] ⊂ ∅ hardly helps.
+      -- shortcut of ∃j, A[j] ⊂ ∅ hardly helps.
+      --
+      -- Disjunctions tend to erase informative error messages, so we may want
+      -- to avoid them. This can be formally done as follows: if we can
+      -- partition the universal set into a disjoint union of some parts:
+      --   ⊤ = ⊔_α P[α]
+      -- such that the conjuncts in our disjunctive normal form are subordinate
+      -- to the partition:
+      --   ∀i ∃α, (⋂_j A[i,j]) ⊂ P[α]
+      --   ∀k ∃α, (⋂_l B[k,l]) ⊂ P[α]
+      -- then we can partition the sets over which i and k range into partitions
+      -- I[α] and K[α], and then in each "bucket" verify the inclusion in the
+      -- aforementioned way:
+      --   ∀α, (⋃_i∈I[α] ⋂_j A[i,j]) ⊂ (⋃_k∈K[α] ⋂_l B[k,l])
+      --   = ∀α ∀i∈I[α] ∃k∈K[α] ∀l, (⋂_j A[i,j]) ⊂ B[k,l]
+      -- We already somewhat do this by partitioning JSON into types, but we can
+      -- additionally partition e.g. "enum" fields or existence of particular
+      -- properties. This works especially well if we manage to ensure K[α] are
+      -- 1-element sets.
+      --
+      -- Since the set:
+      --   (⋃_i∈I[α] ⋂_j A[i,j]) = (⋃_i ⋂_j A[i,j]) ∩ P[α]
+      -- does not actually appear in the source schema, we need to construct it
+      -- ourselves and come up with a name for it.
       let typesRestricted = not (anyBottomTypes fp) && anyBottomTypes fc
       -- Specifically handle the case when a schema's type has been
       -- restricted from "all" to specific types: if all types were allowed
@@ -851,7 +891,7 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
       when typesRestricted $ issueAt beh $ TypesRestricted $ nonBottomTypes fc
       forType_ $ \tyName ty -> do
         let beh' = beh >>> step (OfType tyName)
-        case (ty fp, ty fc) of
+        case (getJsonFormula $ ty fp, getJsonFormula $ ty fc) of
           (DNF pss, BottomFormula) -> unless typesRestricted $ do
             -- don't repeat the TypesRestricted issue
             F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
@@ -862,32 +902,306 @@ checkFormulas env beh (ProdCons (fp, ep) (fc, ec)) =
             -- In this case we want to show which restrictions were added. (instead
             -- of showing an empty list restrictions that couldn't be satisfied.)
             F.for_ css $ \(Conjunct cs) -> F.for_ cs $ checkImplication env beh' []
-          (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
-            anyOfAt
-              beh'
-              (issueFromConjunct ps)
-              [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
+          (pss', css') -> F.for_ (tryPartition defs $ ProdCons (JsonFormula pss') (JsonFormula css')) $ \case
+            (mPart, ProdCons pf cf) -> do
+              let beh'' = foldr ((<<<) . step . InPartition) beh' mPart
+              case (getJsonFormula pf, getJsonFormula cf) of
+                (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh'' ps
+                (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
+                  F.for_ cs $ checkImplication env beh'' ps
+                -- unlucky:
+                (DNF pss, DNF css) -> F.for_ pss $ \(Conjunct ps) -> do
+                  anyOfAt
+                    beh'
+                    (issueFromConjunct Nothing ps)
+                    [F.for_ cs $ checkImplication env beh' ps | Conjunct cs <- S.toList css]
       pure ()
   where
     anyBottomTypes f = getAny $
-      foldType $ \_ ty -> case ty f of
+      foldType $ \_ ty -> case getJsonFormula $ ty f of
         BottomFormula -> Any True
         _ -> mempty
-    nonBottomTypes f = foldType $ \tyName ty -> case ty f of
+    nonBottomTypes f = foldType $ \tyName ty -> case getJsonFormula $ ty f of
       BottomFormula -> mempty
       _ -> [tyName]
-    issueFromConjunct :: Typeable t => [Condition t] -> Issue 'TypedSchemaLevel
-    issueFromConjunct ps
+    issueFromConjunct :: Typeable t => Partition -> [Condition t] -> Issue 'TypedSchemaLevel
+    issueFromConjunct _ ps
       | Just e <- findExactly ps
         , all (satisfiesTyped e) ps =
-        EnumDoesntSatisfy $ untypeValue e
-    issueFromConjunct ps = NoMatchingCondition $ SomeCondition <$> ps
+        EnumDoesntSatisfy $ untypeValue e -- what does this look like when partitioned?
+    issueFromConjunct mPart ps = NoMatchingCondition mPart $ SomeCondition <$> ps
+
+data PartitionData
+  = DByEnumValue (DNF (S.Set A.Value))
+  | DByProperties (DNF (S.Set Text, S.Set Text)) -- optional, required
+  deriving stock (Eq, Ord, Show)
+
+data PartitionChoice
+  = CByEnumValue (S.Set A.Value)
+  | CByProperties (S.Set Text) (S.Set Text) -- included, excluded
+  deriving stock (Eq, Ord, Show)
+
+conjPart :: PartitionData -> PartitionData -> Maybe PartitionData
+conjPart (DByEnumValue xss) (DByEnumValue yss) = Just . DByEnumValue $ xss /\ yss
+conjPart (DByProperties xss) (DByProperties yss) = Just . DByProperties $ xss /\ yss
+conjPart _ _ = Nothing
+
+disjPart :: PartitionData -> PartitionData -> Maybe PartitionData
+disjPart (DByEnumValue xss) (DByEnumValue yss) = Just . DByEnumValue $ xss \/ yss
+disjPart (DByProperties xss) (DByProperties yss) = Just . DByProperties $ xss \/ yss
+disjPart _ _ = Nothing
+
+data PartitionLocation
+  = PHere
+  | PInProperty Text PartitionLocation
+  deriving stock (Eq, Ord, Show)
+
+newtype Partitions = Partitions (M.Map PartitionLocation (S.Set PartitionData))
+  deriving stock (Eq, Ord, Show)
+
+instance Lattice Partitions where
+  Partitions xss /\ Partitions yss = Partitions $ M.unionWith conj xss yss
+    where
+      conj xs ys = S.fromList . catMaybes $ liftA2 conjPart (S.toList xs) (S.toList ys)
+  Partitions xss \/ Partitions yss = Partitions $ M.intersectionWith disj xss yss
+    where
+      disj xs ys = S.fromList . catMaybes $ liftA2 disjPart (S.toList xs) (S.toList ys)
+
+instance BoundedMeetSemiLattice Partitions where
+  top = Partitions M.empty
+
+-- The lattice has no bottom, but we use 'Lifted' to adjoin a free bottom element
+
+type PartitionM = ReaderT (Traced (Definitions Schema)) (State (MemoState ()))
+
+ignoreKnot :: KnotTier (Lifted Partitions) () PartitionM
+ignoreKnot =
+  KnotTier
+    { onKnotFound = pure ()
+    , onKnotUsed = \_ -> pure bottom
+    , tieKnot = \_ -> pure
+    }
+
+singletonPart :: PartitionData -> Lifted Partitions
+singletonPart = Lift . Partitions . M.singleton PHere . S.singleton
+
+partitionSchema :: Traced Schema -> PartitionM (Lifted Partitions)
+partitionSchema sch = do
+  allClauses <- case tracedAllOf sch of
+    Nothing -> pure []
+    Just xs -> mapM partitionRefSchema xs
+
+  anyClause <- case tracedAnyOf sch of
+    Nothing -> pure top
+    Just xs -> joins <$> mapM partitionRefSchema xs
+
+  oneClause <- case tracedOneOf sch of
+    Nothing -> pure top
+    Just xs -> joins <$> mapM partitionRefSchema xs
+
+  byEnumClause <- case _schemaEnum $ extract sch of
+    Nothing -> pure top
+    Just xs ->
+      pure . singletonPart $
+        DByEnumValue $ SingleConjunct [S.fromList xs]
+
+  -- We can only partition by presence of a property if additional properties
+  -- are disallowed, and the property is not optional
+  let reqd = S.fromList $ _schemaRequired $ extract sch
+  byPropertiesClause <- case _schemaAdditionalProperties $ extract sch of
+    Just (AdditionalPropertiesAllowed False) -> do
+      let props = S.fromList . IOHM.keys . _schemaProperties $ extract sch
+      pure . singletonPart $
+        DByProperties $ SingleConjunct [(props S.\\ reqd, props `S.intersection` reqd)]
+    _ -> pure top
+
+  -- We can partition on something nested in a property only if the property is
+  -- required
+  let reqdProps = IOHM.filterWithKey (\k _ -> k `S.member` reqd) $ tracedProperties sch
+  inPropertiesClauses <- forM (IOHM.toList reqdProps) $ \(k, rs) -> do
+    f <- partitionRefSchema rs
+    pure $ fmap (\(Partitions m) -> Partitions $ M.mapKeysMonotonic (PInProperty k) m) f
+
+  pure $ meets $ allClauses <> [anyClause, oneClause, byEnumClause, byPropertiesClause] <> inPropertiesClauses
+
+partitionRefSchema :: Traced (Referenced Schema) -> PartitionM (Lifted Partitions)
+partitionRefSchema x = do
+  defs <- R.ask
+  memoWithKnot ignoreKnot (partitionSchema $ dereference defs x) (ask x)
+
+newtype LiftA f a = LiftA {getLiftA :: f a}
+  deriving newtype (Functor, Applicative)
+
+instance (Lattice a, Applicative f) => Lattice (LiftA f a) where
+  (/\) = liftA2 (/\)
+  (\/) = liftA2 (\/)
+
+instance (BoundedJoinSemiLattice a, Applicative f) => BoundedJoinSemiLattice (LiftA f a) where
+  bottom = pure bottom
+
+instance (BoundedMeetSemiLattice a, Applicative f) => BoundedMeetSemiLattice (LiftA f a) where
+  top = pure top
+
+partitionCondition :: Condition t -> PartitionM (Lifted Partitions)
+partitionCondition = \case
+  Exactly x ->
+    pure . singletonPart $
+      DByEnumValue $ SingleConjunct [S.singleton $ untypeValue x]
+  Properties props _ madd -> do
+    let byProps = case madd of
+          Just _ -> top
+          Nothing ->
+            singletonPart $
+              DByProperties $
+                SingleConjunct
+                  [ ( M.keysSet $ M.filter (not . propRequired) props
+                    , M.keysSet $ M.filter propRequired props
+                    )
+                  ]
+    inProps <- forM (M.toList $ M.filter propRequired props) $ \(k, prop) -> do
+      f <- partitionRefSchema $ propRefSchema prop
+      pure $ fmap (\(Partitions m) -> Partitions $ M.mapKeysMonotonic (PInProperty k) m) f
+    pure $ byProps /\ meets inProps
+  _ -> pure top
+
+partitionJsonFormulas
+  :: ProdCons (Traced (Definitions Schema))
+  -> ProdCons (JsonFormula t)
+  -> Lifted Partitions
+partitionJsonFormulas defs pc = producer pcPart \/ consumer pcPart
+  where
+    pcPart = partitionFormula <$> defs <*> pc
+    partitionFormula def (JsonFormula xss) = runIdentity . runMemo () . (`runReaderT` def) $ do
+      getLiftA . foldLattice (LiftA . partitionCondition) $ xss
+
+selectPartition :: Lifted Partitions -> Maybe (PartitionLocation, S.Set PartitionChoice)
+selectPartition Bottom = Nothing
+selectPartition (Lift (Partitions m)) =
+  go [(loc, part) | (loc, parts) <- sortBy (comparing $ locLength . fst) $ M.toList m, part <- S.toList parts]
+  where
+    locLength :: PartitionLocation -> Int
+    locLength = walk 0
+      where
+        walk !n PHere = n
+        walk !n (PInProperty _ l) = walk (n + 1) l
+    go [] = Nothing
+    -- Skip partitioning by property for now
+    go ((_, DByProperties _) : ps) = go ps
+    -- Don't partition by enum value at the root (this reports removed enum values as contradictions in their respective partitions)
+    go ((PHere, DByEnumValue _) : ps) = go ps
+    go ((loc, DByEnumValue (DNF xss)) : ps)
+      -- Check that no disjunction branches are unresticted
+      | Just enums <- traverse (fmap (foldr1 S.intersection) . NE.nonEmpty . S.toList) . S.toList $ xss =
+        -- TODO: improve
+        Just (loc, S.map (CByEnumValue . S.singleton) $ S.unions enums)
+      | otherwise = go ps
+
+-- This essentially has 3 cases:
+-- Nothing -- we have produced a bottom schema
+-- Just (False, _) -- there's been no change to the schema
+-- Just (True, x) -- x is a new schema
+type IntersectionM = ReaderT (Traced (Definitions Schema)) (WriterT Any Maybe)
+
+mBottom :: IntersectionM a
+mBottom = lift . lift $ Nothing
+
+catchBottom :: IntersectionM a -> IntersectionM a -> IntersectionM a
+catchBottom act handler = R.liftCatch (W.liftCatch (\a h -> a <|> h ())) act (\_ -> handler)
+
+mChange :: IntersectionM ()
+mChange = tell $ Any True
+
+intersectSchema
+  :: PartitionLocation
+  -> PartitionChoice
+  -> Traced Schema
+  -> IntersectionM Schema
+intersectSchema loc part sch = do
+  allOf' <- forM (tracedAllOf sch) $ \rss ->
+    -- Assuming i ranges over a nonempty set (checked in processSchema)
+    -- (⋂_i A[i]) ∩ X = ⋂_i (A[i] ∩ X)
+    -- If any intersections are empty, the result is empty. If any intersections are a change, the result is a change.
+    traverse (intersectRefSchema loc part) rss
+  anyOf' <- forM (tracedAnyOf sch) $ \rss -> do
+    -- (⋃_i A[i]) ∩ X = ⋃_i (A[i] ∩ X)
+    -- Collect only the nonempty A[i] ∩ X, unless there are none, in which case the result is empty.
+    -- If any schema is empty, we remove it from the list which constitutes a change.
+    mSchemas <- forM rss $ \rs -> catchBottom (Just <$> intersectRefSchema loc part rs) (mChange >> pure Nothing)
+    case catMaybes mSchemas of
+      [] -> mBottom
+      schs -> pure schs
+  oneOf' <- forM (tracedOneOf sch) $ \rss -> do
+    -- Same as anyOf'. By intersecting we're only making them more disjoint if anything.
+    mSchemas <- forM rss $ \rs -> catchBottom (Just <$> intersectRefSchema loc part rs) (mChange >> pure Nothing)
+    case catMaybes mSchemas of
+      [] -> mBottom
+      schs -> pure schs
+  let sch' = (extract sch) {_schemaAllOf = allOf', _schemaAnyOf = anyOf', _schemaOneOf = oneOf'}
+  -- Now the local changes:
+  case loc of
+    PInProperty k loc' -> case IOHM.lookup k $ tracedProperties sch of
+      Nothing -> error $ "Partitioning via absent property: " <> T.unpack k
+      Just prop -> do
+        prop' <- intersectRefSchema loc' part prop
+        pure $ sch' {_schemaProperties = IOHM.adjust (const prop') k $ _schemaProperties sch'}
+    PHere -> case part of
+      CByEnumValue vals -> do
+        enum' <- case _schemaEnum sch' of
+          Nothing -> do
+            mChange
+            pure $ S.toList vals
+          Just xs -> do
+            when (any (`S.notMember` vals) xs) mChange
+            case filter (`S.member` vals) xs of
+              [] -> mBottom
+              xs' -> pure xs'
+        pure $ sch' {_schemaEnum = Just enum'}
+      CByProperties {} -> error "CByProperties not implemented"
+
+intersectRefSchema
+  :: PartitionLocation
+  -> PartitionChoice
+  -> Traced (Referenced Schema)
+  -> IntersectionM (Referenced Schema)
+intersectRefSchema loc part rs = do
+  defs <- R.ask
+  Inline <$> intersectSchema loc part (dereference defs rs)
+
+intersectCondition :: Traced (Definitions Schema) -> PartitionLocation -> PartitionChoice -> Condition t -> DNF (Condition t)
+intersectCondition _defs PHere (CByEnumValue values) cond@(Exactly x) =
+  if untypeValue x `S.member` values then SingleConjunct [cond] else bottom
+intersectCondition defs (PInProperty k loc) part cond@(Properties props add madd) = case M.lookup k props of
+  Nothing -> SingleConjunct [cond] -- shouldn't happen
+  Just prop -> case runWriterT . (`runReaderT` defs) $ intersectRefSchema loc part $ propRefSchema prop of
+    Just (rs', Any True) ->
+      let trs' = traced (ask (propRefSchema prop) >>> step (Partitioned loc part)) rs'
+       in SingleConjunct [Properties (M.insert k prop {propRefSchema = trs'} props) add madd]
+    Just (_, Any False) -> SingleConjunct [cond]
+    Nothing -> bottom
+intersectCondition _defs _loc _part cond = SingleConjunct [cond]
+
+intersectFormula :: Traced (Definitions Schema) -> PartitionLocation -> PartitionChoice -> JsonFormula t -> JsonFormula t
+intersectFormula defs loc part = JsonFormula . foldLattice (intersectCondition defs loc part) . getJsonFormula
+
+type Partition = Maybe (PartitionLocation, PartitionChoice)
+
+tryPartition :: ProdCons (Traced (Definitions Schema)) -> ProdCons (JsonFormula t) -> [(Partition, ProdCons (JsonFormula t))]
+tryPartition defs pc = case selectPartition $ partitionJsonFormulas defs pc of
+  Nothing -> [(Nothing, pc)]
+  Just (loc, parts) -> [(Just (loc, part), intersectFormula <$> defs <*> pure loc <*> pure part <*> pc) | part <- S.toList parts]
 
 checkContradiction
   :: Behavior 'TypedSchemaLevel
   -> [Condition t]
   -> SemanticCompatFormula ()
 checkContradiction beh _ = issueAt beh NoContradiction -- TODO #70
+
+tracedConjunct :: NE.NonEmpty (Traced (Referenced Schema)) -> Traced (Referenced Schema)
+tracedConjunct refSchemas = case NE.sortWith ask refSchemas of
+  (rs NE.:| []) -> rs
+  (rs1 NE.:| rs2 : rss) ->
+    traced (ask rs1 >>> step (ConjunctedWith $ ask <$> rs2 NE.:| rss)) $
+      Inline mempty {_schemaAllOf = Just $ extract <$> rs1 : rs2 : rss}
 
 checkImplication
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
@@ -949,10 +1263,7 @@ checkImplication env beh prods cons = case findExactly prods of
         then pure ()
         else issueAt beh (NoMatchingFormat f)
     Items _ cons' -> case findRelevant (<>) (\case Items _ rs -> Just (rs NE.:| []); _ -> Nothing) prods of
-      Just (rs NE.:| []) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
-      Just rs -> do
-        let sch = Inline mempty {_schemaAllOf = Just . NE.toList $ extract <$> rs}
-        checkCompatibility (beh >>> step InItems) env $ ProdCons (traced (ask $ NE.head rs) sch) cons' -- TODO: bad trace
+      Just (tracedConjunct -> rs) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
       Nothing -> issueAt beh NoMatchingItems
     MaxItems m -> case findRelevant min (\case MaxItems m' -> Just m'; _ -> Nothing) prods of
       Just m' ->
@@ -1079,7 +1390,7 @@ instance Issuable 'TypedSchemaLevel where
     | -- | consumer declares a minimum number of properties in the object ($1), producer declares a weaker (lower) limit ($2)
       MatchingMinPropertiesWeak (ProdCons Integer)
     | -- | producer declares that the value must satisfy a disjunction of some conditions, but consumer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
-      NoMatchingCondition [SomeCondition]
+      NoMatchingCondition Partition [SomeCondition]
     | -- | producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
       -- AKA consumer does not have the type
       NoContradiction
@@ -1128,14 +1439,22 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Forward (NoMatchingMinProperties n) = para $ "Minimum number of properties added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMinProperties n) = para $ "Minimum number of properties removed: " <> show' n <> "."
   describeIssue _ (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Minimum number of properties has changed from " <> show' p <> " to " <> show' c <> "."
-  describeIssue _ (NoMatchingCondition conds) =
-    para "Expected the following conditions to hold, but they didn't (please file a bug if you see this):"
+  describeIssue _ (NoMatchingCondition mPart conds) =
+    para
+      (case mPart of
+         Nothing -> "Could not verify that the following conditions hold (please file a bug if you see this)"
+         Just locPart ->
+           showPartition locPart
+             <> " – could not verify that the following conditions hold (please file a bug if you see this):")
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
-  describeIssue Forward NoContradiction = para "The type has been removed."
-  describeIssue Backward NoContradiction = para "The type has been added."
+  describeIssue Forward NoContradiction = para "The value has been removed."
+  describeIssue Backward NoContradiction = para "The value has been added."
 
 showJSONValue :: A.Value -> Blocks
 showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
+
+showJSONValueInline :: A.Value -> Inlines
+showJSONValueInline v = code (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
 
 showBound :: Show a => Bound a -> Inlines
 showBound (Inclusive x) = show' x <> " inclusive"
@@ -1206,6 +1525,40 @@ describeJSONType = \case
   Array -> "Array"
   Object -> "Object"
 
+instance Behavable 'TypedSchemaLevel 'TypedSchemaLevel where
+  data Behave 'TypedSchemaLevel 'TypedSchemaLevel
+    = InPartition (PartitionLocation, PartitionChoice)
+    deriving stock (Eq, Ord, Show)
+
+  describeBehaviour (InPartition partition) = showPartition partition
+
+showPartition :: (PartitionLocation, PartitionChoice) -> Inlines
+showPartition = \case
+  (partition, CByEnumValue (S.toList -> [v])) ->
+    "In cases where " <> renderPartitionLocation partition <> " is " <> showJSONValueInline v
+  (partition, CByEnumValue (S.toList -> vs)) ->
+    "In cases where " <> renderPartitionLocation partition <> " has values: "
+      <> (fold . L.intersperse ", " . fmap showJSONValueInline $ vs)
+  (partition, CByProperties (S.toList -> incl) (S.toList -> [])) ->
+    "In cases where " <> renderPartitionLocation partition <> " contains the properties: " <> listCodes incl
+  (partition, CByProperties (S.toList -> []) (S.toList -> excl)) ->
+    "In cases where " <> renderPartitionLocation partition <> " does not contain the properties: " <> listCodes excl
+  (partition, CByProperties (S.toList -> incl) (S.toList -> excl)) ->
+    "In cases where " <> renderPartitionLocation partition
+      <> " contains the properties "
+      <> listCodes incl
+      <> " and does not contain the properties "
+      <> listCodes excl
+  where
+    listCodes :: [Text] -> Inlines
+    listCodes = fold . L.intersperse ", " . fmap code
+    renderPartitionLocation :: PartitionLocation -> Inlines
+    renderPartitionLocation p = code $ "$" <> renderPartitionLocation' p
+      where
+        renderPartitionLocation' :: PartitionLocation -> Text
+        renderPartitionLocation' PHere = mempty
+        renderPartitionLocation' (PInProperty prop rest) = "." <> prop <> renderPartitionLocation' rest
+
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel
     = InItems
@@ -1271,4 +1624,4 @@ instance Subtree Schema where
       structuralItems _ = structuralIssue
   checkSemanticCompatibility env beh schs = do
     let defs = getH env
-    checkFormulas env beh $ schemaToFormula <$> defs <*> schs
+    checkFormulas env beh defs $ schemaToFormula <$> defs <*> schs

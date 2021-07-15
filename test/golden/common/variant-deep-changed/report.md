@@ -2,15 +2,25 @@
 
 | [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
 |------------------------------------------|-------------------------------------------------|-------------------------------|
-| 1                                        | 1                                               | 0                             |
+| 2                                        | 2                                               | 0                             |
 
 # <span id="breaking-changes"></span>⚠️ Breaking changes
 
 ## **POST** /test
 
+### 📱➡️ JSON Request
+
+#### In cases where `$.desc.name` is `"B"`
+
+##### `$.prop_B(Number)`
+
+The value has been removed.
+
 ### 📱⬅️ JSON Response – 200
 
-#### `$(Number)`
+#### In cases where `$.desc.name` is `"B"`
+
+##### `$.prop_B(String)`
 
 The value has been added.
 
@@ -18,8 +28,18 @@ The value has been added.
 
 ## **POST** /test
 
+### 📱➡️ JSON Request
+
+#### In cases where `$.desc.name` is `"B"`
+
+##### `$.prop_B(String)`
+
+The value has been added.
+
 ### 📱⬅️ JSON Response – 200
 
-#### `$(String)`
+#### In cases where `$.desc.name` is `"B"`
+
+##### `$.prop_B(Number)`
 
 The value has been removed.

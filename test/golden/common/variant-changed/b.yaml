@@ -1,0 +1,39 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Test
+servers:
+  - url: http://localhost/
+paths:
+  /test:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test"
+      responses:
+        '200':
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test"
+components:
+  schemas:
+    Test:
+      oneOf:
+        - type: object
+          required: ["tag", "prop_A"]
+          properties:
+            tag:
+              enum: ["A"]
+            prop_A:
+              type: string
+        - type: object
+          required: ["tag", "prop_B"]
+          properties:
+            tag:
+              enum: ["B"]
+            prop_B:
+              type: string

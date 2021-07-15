@@ -32,7 +32,7 @@ Values are now limited to the following types:
 
 #### `$(Array)`
 
-The type has been removed.
+The value has been removed.
 
 ## **POST** /test4
 
@@ -40,7 +40,7 @@ The type has been removed.
 
 #### `$(Object)`
 
-The type has been removed.
+The value has been removed.
 
 ## **POST** /test5
 
@@ -82,7 +82,7 @@ Values are now limited to the following types:
 
 #### `$(Array)`
 
-The type has been removed.
+The value has been removed.
 
 ## **POST** /test4
 
@@ -90,7 +90,7 @@ The type has been removed.
 
 #### `$(Object)`
 
-The type has been removed.
+The value has been removed.
 
 ## **POST** /test5
 
