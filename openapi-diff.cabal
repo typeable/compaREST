@@ -130,6 +130,13 @@ library
                   , OpenAPI.Checker.Validate.RequestBody
                   , OpenAPI.Checker.Validate.Responses
                   , OpenAPI.Checker.Validate.Schema
+                  , OpenAPI.Checker.Validate.Schema.TypedJson
+                  , OpenAPI.Checker.Validate.Schema.DNF
+                  , OpenAPI.Checker.Validate.Schema.Issues
+                  , OpenAPI.Checker.Validate.Schema.JsonFormula
+                  , OpenAPI.Checker.Validate.Schema.Partition
+                  , OpenAPI.Checker.Validate.Schema.Process
+                  , OpenAPI.Checker.Validate.Schema.Traced
                   , OpenAPI.Checker.Validate.SecurityRequirement
                   , OpenAPI.Checker.Validate.Server
                   , OpenAPI.Checker.Validate.Sums
