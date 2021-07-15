@@ -4,13 +4,13 @@ breakingChanges:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType Object: NoContradiction (Just (PInProperty "tag" PHere,CByEnumValue
-              (fromList [String "C"])))
+            OfType Object:
+              InPartition (PInProperty "tag" PHere,CByEnumValue (fromList [String "C"])): NoContradiction
 nonBreakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
         InPayload:
           PayloadSchema:
-            OfType Object: NoContradiction (Just (PInProperty "tag" PHere,CByEnumValue
-              (fromList [String "C"])))
+            OfType Object:
+              InPartition (PInProperty "tag" PHere,CByEnumValue (fromList [String "C"])): NoContradiction

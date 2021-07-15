@@ -7,14 +7,14 @@ breakingChanges:
             OfType Object:
               InPartition (PInProperty "desc" (PInProperty "name" PHere),CByEnumValue (fromList [String "B"])):
                 InProperty "prop_B":
-                  OfType Number: NoContradiction Nothing
+                  OfType Number: NoContradiction
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
             OfType Object:
               InPartition (PInProperty "desc" (PInProperty "name" PHere),CByEnumValue (fromList [String "B"])):
                 InProperty "prop_B":
-                  OfType String: NoContradiction Nothing
+                  OfType String: NoContradiction
 nonBreakingChanges:
   AtPath "/test":
     InOperation PostMethod:
@@ -24,11 +24,11 @@ nonBreakingChanges:
             OfType Object:
               InPartition (PInProperty "desc" (PInProperty "name" PHere),CByEnumValue (fromList [String "B"])):
                 InProperty "prop_B":
-                  OfType String: NoContradiction Nothing
+                  OfType String: NoContradiction
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
             OfType Object:
               InPartition (PInProperty "desc" (PInProperty "name" PHere),CByEnumValue (fromList [String "B"])):
                 InProperty "prop_B":
-                  OfType Number: NoContradiction Nothing
+                  OfType Number: NoContradiction

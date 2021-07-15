@@ -3,10 +3,10 @@ breakingChanges:
     InOperation PostMethod:
       InParam "test":
         InParamSchema:
-          OfType String: NoContradiction Nothing
+          OfType String: NoContradiction
 nonBreakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       InParam "test":
         InParamSchema:
-          OfType Number: NoContradiction Nothing
+          OfType Number: NoContradiction

@@ -22,13 +22,14 @@ import Control.Arrow
 import Control.Comonad.Env hiding (env)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
-import qualified Control.Monad.Trans.Reader as R (liftCatch)
 import Control.Monad.State
-import Control.Monad.Writer
+import qualified Control.Monad.Trans.Reader as R (liftCatch)
 import qualified Control.Monad.Trans.Writer as W (liftCatch)
+import Control.Monad.Writer
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import Data.Coerce
+import Data.Foldable
 import qualified Data.Foldable as F
 import Data.Functor
 import Data.Functor.Identity
@@ -37,7 +38,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.Int
 import Data.Kind
-import Data.List (sortBy, intersperse)
+import Data.List (sortBy)
+import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import Data.Maybe
@@ -431,9 +433,9 @@ instance Steppable Schema (Referenced Schema) where
 
 instance Steppable (Referenced Schema) (Referenced Schema) where
   data Step (Referenced Schema) (Referenced Schema)
-    = ConjunctedWith (NE.NonEmpty (Trace (Referenced Schema)))
-    -- ^ Invariant (for better memoization only): the "tail" of the trace is
-    -- the "least" of the traces of the conjuncted schemata
+    = -- | Invariant (for better memoization only): the "tail" of the trace is
+      -- the "least" of the traces of the conjuncted schemata
+      ConjunctedWith (NE.NonEmpty (Trace (Referenced Schema)))
     | Partitioned PartitionLocation PartitionChoice
     deriving stock (Eq, Ord, Show)
 
@@ -892,7 +894,7 @@ checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
         case (getJsonFormula $ ty fp, getJsonFormula $ ty fc) of
           (DNF pss, BottomFormula) -> unless typesRestricted $ do
             -- don't repeat the TypesRestricted issue
-            F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' Nothing ps
+            F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' ps
           (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
             F.for_ cs $ checkImplication env beh' ps -- avoid disjunction if there's only one conjunct
           (TopFormula, DNF css) ->
@@ -904,7 +906,7 @@ checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
             (mPart, ProdCons pf cf) -> do
               let beh'' = foldr ((<<<) . step . InPartition) beh' mPart
               case (getJsonFormula pf, getJsonFormula cf) of
-                (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh' mPart ps
+                (DNF pss, BottomFormula) -> F.for_ pss $ \(Conjunct ps) -> checkContradiction beh'' ps
                 (DNF pss, SingleConjunct cs) -> F.for_ pss $ \(Conjunct ps) -> do
                   F.for_ cs $ checkImplication env beh'' ps
                 -- unlucky:
@@ -959,9 +961,11 @@ newtype Partitions = Partitions (M.Map PartitionLocation (S.Set PartitionData))
 
 instance Lattice Partitions where
   Partitions xss /\ Partitions yss = Partitions $ M.unionWith conj xss yss
-    where conj xs ys = S.fromList . catMaybes $ liftA2 conjPart (S.toList xs) (S.toList ys)
+    where
+      conj xs ys = S.fromList . catMaybes $ liftA2 conjPart (S.toList xs) (S.toList ys)
   Partitions xss \/ Partitions yss = Partitions $ M.intersectionWith disj xss yss
-    where disj xs ys = S.fromList . catMaybes $ liftA2 disjPart (S.toList xs) (S.toList ys)
+    where
+      disj xs ys = S.fromList . catMaybes $ liftA2 disjPart (S.toList xs) (S.toList ys)
 
 instance BoundedMeetSemiLattice Partitions where
   top = Partitions M.empty
@@ -983,7 +987,6 @@ singletonPart = Lift . Partitions . M.singleton PHere . S.singleton
 
 partitionSchema :: Traced Schema -> PartitionM (Lifted Partitions)
 partitionSchema sch = do
-
   allClauses <- case tracedAllOf sch of
     Nothing -> pure []
     Just xs -> mapM partitionRefSchema xs
@@ -998,8 +1001,9 @@ partitionSchema sch = do
 
   byEnumClause <- case _schemaEnum $ extract sch of
     Nothing -> pure top
-    Just xs -> pure . singletonPart $
-      DByEnumValue $ SingleConjunct [S.fromList xs]
+    Just xs ->
+      pure . singletonPart $
+        DByEnumValue $ SingleConjunct [S.fromList xs]
 
   -- We can only partition by presence of a property if additional properties
   -- are disallowed, and the property is not optional
@@ -1040,15 +1044,20 @@ instance (BoundedMeetSemiLattice a, Applicative f) => BoundedMeetSemiLattice (Li
 
 partitionCondition :: Condition t -> PartitionM (Lifted Partitions)
 partitionCondition = \case
-  Exactly x -> pure . singletonPart $
-    DByEnumValue $ SingleConjunct [S.singleton $ untypeValue x]
+  Exactly x ->
+    pure . singletonPart $
+      DByEnumValue $ SingleConjunct [S.singleton $ untypeValue x]
   Properties props _ madd -> do
     let byProps = case madd of
           Just _ -> top
-          Nothing -> singletonPart $
-            DByProperties $ SingleConjunct [
-              ( M.keysSet $ M.filter (not . propRequired) props
-              , M.keysSet $ M.filter propRequired props )]
+          Nothing ->
+            singletonPart $
+              DByProperties $
+                SingleConjunct
+                  [ ( M.keysSet $ M.filter (not . propRequired) props
+                    , M.keysSet $ M.filter propRequired props
+                    )
+                  ]
     inProps <- forM (M.toList $ M.filter propRequired props) $ \(k, prop) -> do
       f <- partitionRefSchema $ propRefSchema prop
       pure $ fmap (\(Partitions m) -> Partitions $ M.mapKeysMonotonic (PInProperty k) m) f
@@ -1077,14 +1086,14 @@ selectPartition (Lift (Partitions m)) =
         walk !n (PInProperty _ l) = walk (n + 1) l
     go [] = Nothing
     -- Skip partitioning by property for now
-    go ((_, DByProperties _):ps) = go ps
+    go ((_, DByProperties _) : ps) = go ps
     -- Don't partition by enum value at the root (this reports removed enum values as contradictions in their respective partitions)
-    go ((PHere, DByEnumValue _):ps) = go ps
-    go ((loc, DByEnumValue (DNF xss)):ps)
+    go ((PHere, DByEnumValue _) : ps) = go ps
+    go ((loc, DByEnumValue (DNF xss)) : ps)
       -- Check that no disjunction branches are unresticted
-      | Just enums <- traverse (fmap (foldr1 S.intersection) . NE.nonEmpty . S.toList) . S.toList $ xss
-      -- TODO: improve
-      = Just (loc, S.map (CByEnumValue . S.singleton) $ S.unions enums)
+      | Just enums <- traverse (fmap (foldr1 S.intersection) . NE.nonEmpty . S.toList) . S.toList $ xss =
+        -- TODO: improve
+        Just (loc, S.map (CByEnumValue . S.singleton) $ S.unions enums)
       | otherwise = go ps
 
 -- This essentially has 3 cases:
@@ -1134,7 +1143,7 @@ intersectSchema loc part sch = do
       Nothing -> error $ "Partitioning via absent property: " <> T.unpack k
       Just prop -> do
         prop' <- intersectRefSchema loc' part prop
-        pure $ sch' { _schemaProperties = IOHM.adjust (const prop') k $ _schemaProperties sch' }
+        pure $ sch' {_schemaProperties = IOHM.adjust (const prop') k $ _schemaProperties sch'}
     PHere -> case part of
       CByEnumValue vals -> do
         enum' <- case _schemaEnum sch' of
@@ -1147,7 +1156,7 @@ intersectSchema loc part sch = do
               [] -> mBottom
               xs' -> pure xs'
         pure $ sch' {_schemaEnum = Just enum'}
-      CByProperties{} -> error "CByProperties not implemented"
+      CByProperties {} -> error "CByProperties not implemented"
 
 intersectRefSchema
   :: PartitionLocation
@@ -1164,8 +1173,9 @@ intersectCondition _defs PHere (CByEnumValue values) cond@(Exactly x) =
 intersectCondition defs (PInProperty k loc) part cond@(Properties props add madd) = case M.lookup k props of
   Nothing -> SingleConjunct [cond] -- shouldn't happen
   Just prop -> case runWriterT . (`runReaderT` defs) $ intersectRefSchema loc part $ propRefSchema prop of
-    Just (rs', Any True) -> let trs' = traced (ask (propRefSchema prop) >>> step (Partitioned loc part)) rs'
-      in SingleConjunct [Properties (M.insert k prop{propRefSchema = trs'} props) add madd]
+    Just (rs', Any True) ->
+      let trs' = traced (ask (propRefSchema prop) >>> step (Partitioned loc part)) rs'
+       in SingleConjunct [Properties (M.insert k prop {propRefSchema = trs'} props) add madd]
     Just (_, Any False) -> SingleConjunct [cond]
     Nothing -> bottom
 intersectCondition _defs _loc _part cond = SingleConjunct [cond]
@@ -1182,16 +1192,16 @@ tryPartition defs pc = case selectPartition $ partitionJsonFormulas defs pc of
 
 checkContradiction
   :: Behavior 'TypedSchemaLevel
-  -> Partition
   -> [Condition t]
   -> SemanticCompatFormula ()
-checkContradiction beh mPart _ = issueAt beh $ NoContradiction mPart -- TODO #70
+checkContradiction beh _ = issueAt beh NoContradiction -- TODO #70
 
 tracedConjunct :: NE.NonEmpty (Traced (Referenced Schema)) -> Traced (Referenced Schema)
 tracedConjunct refSchemas = case NE.sortWith ask refSchemas of
   (rs NE.:| []) -> rs
-  (rs1 NE.:| rs2:rss) -> traced (ask rs1 >>> step (ConjunctedWith $ ask <$> rs2 NE.:| rss)) $
-    Inline mempty {_schemaAllOf = Just $ extract <$> rs1:rs2:rss}
+  (rs1 NE.:| rs2 : rss) ->
+    traced (ask rs1 >>> step (ConjunctedWith $ ask <$> rs2 NE.:| rss)) $
+      Inline mempty {_schemaAllOf = Just $ extract <$> rs1 : rs2 : rss}
 
 checkImplication
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
@@ -1383,7 +1393,7 @@ instance Issuable 'TypedSchemaLevel where
       NoMatchingCondition Partition [SomeCondition]
     | -- | producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
       -- AKA consumer does not have the type
-      NoContradiction Partition
+      NoContradiction
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
@@ -1430,14 +1440,15 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Backward (NoMatchingMinProperties n) = para $ "Minimum number of properties removed: " <> show' n <> "."
   describeIssue _ (MatchingMinPropertiesWeak (ProdCons p c)) = para $ "Minimum number of properties has changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue _ (NoMatchingCondition mPart conds) =
-    para (case mPart of
-      Nothing -> "Could not verify that the following conditions hold (please file a bug if you see this)"
-      Just locPart -> "In the " <> showPartitionCase locPart <> " -- could not verify that the following conditions hold (please file a bug if you see this)"
-    ) <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
-  describeIssue Forward (NoContradiction Nothing) = para "The type has been removed."
-  describeIssue Backward (NoContradiction Nothing) = para "The type has been added."
-  describeIssue Forward (NoContradiction (Just locPart)) = para $ "The " <> showPartitionCase locPart <> " -- has been removed."
-  describeIssue Backward (NoContradiction (Just locPart)) = para $ "The " <> showPartitionCase locPart <> " -- has been added."
+    para
+      (case mPart of
+         Nothing -> "Could not verify that the following conditions hold (please file a bug if you see this)"
+         Just locPart ->
+           showPartition locPart
+             <> " – could not verify that the following conditions hold (please file a bug if you see this):")
+      <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
+  describeIssue Forward NoContradiction = para "The value has been removed."
+  describeIssue Backward NoContradiction = para "The value has been added."
 
 showJSONValue :: A.Value -> Blocks
 showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
@@ -1448,20 +1459,6 @@ showJSONValueInline v = code (T.decodeUtf8 . BSL.toStrict . A.encode $ v)
 showBound :: Show a => Bound a -> Inlines
 showBound (Inclusive x) = show' x <> " inclusive"
 showBound (Exclusive x) = show' x <> " exclusive"
-
-showPartitionCase :: (PartitionLocation, PartitionChoice) -> Inlines
-showPartitionCase (loc, part) = "case that " <> code (showLoc "$" loc) <> case part of
-  CByEnumValue vals -> " is one of: " <> commaList (showJSONValueInline <$> S.toList vals)
-  CByProperties incl excl
-    | S.null excl -> " has properties: " <> commaList (code <$> S.toList incl)
-    | S.null incl -> " does not have properties: " <> commaList (code <$> S.toList excl)
-    | otherwise -> " has properties: " <> commaList (code <$> S.toList incl)
-      <> ", but not properties: " <> commaList (code <$> S.toList excl)
-  where
-    commaList :: [Inlines] -> Inlines
-    commaList = mconcat . intersperse ", "
-    showLoc path PHere = path
-    showLoc path (PInProperty k loc') = showLoc (path <> "." <> k) loc'
 
 show' :: Show x => x -> Inlines
 show' = str . T.pack . show
@@ -1533,7 +1530,36 @@ instance Behavable 'TypedSchemaLevel 'TypedSchemaLevel where
     = InPartition (PartitionLocation, PartitionChoice)
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (InPartition locPart) = "In partition " <> code (T.pack $ show locPart)
+  describeBehaviour (InPartition partition) = showPartition partition
+
+showPartition :: (PartitionLocation, PartitionChoice) -> Inlines
+showPartition = \case
+  (partition, CByEnumValue (S.toList -> [v])) ->
+    "In cases where " <> renderPartitionLocation partition <> " is " <> showJSONValueInline v <> "."
+  (partition, CByEnumValue (S.toList -> vs)) ->
+    "In cases where " <> renderPartitionLocation partition <> " has values: "
+      <> (fold . L.intersperse ", " . fmap showJSONValueInline $ vs)
+      <> "."
+  (partition, CByProperties (S.toList -> incl) (S.toList -> [])) ->
+    "In cases where " <> renderPartitionLocation partition <> " contains the properties: " <> listCodes incl <> "."
+  (partition, CByProperties (S.toList -> []) (S.toList -> excl)) ->
+    "In cases where " <> renderPartitionLocation partition <> " does not contain the properties: " <> listCodes excl <> "."
+  (partition, CByProperties (S.toList -> incl) (S.toList -> excl)) ->
+    "In cases where " <> renderPartitionLocation partition
+      <> " contains the properties "
+      <> listCodes incl
+      <> " and does not contain the properties "
+      <> listCodes excl
+      <> "."
+  where
+    listCodes :: [Text] -> Inlines
+    listCodes = fold . L.intersperse ", " . fmap code
+    renderPartitionLocation :: PartitionLocation -> Inlines
+    renderPartitionLocation p = code $ "$" <> renderPartitionLocation' p
+      where
+        renderPartitionLocation' :: PartitionLocation -> Text
+        renderPartitionLocation' PHere = mempty
+        renderPartitionLocation' (PInProperty prop rest) = "." <> prop <> renderPartitionLocation' rest
 
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel

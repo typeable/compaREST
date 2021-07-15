@@ -10,15 +10,19 @@
 
 ### 📱➡️ JSON Request
 
-#### `$|PInProperty "tag" PHere|CByEnumValue (fromList [String "B"])|.prop_B(Number)`
+#### In cases where `$.tag` is `"B"`.
 
-The type has been removed.
+##### `$.prop_B(Number)`
+
+The value has been removed.
 
 ### 📱⬅️ JSON Response – 200
 
-#### `$|PInProperty "tag" PHere|CByEnumValue (fromList [String "B"])|.prop_B(String)`
+#### In cases where `$.tag` is `"B"`.
 
-The type has been added.
+##### `$.prop_B(String)`
+
+The value has been added.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -26,12 +30,16 @@ The type has been added.
 
 ### 📱➡️ JSON Request
 
-#### `$|PInProperty "tag" PHere|CByEnumValue (fromList [String "B"])|.prop_B(String)`
+#### In cases where `$.tag` is `"B"`.
 
-The type has been added.
+##### `$.prop_B(String)`
+
+The value has been added.
 
 ### 📱⬅️ JSON Response – 200
 
-#### `$|PInProperty "tag" PHere|CByEnumValue (fromList [String "B"])|.prop_B(Number)`
+#### In cases where `$.tag` is `"B"`.
 
-The type has been removed.
+##### `$.prop_B(Number)`
+
+The value has been removed.
