@@ -74,9 +74,10 @@ instance Issuable 'TypedSchemaLevel where
       MatchingMinPropertiesWeak (ProdCons Integer)
     | -- | producer declares that the value must satisfy a disjunction of some conditions, but consumer's requirements couldn't be matched against any single one of them (TODO: split heuristic #71)
       NoMatchingCondition (Maybe Partition) [SomeCondition]
-    | -- | producer indicates that values of this type are now allowed, but the consumer does not do so (currently we only check immediate contradictions, c.f. #70)
-      -- AKA consumer does not have the type
-      NoContradiction
+    | -- | consumer indicates that no values of this type are allowed, but we weren't able to conclude that in the producer (currently only immediate contradictions are checked, c.f. #70)
+      TypeBecomesEmpty
+    | -- | consumer indicates that no values in a particular partition are allowed, but we weren't able to conclude this in the producer
+      PartitionBecomesEmpty Partition
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
@@ -125,13 +126,14 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue _ (NoMatchingCondition mPart conds) =
     para
       (case mPart of
-         Nothing -> "Could not verify that the following conditions hold (please file a bug if you see this)"
-         Just locPart ->
-           showPartition locPart
+         Nothing -> "Could not verify that the following conditions hold (please file a bug if you see this):"
+         Just locPart -> "In cases where " <> showPartition locPart
              <> " – could not verify that the following conditions hold (please file a bug if you see this):")
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
-  describeIssue Forward NoContradiction = para "The value has been removed."
-  describeIssue Backward NoContradiction = para "The value has been added."
+  describeIssue Forward TypeBecomesEmpty = para "The type has been removed."
+  describeIssue Backward TypeBecomesEmpty = para "The type has been added."
+  describeIssue Forward (PartitionBecomesEmpty part) = para $ "The case where " <> showPartition part <> " – has been removed."
+  describeIssue Backward (PartitionBecomesEmpty part) = para $ "The case where " <> showPartition part <> " – has been added."
 
 show' :: Show x => x -> Inlines
 show' = str . T.pack . show
@@ -199,7 +201,7 @@ instance Behavable 'TypedSchemaLevel 'TypedSchemaLevel where
     = InPartition Partition
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (InPartition partition) = showPartition partition
+  describeBehaviour (InPartition partition) = "In cases where " <> showPartition partition
 
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel

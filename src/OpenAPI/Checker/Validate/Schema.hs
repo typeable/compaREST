@@ -103,7 +103,7 @@ checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
         case (getJsonFormula $ ty fp, getJsonFormula $ ty fc) of
           (DNF pss, BottomDNF) -> unless typesRestricted $ do
             -- don't repeat the TypesRestricted issue
-            for_ pss $ \(Disjunct ps) -> checkContradiction beh' ps
+            for_ pss $ \(Disjunct ps) -> checkContradiction beh' Nothing ps
           (DNF pss, SingleDisjunct (Disjunct cs)) -> for_ pss $ \(Disjunct ps) -> do
             for_ cs $ checkImplication env beh' ps -- avoid disjunction if there's only one conjunct
           (TopDNF, DNF css) ->
@@ -115,7 +115,7 @@ checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
             (mPart, ProdCons pf cf) -> do
               let beh'' = foldr ((<<<) . step . InPartition) beh' mPart
               case (getJsonFormula pf, getJsonFormula cf) of
-                (DNF pss, BottomDNF) -> for_ pss $ \(Disjunct ps) -> checkContradiction beh'' ps
+                (DNF pss, BottomDNF) -> for_ pss $ \(Disjunct ps) -> checkContradiction beh' mPart ps
                 (DNF pss, SingleDisjunct (Disjunct cs)) -> for_ pss $ \(Disjunct ps) -> do
                   for_ cs $ checkImplication env beh'' ps
                 -- unlucky:
@@ -142,9 +142,10 @@ checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
 
 checkContradiction
   :: Behavior 'TypedSchemaLevel
+  -> Maybe Partition
   -> S.Set (Condition t)
   -> SemanticCompatFormula ()
-checkContradiction beh _ = issueAt beh NoContradiction -- TODO #70
+checkContradiction beh mPart _ = issueAt beh $ maybe TypeBecomesEmpty PartitionBecomesEmpty mPart -- TODO #70
 
 checkImplication
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))

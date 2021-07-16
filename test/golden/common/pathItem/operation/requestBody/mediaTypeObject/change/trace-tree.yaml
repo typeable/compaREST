@@ -4,11 +4,11 @@ breakingChanges:
       InRequest:
         InPayload:
           PayloadSchema:
-            OfType String: NoContradiction
+            OfType String: TypeBecomesEmpty
 nonBreakingChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
         InPayload:
           PayloadSchema:
-            OfType Number: NoContradiction
+            OfType Number: TypeBecomesEmpty
