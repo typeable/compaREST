@@ -127,7 +127,8 @@ instance Issuable 'TypedSchemaLevel where
     para
       (case mPart of
          Nothing -> "Could not verify that the following conditions hold (please file a bug if you see this):"
-         Just locPart -> "In cases where " <> showPartition locPart
+         Just locPart ->
+           "In cases where " <> showPartition locPart
              <> " – could not verify that the following conditions hold (please file a bug if you see this):")
       <> bulletList ((\(SomeCondition c) -> showCondition c) <$> conds)
   describeIssue Forward TypeBecomesEmpty = para "The type has been removed."
@@ -169,7 +170,13 @@ instance Issuable 'SchemaLevel where
   describeIssue _ (NotSupported i) =
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
   describeIssue _ OneOfNotDisjoint =
-    para (emph "Treating oneOf as anyOf (couldn't check overlaps)")
+    para $
+      "Could not deduce that " <> code "oneOf"
+        <> " cases don't overlap. Treating the "
+        <> code "oneOf"
+        <> " as an "
+        <> code "anyOf"
+        <> ". Reported errors might not be accurate."
   describeIssue _ (InvalidSchema i) =
     para (emph "The schema is invalid: " <> text i <> ".")
   describeIssue _ UnguardedRecursion =

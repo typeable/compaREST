@@ -10,8 +10,10 @@
 
 ### 📱➡️ JSON Request
 
-*Treating oneOf as anyOf (couldn't check overlaps)*
+Could not deduce that `oneOf` cases don't overlap. Treating the `oneOf`
+as an `anyOf`. Reported errors might not be accurate.
 
 ### 📱⬅️ JSON Response – 200
 
-*Treating oneOf as anyOf (couldn't check overlaps)*
+Could not deduce that `oneOf` cases don't overlap. Treating the `oneOf`
+as an `anyOf`. Reported errors might not be accurate.
