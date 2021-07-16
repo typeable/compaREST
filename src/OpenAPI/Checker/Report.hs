@@ -237,6 +237,7 @@ jets =
           ((\(OfType t) -> "(" <> describeJSONType t <> ")")
              @@> (\case
                     InItems -> "[*]"
+                    InItem i -> "[" <> T.pack (show i) <> "]"
                     InProperty p -> "." <> p
                     InAdditionalProperty -> ".*")
              @@> typesExhausted)

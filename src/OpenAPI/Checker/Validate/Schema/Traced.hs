@@ -46,6 +46,7 @@ instance Steppable Schema (Referenced Schema) where
     | ItemsArrayStep Int
     | AdditionalPropertiesStep
     | NotStep
+    | ImplicitTopSchema
     deriving stock (Eq, Ord, Show)
 
 instance Steppable (Referenced Schema) (Referenced Schema) where

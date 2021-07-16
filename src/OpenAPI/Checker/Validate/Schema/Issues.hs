@@ -50,6 +50,14 @@ instance Issuable 'TypedSchemaLevel where
       NoMatchingPattern Pattern
     | -- | consumer declares the items of an array must satisfy some condition, producer doesn't
       NoMatchingItems
+    | -- | producer and consumer declare that an array must be a tuple of a fixed length, but the lengths don't match
+      TupleItemsLengthChanged (ProdCons Integer)
+    | -- | consumer declares that the array is a tuple, but the producer doesn't, the length constraints match, but there were issues with the components
+      ArrayToTuple
+    | -- | producer declares that the array is a tuple, but the consumer doesn't, and there were issues with the components
+      TupleToArray
+    | -- | consumer declares that the array is a tuple, but the producer doesn't, and there aren't sufficient length constraints
+      NoMatchingTupleItems
     | -- | consumer declares a maximum length of the array ($1), producer doesn't.
       NoMatchingMaxItems Integer
     | -- | consumer declares a maximum length of the array ($1), producer declares a weaker (higher) limit ($2)
@@ -105,6 +113,13 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Backward (NoMatchingPattern p) = para "Pattern (regular expression) removed: " <> codeBlock p
   describeIssue Forward NoMatchingItems = para "Array item schema has been added."
   describeIssue Backward NoMatchingItems = para "Array item schema has been removed."
+  describeIssue _ (TupleItemsLengthChanged (ProdCons p c)) = para $ "Tuple length changed from " <> show' p <> " to " <> show' c <> "."
+  describeIssue Forward ArrayToTuple = para "The array is now explicitly defined as a tuple."
+  describeIssue Backward ArrayToTuple = para "The array is no longer explicitly defined as a tuple."
+  describeIssue Forward TupleToArray = para "The array is no longer explicitly defined as a tuple."
+  describeIssue Backward TupleToArray = para "The array is now explicitly defined as a tuple."
+  describeIssue Forward NoMatchingTupleItems = para "Tuple specification has been added"
+  describeIssue Backward NoMatchingTupleItems = para "Tuple specification has been removed"
   describeIssue Forward (NoMatchingMaxItems n) = para $ "Maximum length of the array has been added " <> show' n <> "."
   describeIssue Backward (NoMatchingMaxItems n) = para $ "Maximum length of the array has been removed " <> show' n <> "."
   describeIssue _ (MatchingMaxItemsWeak (ProdCons p c)) = para $ "Maximum length of the array changed from " <> show' p <> " to " <> show' c <> "."
@@ -213,10 +228,12 @@ instance Behavable 'TypedSchemaLevel 'TypedSchemaLevel where
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel
     = InItems
+    | InItem Integer
     | InProperty Text
     | InAdditionalProperty
     deriving stock (Eq, Ord, Show)
 
   describeBehaviour InItems = "Items"
+  describeBehaviour (InItem i) = "Item " <> show' i
   describeBehaviour (InProperty p) = "Property " <> code p
   describeBehaviour InAdditionalProperty = "Additional properties"

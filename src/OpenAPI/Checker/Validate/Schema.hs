@@ -7,15 +7,17 @@ where
 import Control.Monad.Writer
 import qualified Data.Aeson as A
 import Data.Coerce
-import Data.Foldable (for_)
+import Data.Foldable (for_, toList)
 import Data.Functor
 import Data.HList
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
+import Data.List (group, genericLength, genericIndex)
 import Data.Maybe
 import Data.OpenApi
 import Data.Ord
 import Data.Ratio
+import Data.Semigroup
 import qualified Data.Set as S
 import Data.Text (Text)
 import OpenAPI.Checker.Behavior
@@ -34,10 +36,11 @@ checkFormulas
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
   -> Behavior 'SchemaLevel
+  -> ProdCons (Trace Schema)
   -> ProdCons (Traced (Definitions Schema))
   -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
   -> SemanticCompatFormula ()
-checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
+checkFormulas env beh trs defs (ProdCons (fp, ep) (fc, ec)) =
   case P.toList ep ++ P.toList ec of
     issues@(_ : _) -> for_ issues $ embedFormula beh . anItem
     [] -> do
@@ -105,25 +108,25 @@ checkFormulas env beh defs (ProdCons (fp, ep) (fc, ec)) =
             -- don't repeat the TypesRestricted issue
             for_ pss $ \(Disjunct ps) -> checkContradiction beh' Nothing ps
           (DNF pss, SingleDisjunct (Disjunct cs)) -> for_ pss $ \(Disjunct ps) -> do
-            for_ cs $ checkImplication env beh' ps -- avoid disjunction if there's only one conjunct
+            for_ cs $ checkImplication env beh' trs ps -- avoid disjunction if there's only one conjunct
           (TopDNF, DNF css) ->
             -- producer is "open" (allows any value), but consumer has restrictions.
             -- In this case we want to show which restrictions were added. (instead
             -- of showing an empty list restrictions that couldn't be satisfied.)
-            for_ css $ \(Disjunct cs) -> for_ cs $ checkImplication env beh' S.empty
+            for_ css $ \(Disjunct cs) -> for_ cs $ checkImplication env beh' trs S.empty
           (pss', css') -> for_ (tryPartition defs $ ProdCons (JsonFormula pss') (JsonFormula css')) $ \case
             (mPart, ProdCons pf cf) -> do
               let beh'' = foldr ((<<<) . step . InPartition) beh' mPart
               case (getJsonFormula pf, getJsonFormula cf) of
                 (DNF pss, BottomDNF) -> for_ pss $ \(Disjunct ps) -> checkContradiction beh' mPart ps
                 (DNF pss, SingleDisjunct (Disjunct cs)) -> for_ pss $ \(Disjunct ps) -> do
-                  for_ cs $ checkImplication env beh'' ps
+                  for_ cs $ checkImplication env beh'' trs ps
                 -- unlucky:
                 (DNF pss, DNF css) -> for_ pss $ \(Disjunct ps) -> do
                   anyOfAt
                     beh'
                     (issueFromDisjunct Nothing ps)
-                    [for_ cs $ checkImplication env beh' ps | Disjunct cs <- S.toList css]
+                    [for_ cs $ checkImplication env beh' trs ps | Disjunct cs <- S.toList css]
       pure ()
   where
     anyBottomTypes f = getAny $
@@ -151,10 +154,11 @@ checkImplication
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
   => HList xs
   -> Behavior 'TypedSchemaLevel
+  -> ProdCons (Trace Schema) -- the traces of the root schemas used in this comparison
   -> S.Set (Condition t)
   -> Condition t
   -> SemanticCompatFormula ()
-checkImplication env beh prods cons = case findExactly prods of
+checkImplication env beh trs prods cons = case findExactly prods of
   Just e
     | all (satisfiesTyped e) prods ->
       if satisfiesTyped e cons
@@ -208,24 +212,65 @@ checkImplication env beh prods cons = case findExactly prods of
       False -> issueAt beh (NoMatchingFormat f)
 
     Items _ cons' -> case foldSome (<>) prods $ \case
-          Items _ rs -> Just (rs NE.:| [])
+          Items _ rs -> Just (Just (rs NE.:| []), mempty)
+          TupleItems (map snd -> fs) -> Just (mempty, Just (fs NE.:| []))
           _ -> Nothing
         of
-      Just (tracedConjunct -> rs) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
-      Nothing -> issueAt beh NoMatchingItems
+      Just (mItems, Just pfs)
+        | not $ allSame (length <$> pfs) -> pure () -- vacuously
+        | let plen = genericLength (NE.head pfs)
+        -> clarifyIssue (AnItem beh (anIssue TupleToArray)) $ for_ [0 .. plen - 1] $ \i -> do
+            let prod' = tracedConjunct $ case mItems of
+                  Just prods' -> ((`genericIndex` i) <$> pfs) <> prods'
+                  Nothing -> (`genericIndex` i) <$> pfs
+            checkCompatibility (beh >>> step (InItem i)) env $ ProdCons prod' cons'
+      Just (Just prods', Nothing) -> do
+        let prod' = tracedConjunct prods'
+        checkCompatibility (beh >>> step InItems) env $ ProdCons prod' cons'
+      _ -> clarifyIssue (AnItem beh (anIssue NoMatchingItems)) $ do
+        checkCompatibility (beh >>> step InItems) env $ ProdCons prodTopSchema cons'
+
+    TupleItems (map snd -> fs) -> case foldSome (<>) prods $ \case
+        TupleItems (map snd -> fs') -> Just (Just $ fs' NE.:| [], Just . Max $ genericLength fs', Just . Min $ genericLength fs', mempty)
+        MinItems m' -> Just (mempty, Just . Max $ m', mempty, mempty)
+        MaxItems m' -> Just (mempty, mempty, Just . Min $ m', mempty)
+        Items _ rs -> Just (mempty, mempty, mempty, Just (rs NE.:| []))
+        _ -> Nothing
+      of
+        -- if the length constraints in the producer are contradictory:
+        Just (_, Just (Max lowest), Just (Min highest), _) | lowest > highest -> pure ()
+        -- We have an explicit tuple items clause...
+        Just (Just pfs, Just (Max plen), _, _)
+          | plen /= genericLength fs -- ...of wrong length
+          -> issueAt beh (TupleItemsLengthChanged ProdCons {producer = plen, consumer = genericLength fs})
+          | otherwise
+          -> for_ [0 .. plen - 1] $ \i -> do
+            checkCompatibility (beh >>> step (InItem i)) env $ ProdCons (tracedConjunct $ (`genericIndex` i) <$> pfs) (fs `genericIndex` i)
+        -- We have a fixed length array in the producer
+        Just (Nothing, Just (Max plen), Just (Min plen'), mProd)
+          | plen == plen' -> clarifyIssue (AnItem beh (anIssue ArrayToTuple)) $ case mProd of
+            Just rs -> for_ [0 .. plen - 1] $ \i -> do
+              checkCompatibility (beh >>> step (InItem i)) env $ ProdCons (tracedConjunct rs) (fs `genericIndex` i)
+            Nothing -> clarifyIssue (AnItem beh (anIssue NoMatchingTupleItems)) $ do
+              for_ [0 .. plen - 1] $ \i -> do
+                checkCompatibility (beh >>> step (InItem i)) env $ ProdCons prodTopSchema (fs `genericIndex` i)
+        _ -> issueAt beh NoMatchingTupleItems
 
     MaxItems m -> foldCheck min m NoMatchingMaxItems MatchingMaxItemsWeak $ \case
       MaxItems m' -> Just m'
+      TupleItems fs -> Just $ toInteger $ length fs
       _ -> Nothing
 
     MinItems m -> foldCheck max m NoMatchingMinItems MatchingMinItemsWeak $ \case
       MinItems m' -> Just m'
-      _ -> Nothing -- TODO: tuple items
+      TupleItems fs -> Just $ toInteger $ length fs
+      _ -> Nothing
 
     UniqueItems -> case flip any prods $ \case
           UniqueItems -> True
           MaxItems 1 -> True
-          _ -> False -- TODO: tuple items
+          TupleItems fs | length fs == 1 -> True
+          _ -> False
         of
       True -> pure ()
       False -> issueAt beh NoMatchingUniqueItems
@@ -290,6 +335,14 @@ checkImplication env beh prods cons = case findExactly prods of
         | otherwise -> issueAt beh (weak ProdCons {producer = m', consumer = m})
       Nothing -> issueAt beh (missing m)
 
+    prodTopSchema = traced (producer trs >>> step ImplicitTopSchema) $ Inline mempty
+
+allSame :: (Foldable f, Eq a) => f a -> Bool
+allSame xs = case group (toList xs) of
+  [] -> True
+  [_] -> True
+  _ -> False
+
 foldSome :: (b -> b -> b) -> S.Set a -> (a -> Maybe b) -> Maybe b
 foldSome combine xs extr =
   fmap (foldr1 combine) . NE.nonEmpty . mapMaybe extr . S.toList $ xs
@@ -353,7 +406,7 @@ instance Subtree Schema where
       structuralItems _ = structuralIssue
   checkSemanticCompatibility env beh schs = do
     let defs = getH env
-    checkFormulas env beh defs $ schemaToFormula <$> defs <*> schs
+    checkFormulas env beh (ask <$> schs) defs $ schemaToFormula <$> defs <*> schs
 
 parseDiscriminatorValue :: Text -> Referenced Schema
 parseDiscriminatorValue v = case A.fromJSON @(Referenced Schema) $ A.object ["$ref" A..= v] of
