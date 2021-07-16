@@ -14,7 +14,7 @@
 
 ##### `$.prop_B(Number)`
 
-The value has been removed.
+The type has been removed.
 
 ### 📱⬅️ JSON Response – 200
 
@@ -22,7 +22,7 @@ The value has been removed.
 
 ##### `$.prop_B(String)`
 
-The value has been added.
+The type has been added.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -34,7 +34,7 @@ The value has been added.
 
 ##### `$.prop_B(String)`
 
-The value has been added.
+The type has been added.
 
 ### 📱⬅️ JSON Response – 200
 
@@ -42,4 +42,4 @@ The value has been added.
 
 ##### `$.prop_B(Number)`
 
-The value has been removed.
+The type has been removed.

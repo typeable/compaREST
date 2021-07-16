@@ -37,7 +37,8 @@ import qualified OpenAPI.Checker.PathsPrefixTree as P hiding (empty)
 import OpenAPI.Checker.Report.Jet
 import OpenAPI.Checker.Subtree (invertIssueOrientationP)
 import OpenAPI.Checker.Validate.OpenApi
-import OpenAPI.Checker.Validate.Schema
+import OpenAPI.Checker.Validate.Schema.TypedJson
+import OpenAPI.Checker.Validate.Schema.Issues
 import Text.Pandoc.Builder
 
 type Changes = P.PathsPrefixTree Behave AnIssue 'APILevel

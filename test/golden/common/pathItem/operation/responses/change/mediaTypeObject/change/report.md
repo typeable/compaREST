@@ -12,7 +12,7 @@
 
 #### `$(Number)`
 
-The value has been added.
+The type has been added.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -22,4 +22,4 @@ The value has been added.
 
 #### `$(String)`
 
-The value has been removed.
+The type has been removed.

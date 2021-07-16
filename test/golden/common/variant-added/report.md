@@ -10,9 +10,9 @@
 
 ### 📱⬅️ JSON Response – 200
 
-#### In cases where `$.tag` is `"C"`
+#### `$(Object)`
 
-The value has been added.
+The case where `$.tag` is `"C"` – has been added.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -20,6 +20,6 @@ The value has been added.
 
 ### 📱➡️ JSON Request
 
-#### In cases where `$.tag` is `"C"`
+#### `$(Object)`
 
-The value has been added.
+The case where `$.tag` is `"C"` – has been added.
