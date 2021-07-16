@@ -160,73 +160,81 @@ checkImplication env beh prods cons = case findExactly prods of
         then pure ()
         else issueAt beh (EnumDoesntSatisfy $ untypeValue e)
     | otherwise -> pure () -- vacuously true
+
   Nothing -> case cons of
     -- the above code didn't catch it, so there's no Exactly condition on the lhs
     Exactly e -> issueAt beh (NoMatchingEnum $ untypeValue e)
-    Maximum m -> case findRelevant min (\case Maximum m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' <= m
-          then pure ()
-          else issueAt beh (MatchingMaximumWeak $ ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMaximum m)
-    Minimum m -> case findRelevant max (\case Minimum m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' >= m
-          then pure ()
-          else issueAt beh (MatchingMinimumWeak ProdCons {producer = coerce m', consumer = coerce m})
-      Nothing -> issueAt beh (NoMatchingMinimum (coerce m))
-    MultipleOf m -> case findRelevant lcmScientific (\case MultipleOf m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if lcmScientific m m' == m'
-          then pure ()
-          else issueAt beh (MatchingMultipleOfWeak $ ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMultipleOf m)
-    NumberFormat f ->
-      if any (\case NumberFormat f' -> f == f'; _ -> False) prods
-        then pure ()
-        else issueAt beh (NoMatchingFormat f)
-    MaxLength m -> case findRelevant min (\case MaxLength m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' <= m
-          then pure ()
-          else issueAt beh (MatchingMaxLengthWeak $ ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMaxLength m)
-    MinLength m -> case findRelevant max (\case MinLength m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' >= m
-          then pure ()
-          else issueAt beh (MatchingMinLengthWeak $ ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMinLength m)
-    Pattern p ->
-      if any (\case Pattern p' -> p == p'; _ -> False) prods
-        then pure ()
-        else issueAt beh (NoMatchingPattern p) -- TODO: regex comparison #32
-    StringFormat f ->
-      if any (\case StringFormat f' -> f == f'; _ -> False) prods
-        then pure ()
-        else issueAt beh (NoMatchingFormat f)
-    Items _ cons' -> case findRelevant (<>) (\case Items _ rs -> Just (rs NE.:| []); _ -> Nothing) prods of
+
+    Maximum m -> foldCheck min m NoMatchingMaximum MatchingMaximumWeak $ \case
+      Maximum m' -> Just m'
+      _ -> Nothing
+
+    Minimum m -> foldCheck max m (NoMatchingMinimum . coerce) (MatchingMinimumWeak . coerce) $ \case
+      Minimum m' -> Just m'
+      _ -> Nothing
+
+    MultipleOf m -> foldCheck lcmScientific m NoMatchingMultipleOf MatchingMultipleOfWeak $ \case
+      MultipleOf m' -> Just m'
+      _ -> Nothing
+
+    NumberFormat f -> case flip any prods $ \case
+          NumberFormat f' -> f == f'
+          _ -> False
+        of
+      True -> pure ()
+      False -> issueAt beh (NoMatchingFormat f)
+
+    MaxLength m -> foldCheck min m NoMatchingMaxLength MatchingMaxLengthWeak $ \case
+      MaxLength m' -> Just m'
+      _ -> Nothing
+
+    MinLength m -> foldCheck max m NoMatchingMinLength MatchingMinLengthWeak $ \case
+      MinLength m' -> Just m'
+      _ -> Nothing
+
+    Pattern p -> case flip any prods $ \case
+          Pattern p' -> p == p'
+          _ -> False
+        of
+      True -> pure ()
+      False -> issueAt beh (NoMatchingPattern p) -- TODO: regex comparison #32
+
+    StringFormat f -> case flip any prods $ \case
+          StringFormat f' -> f == f'
+          _ -> False
+        of
+      True -> pure ()
+      False -> issueAt beh (NoMatchingFormat f)
+
+    Items _ cons' -> case foldSome (<>) prods $ \case
+          Items _ rs -> Just (rs NE.:| [])
+          _ -> Nothing
+        of
       Just (tracedConjunct -> rs) -> checkCompatibility (beh >>> step InItems) env $ ProdCons rs cons'
       Nothing -> issueAt beh NoMatchingItems
-    MaxItems m -> case findRelevant min (\case MaxItems m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' <= m
-          then pure ()
-          else issueAt beh (MatchingMaxItemsWeak ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMaxItems m)
-    MinItems m -> case findRelevant max (\case MinItems m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' >= m
-          then pure ()
-          else issueAt beh (MatchingMinItemsWeak ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMinItems m)
-    UniqueItems ->
-      if any (== UniqueItems) $ prods
-        then pure ()
-        else issueAt beh NoMatchingUniqueItems
-    Properties props _ madd -> case findRelevant (<>) (\case Properties props' _ madd' -> Just $ (props', madd') NE.:| []; _ -> Nothing) prods of
+
+    MaxItems m -> foldCheck min m NoMatchingMaxItems MatchingMaxItemsWeak $ \case
+      MaxItems m' -> Just m'
+      _ -> Nothing
+
+    MinItems m -> foldCheck max m NoMatchingMinItems MatchingMinItemsWeak $ \case
+      MinItems m' -> Just m'
+      _ -> Nothing -- TODO: tuple items
+
+    UniqueItems -> case flip any prods $ \case
+          UniqueItems -> True
+          MaxItems 1 -> True
+          _ -> False -- TODO: tuple items
+        of
+      True -> pure ()
+      False -> issueAt beh NoMatchingUniqueItems
+
+    Properties props _ madd -> case foldSome (<>) prods $ \case
+          Properties props' _ madd' -> Just $ (props', madd') NE.:| []
+          _ -> Nothing
+        of
       Just pm ->
-        anyOfAt beh NoMatchingProperties $
+        anyOfAt beh NoMatchingProperties $ -- TODO: could first "concat" the lists
           NE.toList pm <&> \(props', madd') -> do
             for_ (S.fromList $ M.keys props <> M.keys props') $ \k -> do
               let beh' = beh >>> step (InProperty k)
@@ -255,26 +263,40 @@ checkImplication env beh prods cons = case findExactly prods of
               (Just add', Just add) -> checkCompatibility (beh >>> step InAdditionalProperty) env (ProdCons add' add)
             pure ()
       Nothing -> issueAt beh NoMatchingProperties
-    MaxProperties m -> case findRelevant min (\case MaxProperties m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' <= m
-          then pure ()
-          else issueAt beh (MatchingMaxPropertiesWeak ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMaxProperties m)
-    MinProperties m -> case findRelevant max (\case MinProperties m' -> Just m'; _ -> Nothing) prods of
-      Just m' ->
-        if m' >= m
-          then pure ()
-          else issueAt beh (MatchingMinPropertiesWeak ProdCons {producer = m', consumer = m})
-      Nothing -> issueAt beh (NoMatchingMinProperties m)
+
+    MaxProperties m -> foldCheck min m NoMatchingMaxProperties MatchingMaxPropertiesWeak $ \case
+      MaxProperties m' -> Just m'
+      _ -> Nothing
+
+    MinProperties m -> foldCheck max m NoMatchingMinProperties MatchingMinPropertiesWeak $ \case
+      MinProperties m' -> Just m'
+      _ -> Nothing
   where
-    findRelevant combine extr =
-      fmap (foldr1 combine) . NE.nonEmpty . mapMaybe extr . S.toList
     lcmScientific (toRational -> a) (toRational -> b) =
       fromRational $ lcm (numerator a) (numerator b) % gcd (denominator a) (denominator b)
 
+    foldCheck
+      :: Eq a
+      => (a -> a -> a)
+      -> a
+      -> (a -> Issue 'TypedSchemaLevel)
+      -> (ProdCons a -> Issue 'TypedSchemaLevel)
+      -> (forall t. Condition t -> Maybe a)
+      -> SemanticCompatFormula ()
+    foldCheck f m missing weak extr = case foldSome f prods extr of
+      Just m'
+        | f m' m == m' -> pure ()
+        | otherwise -> issueAt beh (weak ProdCons {producer = m', consumer = m})
+      Nothing -> issueAt beh (missing m)
+
+foldSome :: (b -> b -> b) -> S.Set a -> (a -> Maybe b) -> Maybe b
+foldSome combine xs extr =
+  fmap (foldr1 combine) . NE.nonEmpty . mapMaybe extr . S.toList $ xs
+
 findExactly :: S.Set (Condition t) -> Maybe (TypedValue t)
-findExactly = getFirst . foldMap (\case Exactly x -> First (Just x); _ -> First Nothing)
+findExactly xs = foldSome const xs $ \case
+  Exactly x -> Just x
+  _ -> Nothing
 
 instance Subtree Schema where
   type SubtreeLevel Schema = 'SchemaLevel
