@@ -101,21 +101,21 @@ instance Behavable 'OperationLevel 'PathFragmentLevel where
     = InParam Text
     | InFragment (PathFragment Text)
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (InParam p) = "Parameter " <> text p
-  describeBehaviour (InFragment (StaticPath p)) = "Static fragment " <> code p
-  describeBehaviour (InFragment (DynamicPath p)) = "Dynamic fragment " <> code p
+  describeBehavior (InParam p) = "Parameter " <> text p
+  describeBehavior (InFragment (StaticPath p)) = "Static fragment " <> code p
+  describeBehavior (InFragment (DynamicPath p)) = "Dynamic fragment " <> code p
 
 instance Behavable 'OperationLevel 'RequestLevel where
   data Behave 'OperationLevel 'RequestLevel
     = InRequest
     deriving stock (Eq, Ord, Show)
-  describeBehaviour InRequest = "Request"
+  describeBehavior InRequest = "Request"
 
 instance Behavable 'OperationLevel 'SecurityRequirementLevel where
   data Behave 'OperationLevel 'SecurityRequirementLevel
     = SecurityRequirementStep Int
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (SecurityRequirementStep i) =
+  describeBehavior (SecurityRequirementStep i) =
     "Security requirement " <> (text . T.pack . show $ i)
 
 instance Subtree MatchedOperation where
@@ -346,7 +346,7 @@ instance Behavable 'APILevel 'PathLevel where
     = AtPath FilePath
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (AtPath p) = str (T.pack p)
+  describeBehavior (AtPath p) = str (T.pack p)
 
 instance Subtree ProcessedPathItems where
   type SubtreeLevel ProcessedPathItems = 'APILevel
@@ -449,7 +449,7 @@ instance Behavable 'PathLevel 'OperationLevel where
     = InOperation OperationMethod
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (InOperation method) = showMethod method
+  describeBehavior (InOperation method) = showMethod method
 
 showMethod :: IsString s => OperationMethod -> s
 showMethod = \case
@@ -573,4 +573,4 @@ instance Behavable 'OperationLevel 'CallbackLevel where
   data Behave 'OperationLevel 'CallbackLevel = OperationCallback Text
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (OperationCallback key) = "Operation " <> code key
+  describeBehavior (OperationCallback key) = "Operation " <> code key

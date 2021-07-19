@@ -227,14 +227,14 @@ instance Behavable 'SchemaLevel 'TypedSchemaLevel where
     = OfType JsonType
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (OfType t) = describeJSONType t
+  describeBehavior (OfType t) = describeJSONType t
 
 instance Behavable 'TypedSchemaLevel 'TypedSchemaLevel where
   data Behave 'TypedSchemaLevel 'TypedSchemaLevel
     = InPartition Partition
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (InPartition partition) = "In cases where " <> showPartition partition
+  describeBehavior (InPartition partition) = "In cases where " <> showPartition partition
 
 instance Behavable 'TypedSchemaLevel 'SchemaLevel where
   data Behave 'TypedSchemaLevel 'SchemaLevel
@@ -244,7 +244,7 @@ instance Behavable 'TypedSchemaLevel 'SchemaLevel where
     | InAdditionalProperty
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour InItems = "Items"
-  describeBehaviour (InItem i) = "Item " <> show' i
-  describeBehaviour (InProperty p) = "Property " <> code p
-  describeBehaviour InAdditionalProperty = "Additional properties"
+  describeBehavior InItems = "Items"
+  describeBehavior (InItem i) = "Item " <> show' i
+  describeBehavior (InProperty p) = "Property " <> code p
+  describeBehavior InAdditionalProperty = "Additional properties"

@@ -180,7 +180,7 @@ showErrs x@(P.PathsPrefixNode currentIssues _) =
           flip foldMap (M.toList m) $ \(bhv, subErrors) ->
             if P.null subErrors
               then mempty
-              else singletonHeader (describeBehaviour bhv) $ showErrs subErrors
+              else singletonHeader (describeBehavior bhv) $ showErrs subErrors
    in issues <> paths <> rest
 
 unfoldFunctions :: forall m a. (Monoid m, Eq a) => a -> [a -> (m, a)] -> (a -> m) -> m
@@ -198,11 +198,11 @@ jets =
   unwrapReportJetResult
     <$> [ constructReportJet $
             curry $ \case
-              (OfType Object, p@(InPartition _)) -> Just $ describeBehaviour p :: Maybe Inlines
+              (OfType Object, p@(InPartition _)) -> Just $ describeBehavior p :: Maybe Inlines
               _ -> Nothing
         , constructReportJet jsonPathJet
         , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
-            strong (describeBehaviour op) <> " " <> describeBehaviour p :: Inlines
+            strong (describeBehavior op) <> " " <> describeBehavior p :: Inlines
         , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
             "📱⬅️ JSON Response – " <> str (T.pack . show $ c) :: Inlines
         , constructReportJet $ \InRequest InPayload PayloadSchema -> "📱➡️ JSON Request" :: Inlines

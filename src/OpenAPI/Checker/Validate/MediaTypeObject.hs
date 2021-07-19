@@ -51,7 +51,7 @@ instance Behavable 'PayloadLevel 'SchemaLevel where
   data Behave 'PayloadLevel 'SchemaLevel
     = PayloadSchema
     deriving stock (Eq, Ord, Show)
-  describeBehaviour PayloadSchema = "JSON Schema"
+  describeBehavior PayloadSchema = "JSON Schema"
 
 instance Subtree MediaTypeObject where
   type SubtreeLevel MediaTypeObject = 'PayloadLevel
@@ -143,7 +143,7 @@ instance Behavable 'OperationLevel 'ResponseLevel where
   data Behave 'OperationLevel 'ResponseLevel
     = WithStatusCode HttpStatusCode
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (WithStatusCode c) = "Response code " <> (fromString . show $ c)
+  describeBehavior (WithStatusCode c) = "Response code " <> (fromString . show $ c)
 
 instance Issuable 'OperationLevel where
   data Issue 'OperationLevel

@@ -44,7 +44,7 @@ instance Behavable 'RequestLevel 'PayloadLevel where
   data Behave 'RequestLevel 'PayloadLevel
     = InPayload
     deriving stock (Eq, Ord, Show)
-  describeBehaviour InPayload = "Payload"
+  describeBehavior InPayload = "Payload"
 
 instance Subtree RequestBody where
   type SubtreeLevel RequestBody = 'RequestLevel

@@ -61,4 +61,4 @@ instance Behavable 'HeaderLevel 'SchemaLevel where
   data Behave 'HeaderLevel 'SchemaLevel
     = InSchema
     deriving stock (Eq, Ord, Show)
-  describeBehaviour InSchema = "JSON Schema"
+  describeBehavior InSchema = "JSON Schema"

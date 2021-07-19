@@ -162,4 +162,4 @@ instance Behavable 'SecurityRequirementLevel 'SecuritySchemeLevel where
   data Behave 'SecurityRequirementLevel 'SecuritySchemeLevel
     = SecuritySchemeStep Text
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (SecuritySchemeStep s) = text s
+  describeBehavior (SecuritySchemeStep s) = text s

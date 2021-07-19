@@ -46,7 +46,7 @@ instance Behavable 'OperationLevel 'ServerLevel where
     = InServer Text
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (InServer n) = "Server " <> code n
+  describeBehavior (InServer n) = "Server " <> code n
 
 instance Subtree [Server] where
   type SubtreeLevel [Server] = 'OperationLevel

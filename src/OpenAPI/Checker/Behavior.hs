@@ -39,7 +39,7 @@ class
   Behavable (a :: BehaviorLevel) (b :: BehaviorLevel)
   where
   data Behave a b
-  describeBehaviour :: Behave a b -> Inlines
+  describeBehavior :: Behave a b -> Inlines
 
 type instance AdditionalQuiverConstraints Behave a b = Behavable a b
 
