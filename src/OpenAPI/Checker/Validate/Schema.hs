@@ -246,11 +246,15 @@ checkImplication env beh trs prods cons = case findExactly prods of
           | otherwise
           -> for_ [0 .. plen - 1] $ \i -> do
             checkCompatibility (beh >>> step (InItem i)) env $ ProdCons (tracedConjunct $ (`genericIndex` i) <$> pfs) (fs `genericIndex` i)
-        -- We have a fixed length array in the producer
+        -- We have a fixed length array in the producer...
         Just (Nothing, Just (Max plen), Just (Min plen'), mProd)
-          | plen == plen' -> clarifyIssue (AnItem beh (anIssue ArrayToTuple)) $ case mProd of
+          | plen == plen'
+          -> clarifyIssue (AnItem beh (anIssue ArrayToTuple)) $ case mProd of
+            _ | plen /= genericLength fs -> -- ...of wrong length
+              issueAt beh (TupleItemsLengthChanged ProdCons {producer = plen, consumer = genericLength fs})
             Just rs -> for_ [0 .. plen - 1] $ \i -> do
               checkCompatibility (beh >>> step (InItem i)) env $ ProdCons (tracedConjunct rs) (fs `genericIndex` i)
+            -- ...and no "items" schema
             Nothing -> clarifyIssue (AnItem beh (anIssue NoMatchingTupleItems)) $ do
               for_ [0 .. plen - 1] $ \i -> do
                 checkCompatibility (beh >>> step (InItem i)) env $ ProdCons prodTopSchema (fs `genericIndex` i)
