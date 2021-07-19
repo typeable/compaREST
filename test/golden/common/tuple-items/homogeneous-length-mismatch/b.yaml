@@ -1,0 +1,67 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Test
+servers:
+  - url: http://localhost/
+paths:
+  /test1:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test1"
+      responses:
+        '200':
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test1"
+  /test2:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test2"
+      responses:
+        '200':
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test2"
+  /test3:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Test3"
+      responses:
+        '200':
+          description: test
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Test3"
+components:
+  schemas:
+    Test1:
+      type: array
+      maxItems: 2
+      items:
+        type: number
+    Test2:
+      type: array
+      minItems: 2
+      items:
+        type: number
+    Test3:
+      type: array
+      minItems: 3
+      maxItems: 3
+      items:
+        type: number

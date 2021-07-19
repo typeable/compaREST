@@ -1,0 +1,52 @@
+breakingChanges:
+  AtPath "/test3":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array: MatchingMinItemsWeak (ProdCons {producer = 2, consumer =
+              3})
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array:
+            - TupleItemsLengthChanged (ProdCons {producer = 3, consumer = 2})
+            - ArrayToTuple
+  AtPath "/test1":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array: NoMatchingTupleItems
+  AtPath "/test2":
+    InOperation PostMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array: NoMatchingTupleItems
+nonBreakingChanges:
+  AtPath "/test3":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array:
+            - TupleItemsLengthChanged (ProdCons {producer = 3, consumer = 2})
+            - ArrayToTuple
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array: MatchingMinItemsWeak (ProdCons {producer = 2, consumer =
+              3})
+  AtPath "/test1":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array: NoMatchingTupleItems
+  AtPath "/test2":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array: NoMatchingTupleItems
