@@ -71,7 +71,8 @@ instance Issuable 'ResponseLevel where
     = ConsumerDoesntHaveMediaType MediaType
     | ProducerDoesntHaveResponseHeader HeaderName
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    _ -> CertainIssue
   describeIssue Forward (ConsumerDoesntHaveMediaType t) =
     para $ "Media type was removed: " <> (code . T.pack . show $ t) <> "."
   describeIssue Backward (ConsumerDoesntHaveMediaType t) =

@@ -68,7 +68,9 @@ instance Issuable 'PathFragmentLevel where
       ParamSchemaMismatch
     | PathFragmentsDontMatch (ProdCons Text)
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    ParamSchemaMismatch -> ProbablyIssue -- the schema could be catch-all (?)
+    _ -> CertainIssue
   describeIssue _ ParamNameMismatch = para "The path fragments don't match."
   describeIssue Forward ParamEmptinessIncompatible = para "The parameter can no longer be empty."
   describeIssue Backward ParamEmptinessIncompatible = para "The parameter can now be empty."

@@ -1,6 +1,7 @@
 module OpenAPI.Checker.Behavior
   ( BehaviorLevel (..)
   , Behavable (..)
+  , IssueKind (..)
   , Issuable (..)
   , Orientation (..)
   , toggleOrientation
@@ -43,6 +44,19 @@ class
 
 type instance AdditionalQuiverConstraints Behave a b = Behavable a b
 
+data IssueKind
+  = -- | This is certainly an issue, we can demonstrate a "counterexample"
+    CertainIssue
+  | -- | Change looks breaking but we don't have a complete comprehension of the problem
+    ProbablyIssue
+  | -- | We don't really support this feature at all, outside structural comparison
+    Unsupported
+  | -- | This is not an issue in itself, but a clarifying comment providing context for some other issues
+    Comment
+  | -- | We detected an issue with one of the input schemata itself
+    SchemaInvalid
+  deriving stock (Eq, Ord, Show)
+
 class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
   data Issue l :: Type
 
@@ -58,7 +72,7 @@ class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLeve
   -- If _producer_ doesn't have something, the element was "added".
   describeIssue :: Orientation -> Issue l -> Blocks
 
-  issueIsUnsupported :: Issue l -> Bool
+  issueKind :: Issue l -> IssueKind
 
 data Orientation = Forward | Backward
   deriving stock (Eq, Ord, Show)

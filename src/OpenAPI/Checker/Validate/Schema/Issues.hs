@@ -87,7 +87,19 @@ instance Issuable 'TypedSchemaLevel where
     | -- | consumer indicates that no values in a particular partition are allowed, but we weren't able to conclude this in the producer
       PartitionBecomesEmpty Partition
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    NoMatchingEnum _ -> ProbablyIssue
+    MatchingMaximumWeak _ -> ProbablyIssue -- interplay with MultipleOf could make this not an issue
+    MatchingMinimumWeak _ -> ProbablyIssue -- ditto
+    MatchingMultipleOfWeak _ -> ProbablyIssue -- ditto
+    NoMatchingFormat _ -> Unsupported
+    NoMatchingPattern _ -> Unsupported
+    ArrayToTuple -> Comment
+    TupleToArray -> Comment
+    NoMatchingProperties -> ProbablyIssue -- TODO: #109
+    TypeBecomesEmpty -> ProbablyIssue -- TODO: #70
+    PartitionBecomesEmpty _ -> ProbablyIssue -- ditto
+    _ -> CertainIssue
   describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
   describeIssue Backward (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
   describeIssue Forward (NoMatchingEnum v) = para "The following enum value has been added:" <> showJSONValue v
@@ -186,12 +198,15 @@ instance Issuable 'SchemaLevel where
     | -- | producer allows a property that is not allowed in the consumer
       UnexpectedProperty
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    NotSupported _ -> True
-    OneOfNotDisjoint -> True
-    InvalidSchema _ -> True
-    UnguardedRecursion -> True
-    _ -> False
+  issueKind = \case
+    NotSupported _ -> Unsupported
+    OneOfNotDisjoint -> Unsupported
+    InvalidSchema _ -> SchemaInvalid
+    UnguardedRecursion -> Unsupported
+    AdditionalToProperty -> Comment
+    PropertyToAdditional -> Comment
+    TypesRestricted _ -> ProbablyIssue -- TODO: #70
+    _ -> CertainIssue
 
   describeIssue _ (NotSupported i) =
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")

@@ -133,7 +133,9 @@ instance Issuable 'ServerLevel where
     | ServerVariableNotDefined Text
     | ServerNotMatched
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    ServerVariableNotDefined _ -> SchemaInvalid
+    _ -> CertainIssue
   describeIssue Forward (EnumValueNotConsumed _ v) =
     para $ "Enum value " <> code v <> " has been removed."
   describeIssue Backward (EnumValueNotConsumed _ v) =

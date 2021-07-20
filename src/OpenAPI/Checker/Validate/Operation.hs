@@ -335,7 +335,8 @@ instance Issuable 'APILevel where
     | AllPathsFailed FilePath
     -- When several paths match given but all checks failed
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    _ -> CertainIssue
   describeIssue Forward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
   describeIssue Backward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been added."
   describeIssue Forward (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
@@ -440,7 +441,8 @@ instance Issuable 'PathLevel where
   data Issue 'PathLevel
     = OperationMissing OperationMethod
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    OperationMissing _ -> CertainIssue
   describeIssue Forward (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " has been removed."
   describeIssue Backward (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " has been added."
 
@@ -557,8 +559,8 @@ instance Issuable 'CallbackLevel where
   data Issue 'CallbackLevel
     = CallbacksUnsupported
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    CallbacksUnsupported -> True
+  issueKind = \case
+    CallbacksUnsupported -> Unsupported
   describeIssue _ CallbacksUnsupported = para "OpenApi Diff does not currently support callbacks."
 
 tracedCallbackPathItems :: Traced Callback -> Traced ProcessedPathItems

@@ -144,6 +144,8 @@ generateReport cfg inp =
     when' True m = m
     when' False _ = mempty
 
+    issueIsUnsupported i = issueKind i == Unsupported
+
 showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> Report
 showErrs x@(P.PathsPrefixNode currentIssues _) =
   let -- Extract this pattern if more cases like this arise

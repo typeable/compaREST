@@ -30,7 +30,8 @@ instance Issuable 'RequestLevel where
     = RequestBodyRequired
     | RequestMediaTypeNotFound MediaType
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    _ -> CertainIssue
   describeIssue Forward RequestBodyRequired =
     para "Request body has become required."
   describeIssue Backward RequestBodyRequired =

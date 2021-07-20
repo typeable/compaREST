@@ -50,7 +50,9 @@ instance Issuable 'HeaderLevel where
     | NonEmptyHeaderRequired
     | HeaderSchemaRequired
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    HeaderSchemaRequired -> ProbablyIssue -- catch-all schema?
+    _ -> CertainIssue
   describeIssue Forward RequiredHeaderMissing = para "Header has become required."
   describeIssue Backward RequiredHeaderMissing = para "Header is no longer required."
   describeIssue Forward NonEmptyHeaderRequired = para "The header does not allow empty values anymore."

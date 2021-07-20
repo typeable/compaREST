@@ -38,9 +38,9 @@ instance Issuable 'PayloadLevel where
     | MediaEncodingMissing Text
     | EncodingNotSupported
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    EncodingNotSupported -> True
-    _ -> False
+  issueKind = \case
+    EncodingNotSupported -> Unsupported
+    _ -> CertainIssue
 
   describeIssue _ MediaTypeSchemaRequired = para "Media type expected, but was not specified."
   describeIssue Forward (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " has been removed."
@@ -152,8 +152,8 @@ instance Issuable 'OperationLevel where
     | PathFragmentNotMatched Int
     | NoRequestBody
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    _ -> False
+  issueKind = \case
+    _ -> CertainIssue
   describeIssue Forward (ConsumerDoesntHaveResponseCode c) =
     para $ "Response code " <> (str . T.pack . show $ c) <> " has been removed."
   describeIssue Backward (ConsumerDoesntHaveResponseCode c) =
