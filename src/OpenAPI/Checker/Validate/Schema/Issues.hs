@@ -100,6 +100,53 @@ instance Issuable 'TypedSchemaLevel where
     TypeBecomesEmpty -> ProbablyIssue -- TODO: #70
     PartitionBecomesEmpty _ -> ProbablyIssue -- ditto
     _ -> CertainIssue
+  relatedIssues = (==) `withClass` \case
+      EnumDoesntSatisfy v -> Just v
+      NoMatchingEnum v -> Just v
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMaximum _ -> Just ()
+      MatchingMaximumWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMinimum _ -> Just ()
+      MatchingMinimumWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMultipleOf _ -> Just ()
+      MatchingMultipleOfWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMaxLength _ -> Just ()
+      MatchingMaxLengthWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMinLength _ -> Just ()
+      MatchingMinLengthWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingItems -> Just ()
+      ArrayToTuple -> Just ()
+      TupleToArray -> Just ()
+      NoMatchingTupleItems -> Just ()
+      TupleItemsLengthChanged _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMaxItems _ -> Just ()
+      MatchingMaxItemsWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMinItems _ -> Just ()
+      MatchingMinItemsWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMaxProperties _ -> Just ()
+      MatchingMaxPropertiesWeak _ -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      NoMatchingMinProperties _ -> Just ()
+      MatchingMinPropertiesWeak _ -> Just ()
+      _ -> Nothing
   describeIssue Forward (EnumDoesntSatisfy v) = para "The following enum value was removed:" <> showJSONValue v
   describeIssue Backward (EnumDoesntSatisfy v) = para "The following enum value was added:" <> showJSONValue v
   describeIssue Forward (NoMatchingEnum v) = para "The following enum value has been added:" <> showJSONValue v
@@ -207,7 +254,14 @@ instance Issuable 'SchemaLevel where
     PropertyToAdditional -> Comment
     TypesRestricted _ -> ProbablyIssue -- TODO: #70
     _ -> CertainIssue
-
+  relatedIssues = (==) `withClass` \case
+      AdditionalToProperty -> Just ()
+      PropertyToAdditional -> Just ()
+      _ -> Nothing
+    `withClass` \case
+      PropertyNowRequired -> Just ()
+      UnexpectedProperty -> Just ()
+      _ -> Nothing
   describeIssue _ (NotSupported i) =
     para (emph "Encountered a feature that OpenApi Diff does not support: " <> text i <> ".")
   describeIssue _ OneOfNotDisjoint =

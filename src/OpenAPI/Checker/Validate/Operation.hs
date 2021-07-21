@@ -337,6 +337,9 @@ instance Issuable 'APILevel where
     deriving stock (Eq, Ord, Show)
   issueKind = \case
     _ -> CertainIssue
+  relatedIssues = (==) `withClass` \case
+    NoPathsMatched fp -> Just fp
+    AllPathsFailed fp -> Just fp
   describeIssue Forward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
   describeIssue Backward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been added."
   describeIssue Forward (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " has been removed."

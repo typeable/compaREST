@@ -7,6 +7,8 @@ module OpenAPI.Checker.Behavior
   , toggleOrientation
   , Behavior
   , AnIssue (..)
+  , withClass
+  , relatedAnIssues
   )
 where
 
@@ -74,6 +76,21 @@ class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLeve
 
   issueKind :: Issue l -> IssueKind
 
+  -- | An equivalence relation designating whether two issues are talking about the aspect of the schema. This is used
+  -- to remove duplicates from the "reverse" error tree we get when we look for non-breaking changes.
+  -- Generally if checking X->Y raises issue I, and checking Y->X raises issue J, I and J should be related.
+  relatedIssues :: Issue l -> Issue l -> Bool
+  relatedIssues = (==)
+
+-- Utility function for 'relatedIssues'. In @withClass eq f@, @f@ attempts to partition inputs into equivalence classes,
+-- and two items in the same equivalence class are related. If both items aren't assigned to a class by @f@, instead
+-- @eq@ is used to compare them.
+withClass :: Eq b => (a -> a -> Bool) -> (a -> Maybe b) -> a -> a -> Bool
+withClass eq f = \x y -> case (f x, f y) of
+  (Just fx, Just fy) -> fx == fy
+  (Nothing, Nothing) -> eq x y
+  (_, _) -> False
+
 data Orientation = Forward | Backward
   deriving stock (Eq, Ord, Show)
 
@@ -98,3 +115,6 @@ deriving stock instance Ord (AnIssue l)
 
 instance ToJSON (AnIssue l) where
   toJSON (AnIssue _ issue) = toJSON issue
+
+relatedAnIssues :: AnIssue l -> AnIssue l -> Bool
+relatedAnIssues (AnIssue _ x) (AnIssue _ y) = relatedIssues x y
