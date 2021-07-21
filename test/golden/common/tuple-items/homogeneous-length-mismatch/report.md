@@ -12,7 +12,7 @@
 
 #### `$(Array)`
 
-Tuple specification has been removed
+The array is no longer explicitly defined as a tuple.
 
 ## **POST** /test2
 
@@ -20,7 +20,7 @@ Tuple specification has been removed
 
 #### `$(Array)`
 
-Tuple specification has been removed
+The array is no longer explicitly defined as a tuple.
 
 ## **POST** /test3
 
@@ -46,7 +46,7 @@ Minimum length of the array changed from 2 to 3.
 
 #### `$(Array)`
 
-Tuple specification has been removed
+The array is no longer explicitly defined as a tuple.
 
 ## **POST** /test2
 
@@ -54,7 +54,7 @@ Tuple specification has been removed
 
 #### `$(Array)`
 
-Tuple specification has been removed
+The array is no longer explicitly defined as a tuple.
 
 ## **POST** /test3
 
