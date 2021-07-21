@@ -138,7 +138,7 @@ instance Issuable 'SecuritySchemeLevel where
   describeIssue _ RefreshUrlsDontMatch = para "Refresh URL changed."
   describeIssue _ (HttpSchemeTypesDontMatch _ _) = para "HTTP scheme type changed."
   describeIssue _ (ApiKeyParamsDontMatch _ _) = para "API Key parameters changed."
-  describeIssue _ (OpenIdConnectUrlsDontMatch _ _) = para "OpenaId Connect URL changed."
+  describeIssue _ (OpenIdConnectUrlsDontMatch _ _) = para "OpenID Connect URL changed."
   describeIssue _ (CustomHttpSchemesDontMatch e a) =
     para $ "Changed HTTP scheme from " <> code e <> " to " <> code a <> "."
   describeIssue Forward ConsumerDoesNotSupportImplicitFlow = para "Implicit flow support has been removed."
