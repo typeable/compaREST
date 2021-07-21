@@ -245,7 +245,11 @@ processSchema sch@(extract -> Schema {..}) = do
     Just (Left rs) -> do
       f <- silently $ processRefSchema rs
       pure top {forArray = singletonFormula $ Items f rs}
-    Just (Right _) -> top <$ warn (NotSupported "array in items is not supported")
+    Just (Right rss) -> do
+      fsrs <- forM rss $ \rs -> do
+        f <- silently $ processRefSchema rs
+        pure (f, rs)
+      pure top {forArray = singletonFormula $ TupleItems fsrs}
 
   let maxItemsClause = case _schemaMaxItems of
         Nothing -> top

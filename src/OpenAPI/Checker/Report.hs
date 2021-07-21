@@ -233,10 +233,12 @@ jets =
         showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion (InProperty _)) : _)) = showParts xs
         showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion InAdditionalProperty) : _)) = showParts xs
         showParts (SingletonUnion (OfType Array) : xs@(SingletonUnion InItems : _)) = showParts xs
+        showParts (SingletonUnion (OfType Array) : xs@(SingletonUnion (InItem _) : _)) = showParts xs
         showParts (y : ys) =
           ((\(OfType t) -> "(" <> describeJSONType t <> ")")
              @@> (\case
                     InItems -> "[*]"
+                    InItem i -> "[" <> T.pack (show i) <> "]"
                     InProperty p -> "." <> p
                     InAdditionalProperty -> ".*")
              @@> typesExhausted)

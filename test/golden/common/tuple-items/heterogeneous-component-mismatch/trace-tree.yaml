@@ -1,0 +1,30 @@
+breakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array:
+              InItem 1:
+                OfType String: TypeBecomesEmpty
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array:
+              InItem 1:
+                OfType Object: TypeBecomesEmpty
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array:
+              InItem 1:
+                OfType Object: TypeBecomesEmpty
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array:
+              InItem 1:
+                OfType String: TypeBecomesEmpty

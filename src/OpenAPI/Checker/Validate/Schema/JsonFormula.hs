@@ -80,6 +80,9 @@ data Condition :: JsonType -> Type where
     :: !(ForeachType JsonFormula)
     -> !(Traced (Referenced Schema))
     -> Condition 'Array
+  TupleItems
+    :: ![(ForeachType JsonFormula, Traced (Referenced Schema))]
+    -> Condition 'Array
   MaxItems :: !Integer -> Condition 'Array
   MinItems :: !Integer -> Condition 'Array
   UniqueItems :: Condition 'Array
@@ -109,6 +112,7 @@ showCondition = \case
   (MaxLength p) -> para $ "The length of the string should be less than or equal to " <> show' p <> "."
   (MinLength p) -> para $ "The length of the string should be more than or equal to " <> show' p <> "."
   (Items i _) -> para "The items of the array should satisfy:" <> showForEachJsonFormula i
+  (TupleItems is) -> para ("There should be " <> show' (length is) <> " items in the array:") <> bulletList (showForEachJsonFormula . fst <$> is)
   (MaxItems n) -> para $ "The length of the array should be less than or equal to " <> show' n <> "."
   (MinItems n) -> para $ "The length of the array should be more than or equal to " <> show' n <> "."
   UniqueItems -> para "The elements in the array should be unique."
@@ -161,6 +165,7 @@ satisfiesTyped (TString s) (MinLength m) = fromIntegral (T.length s) >= m
 satisfiesTyped (TString s) (Pattern p) = isJust $ match p s -- TODO: regex stuff #32
 satisfiesTyped (TString s) (StringFormat f) = checkStringFormat f s
 satisfiesTyped (TArray a) (Items f _) = all (`satisfies` f) a
+satisfiesTyped (TArray a) (TupleItems fs) = length fs == F.length a && and (zipWith satisfies (F.toList a) (fst <$> fs))
 satisfiesTyped (TArray a) (MaxItems m) = fromIntegral (F.length a) <= m
 satisfiesTyped (TArray a) (MinItems m) = fromIntegral (F.length a) >= m
 satisfiesTyped (TArray a) UniqueItems = S.size (S.fromList $ F.toList a) == F.length a -- TODO: could be better #36

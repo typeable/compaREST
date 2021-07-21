@@ -1,0 +1,26 @@
+breakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array: TupleItemsLengthChanged (ProdCons {producer = 3, consumer
+              = 2})
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array: TupleItemsLengthChanged (ProdCons {producer = 2, consumer
+              = 3})
+nonBreakingChanges:
+  AtPath "/test":
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Array: TupleItemsLengthChanged (ProdCons {producer = 2, consumer
+              = 3})
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array: TupleItemsLengthChanged (ProdCons {producer = 3, consumer
+              = 2})
