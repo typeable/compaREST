@@ -1,11 +1,11 @@
-breakingChanges:
+forwardChanges:
   AtPath "/pets":
     InOperation GetMethod:
       InServer "http://{x}variable.path/{y}/{openVariable1}/{openVariable2}":
       - EnumValueNotConsumed 1 "a"
       - ConsumerNotOpen 7
       InServer "http://missing.url": ServerNotMatched
-nonBreakingChanges:
+backwardChanges:
   AtPath "/pets":
     InOperation GetMethod:
       InServer "http://{x}variable.path/{y}/{openVariable1}/{openVariable2}": EnumValueNotConsumed

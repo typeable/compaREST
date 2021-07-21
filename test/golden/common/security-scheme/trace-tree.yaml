@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/oauth/sign_out":
     InOperation GetMethod:
       SecurityRequirementStep 1:
@@ -7,7 +7,7 @@ breakingChanges:
     InOperation PostMethod:
       SecurityRequirementStep 0:
         SecuritySchemeStep "oauth": SecuritySchemeNotMatched
-nonBreakingChanges:
+backwardChanges:
   AtPath "/oauth/check":
     InOperation PostMethod:
       SecurityRequirementStep 0:

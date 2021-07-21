@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
@@ -11,7 +11,7 @@ breakingChanges:
           PayloadSchema:
             OfType Object:
               InProperty "property2": PropertyNowRequired
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:

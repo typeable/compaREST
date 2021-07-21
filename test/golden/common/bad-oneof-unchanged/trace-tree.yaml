@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
@@ -7,7 +7,7 @@ breakingChanges:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema: OneOfNotDisjoint
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:

@@ -1,11 +1,11 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
             OfType Number: TypeBecomesEmpty
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200:

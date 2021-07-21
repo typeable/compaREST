@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
@@ -11,7 +11,7 @@ breakingChanges:
           PayloadSchema:
             OfType Array: TupleItemsLengthChanged (ProdCons {producer = 2, consumer
               = 3})
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:

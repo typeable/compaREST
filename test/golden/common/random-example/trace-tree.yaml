@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/pets":
     InOperation GetMethod:
       WithStatusCode 200:
@@ -20,7 +20,7 @@ breakingChanges:
               - TypesRestricted [Number]
               - AdditionalToProperty
               - OfType Number: NoMatchingMultipleOf 1.0
-nonBreakingChanges:
+backwardChanges:
   AtPath "/pets":
     InOperation GetMethod:
       WithStatusCode 200:

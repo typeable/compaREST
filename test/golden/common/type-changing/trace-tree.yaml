@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test5":
     InOperation PostMethod:
       InRequest:
@@ -28,7 +28,7 @@ breakingChanges:
       InRequest:
         InPayload:
           PayloadSchema: TypesRestricted [Number,Array,Object]
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test5":
     InOperation PostMethod:
       WithStatusCode 200:

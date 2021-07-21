@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test3":
     InOperation PostMethod:
       InRequest:
@@ -24,7 +24,7 @@ breakingChanges:
         ResponsePayload:
           PayloadSchema:
             OfType Array: NoMatchingTupleItems
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test3":
     InOperation PostMethod:
       InRequest:

@@ -2,7 +2,7 @@
 
 | [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
 |------------------------------------------|-------------------------------------------------|-------------------------------|
-| 4                                        | 4                                               | 0                             |
+| 4                                        | 2                                               | 0                             |
 
 # <span id="breaking-changes"></span>⚠️ Breaking changes
 
@@ -34,19 +34,11 @@ The type has been added.
 
 ### 📱➡️ JSON Request
 
-#### `$(Array)`
-
-The array is no longer explicitly defined as a tuple.
-
 #### `$[0](Number)`
 
 The type has been added.
 
 ### 📱⬅️ JSON Response – 200
-
-#### `$(Array)`
-
-The array is no longer explicitly defined as a tuple.
 
 #### `$[0](String)`
 

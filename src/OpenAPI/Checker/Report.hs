@@ -1,6 +1,8 @@
 module OpenAPI.Checker.Report
   ( generateReport
+  , CheckerOutput(..)
   , ReportInput (..)
+  , segregateIssues
   , ReportStatus (..)
   , Pandoc
   , ReportConfig (..)
@@ -43,13 +45,37 @@ import Text.Pandoc.Builder
 
 type Changes = P.PathsPrefixTree Behave AnIssue 'APILevel
 
+data CheckerOutput = CheckerOutput
+  { forwardChanges :: Changes
+  , backwardChanges :: Changes
+  }
+  deriving stock (Generic)
+  deriving (Semigroup, Monoid) via (Generically CheckerOutput)
+  deriving anyclass (ToJSON)
+
 data ReportInput = ReportInput
-  { breakingChanges :: Changes
-  , nonBreakingChanges :: Changes
+  { breakingChanges :: Changes -- ^ forward 'CertainIssue', 'ProbablyIssue' and 'Comment'
+  , nonBreakingChanges :: Changes -- ^ backward 'CertainIssue', 'ProbablyIssue' and 'Comment', except those shadowed by 'relatedIssues'
+  , unsupportedChanges :: Changes -- ^ forward and backward 'Unsupported' (assumed to be the same anyway)
+  , schemaIssues :: Changes -- ^ forward and backward 'SchemaInvalid' (assumed to be the same anyway)
   }
   deriving stock (Generic)
   deriving (Semigroup, Monoid) via (Generically ReportInput)
   deriving anyclass (ToJSON)
+
+segregateIssues :: CheckerOutput -> ReportInput
+segregateIssues CheckerOutput {forwardChanges = fwd, backwardChanges = bck} = ReportInput
+  { breakingChanges = P.filter isBreaking fwd
+  , nonBreakingChanges = invertIssueOrientationP $ P.filterWithKey isNonBreaking bck
+  , unsupportedChanges = P.filter isUnsupported fwd <> P.filter isUnsupported bck
+  , schemaIssues = P.filter isSchemaIssue fwd <> P.filter isSchemaIssue bck
+  }
+  where
+    isBreaking i = anIssueKind i `elem` [CertainIssue, ProbablyIssue, Comment]
+    isNonBreaking :: Paths Behave 'APILevel a -> AnIssue a -> Bool
+    isNonBreaking xs i = isBreaking i && all (\j -> not $ relatedAnIssues i j) (P.lookup xs fwd)
+    isUnsupported i = anIssueKind i == Unsupported
+    isSchemaIssue i = anIssueKind i == SchemaInvalid
 
 data ReportStatus
   = BreakingChanges
@@ -80,13 +106,11 @@ twoRowTable x = simpleTable (para . fst <$> x) [para . snd <$> x]
 
 generateReport :: ReportConfig -> ReportInput -> (Pandoc, ReportStatus)
 generateReport cfg inp =
-  let partitionUnsupported = P.partition (\(AnIssue _ i) -> issueIsUnsupported i)
-      (bUnsupported, breaking) = partitionUnsupported $ breakingChanges inp
-      (nbUnsupported, invertIssueOrientationP -> nonBreaking) = partitionUnsupported $ nonBreakingChanges inp
-      unsupported = bUnsupported <> nbUnsupported
-      breakingChangesPresent = not $ P.null breaking
-      nonBreakingChangesPresent = not $ P.null nonBreaking
-      unsupportedChangesPresent = not $ P.null unsupported
+  let
+      schemaIssuesPresent = not $ P.null $ schemaIssues inp
+      breakingChangesPresent = not $ P.null $ breakingChanges inp
+      nonBreakingChangesPresent = not $ P.null $ nonBreakingChanges inp
+      unsupportedChangesPresent = not $ P.null $ unsupportedChanges inp
       nonBreakingChangesShown = case reportMode cfg of
         All -> True
         OnlyErrors -> False
@@ -95,32 +119,43 @@ generateReport cfg inp =
         doc $
           header 1 "Summary"
             <> twoRowTable
-              ([ ( refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
-                 , show' $ P.size breaking
-                 )
-               ]
+              (when'
+                 schemaIssuesPresent
+                 [ ( refOpt schemaIssuesPresent schemaIssuesId "❌ Schema issues"
+                   , show' $ P.size $ schemaIssues inp
+                   )
+                 ]
+                 ++
+                   [ ( refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+                     , show' $ P.size $ breakingChanges inp
+                     )
+                   ]
                  ++ when'
                    nonBreakingChangesShown
                    [ ( refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
-                     , show' $ P.size nonBreaking
+                     , show' $ P.size $ nonBreakingChanges inp
                      )
                    ]
                  ++ [ ( refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
-                      , show' $ P.size unsupported
+                      , show' $ P.size $ unsupportedChanges inp
                       )
                     ])
             <> when'
+              schemaIssuesPresent
+              (header 1 (anchor schemaIssuesId <> "❌ Schema issues")
+                 <> builder (showErrs $ schemaIssues inp))
+            <> when'
               breakingChangesPresent
               (header 1 (anchor breakingChangesId <> "⚠️ Breaking changes")
-                 <> builder (showErrs breaking))
+                 <> builder (showErrs $ breakingChanges inp))
             <> when'
               (nonBreakingChangesPresent && nonBreakingChangesShown)
               (header 1 (anchor nonBreakingChangesId <> "🙆 Non-breaking changes")
-                 <> builder (showErrs nonBreaking))
+                 <> builder (showErrs $ nonBreakingChanges inp))
             <> when'
               unsupportedChangesPresent
               (header 1 (anchor unsupportedChangesId <> "🤷 Unsupported feature changes")
-                 <> builder (showErrs unsupported))
+                 <> builder (showErrs $ unsupportedChanges inp))
       status =
         if
             | breakingChangesPresent -> BreakingChanges
@@ -135,16 +170,15 @@ generateReport cfg inp =
     refOpt False _ i = i
     refOpt True a i = link ("#" <> a) "" i
 
-    breakingChangesId, nonBreakingChangesId, unsupportedChangesId :: Text
+    breakingChangesId, nonBreakingChangesId, unsupportedChangesId, schemaIssuesId :: Text
     breakingChangesId = "breaking-changes"
     unsupportedChangesId = "unsupported-changes"
     nonBreakingChangesId = "non-breaking-changes"
+    schemaIssuesId = "schema-issues"
 
     when' :: Monoid m => Bool -> m -> m
     when' True m = m
     when' False _ = mempty
-
-    issueIsUnsupported i = issueKind i == Unsupported
 
 showErrs :: forall a. Typeable a => P.PathsPrefixTree Behave AnIssue a -> Report
 showErrs x@(P.PathsPrefixNode currentIssues _) =

@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200:
@@ -6,7 +6,7 @@ breakingChanges:
           PayloadSchema:
             OfType Object: PartitionBecomesEmpty (PInProperty "tag" PHere,CByEnumValue
               (fromList [String "C"]))
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:

@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/api/foo":
     InOperation GetMethod:
       InRequest:
@@ -11,7 +11,7 @@ breakingChanges:
                     OfType Object:
                       InProperty "foo":
                         OfType String: NoMatchingEnum (String "a")
-nonBreakingChanges:
+backwardChanges:
   AtPath "/api/foo":
     InOperation GetMethod:
       WithStatusCode 200:

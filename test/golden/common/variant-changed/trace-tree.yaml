@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
@@ -15,7 +15,7 @@ breakingChanges:
               InPartition (PInProperty "tag" PHere,CByEnumValue (fromList [String "B"])):
                 InProperty "prop_B":
                   OfType String: TypeBecomesEmpty
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:

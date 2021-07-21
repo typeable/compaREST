@@ -1,10 +1,10 @@
-breakingChanges:
+forwardChanges:
   AtPath "/api/foo":
     InOperation GetMethod:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema: UnguardedRecursion
-nonBreakingChanges:
+backwardChanges:
   AtPath "/api/foo":
     InOperation GetMethod:
       WithStatusCode 200:

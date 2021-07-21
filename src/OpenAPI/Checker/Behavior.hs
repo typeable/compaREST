@@ -8,6 +8,7 @@ module OpenAPI.Checker.Behavior
   , Behavior
   , AnIssue (..)
   , withClass
+  , anIssueKind
   , relatedAnIssues
   )
 where
@@ -115,6 +116,9 @@ deriving stock instance Ord (AnIssue l)
 
 instance ToJSON (AnIssue l) where
   toJSON (AnIssue _ issue) = toJSON issue
+
+anIssueKind :: AnIssue l -> IssueKind
+anIssueKind (AnIssue _ i) = issueKind i
 
 relatedAnIssues :: AnIssue l -> AnIssue l -> Bool
 relatedAnIssues (AnIssue _ x) (AnIssue _ y) = relatedIssues x y

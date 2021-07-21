@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200:
@@ -9,7 +9,7 @@ breakingChanges:
               - TypesRestricted [Number]
               - AdditionalToProperty
               - PropertyNowRequired
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
