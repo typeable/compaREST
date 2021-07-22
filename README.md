@@ -48,8 +48,9 @@ Available options:
   --all                    Report both incompatible and compatible changes.
                            Compatible changes will not trigger a failure exit
                            code.
-  -o,--output ARG          The file path where the output should be writtrn.
-                           Leave blank to output result to stdout.
+  -o,--output ARG          The file path where the output should be written. If
+                           the option is omitted the result will be written to
+                           stdout.
 
                            The file extension is used to determine the type of
                            the output file.
@@ -57,7 +58,7 @@ Available options:
                            Supports many formats such as markdown, html, rtf,
                            doc, txt, rst, and many more.
 
-                           Leave off the extensionto produce a self-contained
+                           Leave out the extension to produce a self-contained
                            HTML report with styling.
   --folding-block-quotes-style
                            The report tree is structured using summary/detail
