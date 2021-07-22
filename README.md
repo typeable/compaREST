@@ -6,7 +6,126 @@
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Compatibility checker for OpenAPI
+# Quick Start Guide
 
+## Your situation
+
+You are developing a very important server with a REST API. You have clients who use your API that you do not control. Say, you are also developing a mobile app that uses your API and you can't force someone to update to the latest version. (Or you prefer not to for UX reasons.)
+
+You have recently released version 1.0 and things are going great: user are downloading your app, servers are processing requests.
+
+You describe your API in a file `api-1.0.0.yaml`:
+
+```yaml
+openapi: "3.0.1"
+info:
+  version: 1.0.0
+  title: Swagger Petstore
+  license: name: MIT
+servers:
+  - url: https://example.com
+paths:
+  /pets:
+    get:
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 20
+      responses:
+        '200':
+          headers:
+            x-next:
+              schema: type: string
+          content:
+            application/json:
+              schema: $ref: "#/components/schemas/Pets"
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema: $ref: "#/components/schemas/Pet"
+      responses: '201':
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id: type: integer
+        name:
+          type: string
+          minLength: 3
+          maxLength: 10
+    Pets:
+      type: array
+      items: $ref: "#/components/schemas/Pet"
+```
+
+## A sudden change
+
+Enthused over your initial success you hurry to release a new and improved version of your API and mobile app.
+
+After a time of very intensive programming you take a look at your new `api-1.1.0.yaml`:
+
+```yaml
+openapi: "3.0.1"
+info:
+  version: 1.1.0
+  title: Swagger Petstore
+  license: name: MIT
+servers:
+  - url: https://example.com
+paths:
+  /pets:
+    get:
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            maximum: 30
+      responses:
+        '200':
+          headers:
+            x-next:
+              schema: type: string
+          content:
+            application/json:
+              schema: $ref: "#/components/schemas/Pets"
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema: $ref: "#/components/schemas/Pet"
+      responses: '201':
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id: type: integer
+        name:
+          type: string
+          minLength: 1
+          maxLength: 15
+        weight: type: integer
+    Pets:
+      type: array
+      items: $ref: "#/components/schemas/Pet"
+```
+
+Looking at the very large and complex API description, you grow more and more concerned that your old mobile app might stop working when you update the server. But the spec is too large and too complex to reasonably assess this manually.
+
+# CLI docs
 
 ```
 Usage: openapi-diff (-c|--client ARG) (-s|--server ARG)
