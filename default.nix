@@ -24,19 +24,9 @@ let
   '';
   compaREST = pkgs.dockerTools.buildImage {
     name = "compaREST";
-    # contents = [];
-    # contents = [
-    #   hsPkgs.openapi-diff.components.exes.openapi-diff
-    # ];
-
-    # runAsRoot = ''
-    #   mkdir /app
-    #   cp -av ${compaREST-static} /app/compaREST
-    # '';
-
-
+    contents = [compaREST-static];
     config = {
-      Entrypoint = [ "${compaREST-static}/compaREST" ];
+      Entrypoint = [ "/compaREST" ];
     };
   };
 
