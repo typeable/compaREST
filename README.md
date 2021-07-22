@@ -151,7 +151,7 @@ Luckily, you have access to compaREST which can programmatically analyze your AP
 You can call it, passing the API your client will be aware of, and the API your server will serve like so:
 
 ```bash
-docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.yaml --server /data/api-1.1.0.yaml --output report.md
+docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.yaml --server /data/api-1.1.0.yaml --output /data/report.md
 ```
 
 Running this command will output a file `report.md`, containing the compatibility report between the two APIs:
@@ -235,7 +235,7 @@ You now know exactly in what situations and in what way your 1.0 version of the 
 You can also produce a self-contained HTML report that you can open in your browser by simply omitting the file extension of the output file:
 
 ```bash
-docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.yaml --server /data/api-1.1.0.yaml --output report
+docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.yaml --server /data/api-1.1.0.yaml --output /data/report
 ```
 
 # CLI docs
