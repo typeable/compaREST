@@ -34,7 +34,7 @@ Minimum length of the array changed from 2 to 3.
 
 #### `$(Array)`
 
-1.  Tuple length changed from 3 to 2.
+1.  Tuple length changed from 2 to 3.
 
 2.  The array is no longer explicitly defined as a tuple.
 
@@ -62,7 +62,7 @@ The array is no longer explicitly defined as a tuple.
 
 #### `$(Array)`
 
-1.  Tuple length changed from 3 to 2.
+1.  Tuple length changed from 2 to 3.
 
 2.  The array is no longer explicitly defined as a tuple.
 
