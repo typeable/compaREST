@@ -17,11 +17,12 @@ You have recently released version 1.0 and things are going great: user are down
 You describe your API in a file `api-1.0.0.yaml`:
 
 ```yaml
-openapi: "3.0.1"
+openapi: "3.0.0"
 info:
   version: 1.0.0
   title: Swagger Petstore
-  license: name: MIT
+  license:
+    name: MIT
 servers:
   - url: https://example.com
 paths:
@@ -35,19 +36,25 @@ paths:
             type: integer
             maximum: 20
       responses:
-        '200':
+        "200":
+          description: ""
           headers:
             x-next:
-              schema: type: string
+              schema:
+                type: string
           content:
             application/json:
-              schema: $ref: "#/components/schemas/Pets"
+              schema:
+                $ref: "#/components/schemas/Pets"
     post:
       requestBody:
         content:
           application/json:
-            schema: $ref: "#/components/schemas/Pet"
-      responses: '201':
+            schema:
+              $ref: "#/components/schemas/Pet"
+      responses:
+        "201":
+          description: ""
 components:
   schemas:
     Pet:
@@ -56,28 +63,31 @@ components:
         - id
         - name
       properties:
-        id: type: integer
+        id:
+          type: integer
         name:
           type: string
           minLength: 3
           maxLength: 10
     Pets:
       type: array
-      items: $ref: "#/components/schemas/Pet"
+      items:
+        $ref: "#/components/schemas/Pet"
 ```
 
-## A sudden change
+## Evolving your product
 
 Enthused over your initial success you hurry to release a new and improved version of your API and mobile app.
 
-After a time of very intensive programming you take a look at your new `api-1.1.0.yaml`:
+After a round of very intense programming you take a look at your new `api-1.1.0.yaml`:
 
 ```yaml
-openapi: "3.0.1"
+openapi: "3.0.0"
 info:
   version: 1.1.0
   title: Swagger Petstore
-  license: name: MIT
+  license:
+    name: MIT
 servers:
   - url: https://example.com
 paths:
@@ -91,19 +101,25 @@ paths:
             type: integer
             maximum: 30
       responses:
-        '200':
+        "200":
+          description: ""
           headers:
             x-next:
-              schema: type: string
+              schema:
+                type: string
           content:
             application/json:
-              schema: $ref: "#/components/schemas/Pets"
+              schema:
+                $ref: "#/components/schemas/Pets"
     post:
       requestBody:
         content:
           application/json:
-            schema: $ref: "#/components/schemas/Pet"
-      responses: '201':
+            schema:
+              $ref: "#/components/schemas/Pet"
+      responses:
+        "201":
+          description: ""
 components:
   schemas:
     Pet:
@@ -112,18 +128,115 @@ components:
         - id
         - name
       properties:
-        id: type: integer
+        id:
+          type: integer
         name:
           type: string
           minLength: 1
           maxLength: 15
-        weight: type: integer
+        weight:
+          type: integer
     Pets:
       type: array
-      items: $ref: "#/components/schemas/Pet"
+      items:
+        $ref: "#/components/schemas/Pet"
 ```
 
 Looking at the very large and complex API description, you grow more and more concerned that your old mobile app might stop working when you update the server. But the spec is too large and too complex to reasonably assess this manually.
+
+## Assessing compatibility automatically
+
+Luckily, you have access to compaREST which can programmatically analyze your APIs and determine what, if anything, breaks compatibility and what doesn't.
+
+You can call it, passing the API your client will be aware of, and the API your server will serve like so:
+
+```bash
+docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.yaml --server /data/api-1.1.0.yaml --output report.md
+```
+
+Running this command will output a file `report.md`, containing the compatibility report between the two APIs:
+
+> # Summary
+>
+> | [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
+> |------------------------------------------|-------------------------------------------------|-------------------------------|
+> | 5                                        | 6                                               | 0                             |
+>
+> # <span id="breaking-changes"></span>⚠️ Breaking changes
+>
+> ## **GET** /pets
+>
+> ### 📱⬅️ JSON Response – 200
+>
+> #### `$[*].name(String)`
+>
+> 1.  Maximum length of the string changed from 10 to 15.
+>
+> 2.  Minimum length of the string changed from 3 to 1.
+>
+> ## **POST** /pets
+>
+> ### 📱➡️ JSON Request
+>
+> #### `$.weight`
+>
+> 1.  Values are now limited to the following types:
+>
+>     -   Number
+>
+> 2.  The property was previously implicitly described by the catch-all
+>     "additional properties" case. It is now explicitly defined.
+>
+> #### `$.weight(Number)`
+>
+> Value is now a multiple of 1.0.
+>
+> # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+>
+> ## **GET** /pets
+>
+> ### Parameter limit
+>
+> #### JSON Schema
+>
+> ##### `$(Number)`
+>
+> Upper bound changed from 20.0 inclusive to 30.0 inclusive.
+>
+> ### 📱⬅️ JSON Response – 200
+>
+> #### `$[*].weight`
+>
+> 1.  Values are now limited to the following types:
+>
+>     -   Number
+>
+> 2.  The property was previously implicitly described by the catch-all
+>     "additional properties" case. It is now explicitly defined.
+>
+> #### `$[*].weight(Number)`
+>
+> Value is now a multiple of 1.0.
+>
+> ## **POST** /pets
+>
+> ### 📱➡️ JSON Request
+>
+> #### `$.name(String)`
+>
+> 1.  Maximum length of the string changed from 10 to 15.
+>
+> 2.  Minimum length of the string changed from 3 to 1.
+
+You now know exactly in what situations and in what way your 1.0 version of the app will break if you deploy your 1.1 version of the server.
+
+## Additional formats
+
+You can also produce a self-contained HTML report that you can open in your browser by simply omitting the file extension of the output file:
+
+```bash
+docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.yaml --server /data/api-1.1.0.yaml --output report
+```
 
 # CLI docs
 
