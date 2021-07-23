@@ -18,6 +18,7 @@ module OpenAPI.Checker.Subtree
   , CompatFormula'
   , SemanticCompatFormula
   , ProdCons (..)
+  , orientProdCons
   , swapProdCons
   , runCompatFormula
   , issueAt
@@ -109,6 +110,10 @@ data ProdCons a = ProdCons
   , consumer :: a
   }
   deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+
+orientProdCons :: Orientation -> ProdCons x -> ProdCons x
+orientProdCons Forward x = x
+orientProdCons Backward (ProdCons p c) = ProdCons c p
 
 swapProdCons
   :: SwapEnvRoles xs

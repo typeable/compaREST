@@ -1,0 +1,48 @@
+breakingChanges:
+  AtPath "/pets":
+    InOperation GetMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array:
+              InItems:
+                OfType Object:
+                  InProperty "name":
+                    OfType String:
+                    - MatchingMaxLengthWeak (ProdCons {producer = 15, consumer = 10})
+                    - MatchingMinLengthWeak (ProdCons {producer = 1, consumer = 3})
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Object:
+              InProperty "weight":
+              - TypesRestricted [Number]
+              - AdditionalToProperty
+              - OfType Number: NoMatchingMultipleOf 1.0
+nonBreakingChanges:
+  AtPath "/pets":
+    InOperation GetMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Array:
+              InItems:
+                OfType Object:
+                  InProperty "weight":
+                  - TypesRestricted [Number]
+                  - AdditionalToProperty
+                  - OfType Number: NoMatchingMultipleOf 1.0
+      InParam "limit":
+        InParamSchema:
+          OfType Number: MatchingMaximumWeak (ProdCons {producer = Inclusive 30.0,
+            consumer = Inclusive 20.0})
+    InOperation PostMethod:
+      InRequest:
+        InPayload:
+          PayloadSchema:
+            OfType Object:
+              InProperty "name":
+                OfType String:
+                - MatchingMaxLengthWeak (ProdCons {producer = 15, consumer = 10})
+                - MatchingMinLengthWeak (ProdCons {producer = 1, consumer = 3})

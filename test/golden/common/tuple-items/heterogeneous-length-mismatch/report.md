@@ -18,7 +18,7 @@ Tuple length changed from 3 to 2.
 
 #### `$(Array)`
 
-Tuple length changed from 2 to 3.
+Tuple length changed from 3 to 2.
 
 # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
 
@@ -28,7 +28,7 @@ Tuple length changed from 2 to 3.
 
 #### `$(Array)`
 
-Tuple length changed from 2 to 3.
+Tuple length changed from 3 to 2.
 
 ### 📱⬅️ JSON Response – 200
 
