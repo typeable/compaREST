@@ -17,7 +17,7 @@ import Text.Pandoc hiding (report)
 
 main :: IO ()
 main = do
-  opts <- execParser optionsParserInfo
+  opts <- parseOptions
   let parseSchema path =
         eitherDecodeFileStrict path >>= \case
           Left jsonErr -> do

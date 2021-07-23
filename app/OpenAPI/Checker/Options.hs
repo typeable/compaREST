@@ -1,8 +1,7 @@
 module OpenAPI.Checker.Options
   ( Options (..)
   , OutputMode (..)
-  , optionsParserInfo
-  , execParser
+  , parseOptions
   )
 where
 
@@ -10,6 +9,9 @@ import GHC.Generics (Generic)
 import OpenAPI.Checker.Report
 import Options.Applicative
 import Options.Applicative.Help hiding (fullDesc)
+
+parseOptions :: IO Options
+parseOptions = customExecParser (prefs $ showHelpOnError) optionsParserInfo
 
 data Options = Options
   { clientFile :: FilePath
