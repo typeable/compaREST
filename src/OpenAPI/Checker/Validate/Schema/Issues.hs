@@ -94,31 +94,31 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Backward (NoMatchingEnum v) = para "The following enum value has been removed:" <> showJSONValue v
   describeIssue Forward (NoMatchingMaximum b) = para $ "Upper bound has been added:" <> showBound b <> "."
   describeIssue Backward (NoMatchingMaximum b) = para $ "Upper bound has been removed:" <> showBound b <> "."
-  describeIssue ori (MatchingMaximumWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMaximumWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Upper bound changed from " <> showBound p <> " to " <> showBound c <> "."
   describeIssue Forward (NoMatchingMinimum b) = para $ "Lower bound has been added: " <> showBound b <> "."
   describeIssue Backward (NoMatchingMinimum b) = para $ "Lower bound has been removed: " <> showBound b <> "."
-  describeIssue ori (MatchingMinimumWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMinimumWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Lower bound changed from " <> showBound p <> " to " <> showBound c <> "."
   describeIssue Forward (NoMatchingMultipleOf n) = para $ "Value is now a multiple of " <> show' n <> "."
   describeIssue Backward (NoMatchingMultipleOf n) = para $ "Value is no longer a multiple of " <> show' n <> "."
-  describeIssue ori (MatchingMultipleOfWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMultipleOfWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Value changed from being a multiple of " <> show' p <> " to being a multiple of " <> show' c <> "."
   describeIssue Forward (NoMatchingFormat f) = para $ "Format added: " <> code f <> "."
   describeIssue Backward (NoMatchingFormat f) = para $ "Format removed: " <> code f <> "."
   describeIssue Forward (NoMatchingMaxLength n) = para $ "Maximum length added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMaxLength n) = para $ "Maximum length removed: " <> show' n <> "."
-  describeIssue ori (MatchingMaxLengthWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMaxLengthWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Maximum length of the string changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue Forward (NoMatchingMinLength n) = para $ "Minimum length of the string added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMinLength n) = para $ "Minimum length of the string removed: " <> show' n <> "."
-  describeIssue ori (MatchingMinLengthWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMinLengthWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Minimum length of the string changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue Forward (NoMatchingPattern p) = para "Pattern (regular expression) added: " <> codeBlock p
   describeIssue Backward (NoMatchingPattern p) = para "Pattern (regular expression) removed: " <> codeBlock p
   describeIssue Forward NoMatchingItems = para "Array item schema has been added."
   describeIssue Backward NoMatchingItems = para "Array item schema has been removed."
-  describeIssue ori (TupleItemsLengthChanged (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (TupleItemsLengthChanged (orientProdCons ori -> ProdCons p c)) =
     para $ "Tuple length changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue Forward ArrayToTuple = para "The array is now explicitly defined as a tuple."
   describeIssue Backward ArrayToTuple = para "The array is no longer explicitly defined as a tuple."
@@ -128,11 +128,11 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Backward NoMatchingTupleItems = para "The array is no longer explicitly defined as a tuple."
   describeIssue Forward (NoMatchingMaxItems n) = para $ "Maximum length of the array has been added " <> show' n <> "."
   describeIssue Backward (NoMatchingMaxItems n) = para $ "Maximum length of the array has been removed " <> show' n <> "."
-  describeIssue ori (MatchingMaxItemsWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMaxItemsWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Maximum length of the array changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue Forward (NoMatchingMinItems n) = para $ "Minimum length of the array added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMinItems n) = para $ "Minimum length of the array removed: " <> show' n <> "."
-  describeIssue ori (MatchingMinItemsWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMinItemsWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Minimum length of the array changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue Forward NoMatchingUniqueItems = para "Items are now required to be unique."
   describeIssue Backward NoMatchingUniqueItems = para "Items are no longer required to be unique."
@@ -142,11 +142,11 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Backward NoAdditionalProperties = para "Additional properties have been added."
   describeIssue Forward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMaxProperties n) = para $ "Maximum number of properties has been removed: " <> show' n <> "."
-  describeIssue ori (MatchingMaxPropertiesWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMaxPropertiesWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Maximum number of properties has changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue Forward (NoMatchingMinProperties n) = para $ "Minimum number of properties added: " <> show' n <> "."
   describeIssue Backward (NoMatchingMinProperties n) = para $ "Minimum number of properties removed: " <> show' n <> "."
-  describeIssue ori (MatchingMinPropertiesWeak (normalizeProdConsOrientation ori -> ProdCons p c)) =
+  describeIssue ori (MatchingMinPropertiesWeak (orientProdCons ori -> ProdCons p c)) =
     para $ "Minimum number of properties has changed from " <> show' p <> " to " <> show' c <> "."
   describeIssue _ (NoMatchingCondition mPart conds) =
     para
@@ -162,9 +162,9 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Forward (PartitionBecomesEmpty part) = para $ "The case where " <> showPartition part <> " – has been removed."
   describeIssue Backward (PartitionBecomesEmpty part) = para $ "The case where " <> showPartition part <> " – has been added."
 
-normalizeProdConsOrientation :: Orientation -> ProdCons x -> ProdCons x
-normalizeProdConsOrientation Forward x = x
-normalizeProdConsOrientation Backward (ProdCons p c) = ProdCons c p
+orientProdCons :: Orientation -> ProdCons x -> ProdCons x
+orientProdCons Forward x = x
+orientProdCons Backward (ProdCons p c) = ProdCons c p
 
 show' :: Show x => x -> Inlines
 show' = str . T.pack . show
