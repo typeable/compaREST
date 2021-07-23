@@ -12,6 +12,7 @@ Compatibility checker for OpenAPI
 Usage: openapi-diff (-c|--client ARG) (-s|--server ARG)
                     [--silent | --only-breaking | --all] [-o|--output ARG]
                     [--folding-block-quotes-style | --header-style]
+                    [--signal-exit-code]
   A tool to check compatibility between two OpenApi specifications.
 
   Usage examples
@@ -43,7 +44,8 @@ Available options:
   -s,--server ARG          A path to the file containing the specification that
                            will be used for the server of the API. Can be either
                            a YAML or JSON file.
-  --silent                 Silence all output.
+  --silent                 Silence all output. Only makes sense in combination
+                           with --signal-exit-code.
   --only-breaking          Only report breaking changes in the output.
   --all                    Report both incompatible and compatible changes.
                            Compatible changes will not trigger a failure exit
@@ -67,4 +69,9 @@ Available options:
                            format. Markdown has rendering bugs on GitHub.
   --header-style           The report tree is structured using increasing levels
                            of headers.
+  --signal-exit-code       Signal API compatibility with the exit code.
+
+                           Exit with 0 if there are no breaking changes.
+                           Exit with 1 if there are breaking changes.
+                           Exit with 2 if could not determine compatibility.
 ```
