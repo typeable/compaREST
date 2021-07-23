@@ -17,7 +17,7 @@ import Text.Pandoc hiding (report)
 
 main :: IO ()
 main = do
-  opts <- execParser optionsParserInfo
+  opts <- parseOptions
   let parseSchema path =
         eitherDecodeFileStrict path >>= \case
           Left jsonErr -> do
@@ -49,10 +49,11 @@ main = do
   case mode opts of
     Just _ -> either handler pure <=< runExceptT $ write report
     Nothing -> pure ()
-  case status of
-    NoBreakingChanges -> exitSuccess
-    BreakingChanges -> exitWith $ ExitFailure 1
-    OnlyUnsupportedChanges -> exitWith $ ExitFailure 2
+  when (signalExitCode opts) $
+    case status of
+      NoBreakingChanges -> exitSuccess
+      BreakingChanges -> exitWith $ ExitFailure 1
+      OnlyUnsupportedChanges -> exitWith $ ExitFailure 2
 
 data Errors
   = DocumentError PandocError

@@ -1,8 +1,7 @@
 module OpenAPI.Checker.Options
   ( Options (..)
   , OutputMode (..)
-  , optionsParserInfo
-  , execParser
+  , parseOptions
   )
 where
 
@@ -11,6 +10,9 @@ import OpenAPI.Checker.Report
 import Options.Applicative
 import Options.Applicative.Help hiding (fullDesc)
 
+parseOptions :: IO Options
+parseOptions = customExecParser (prefs $ showHelpOnError) optionsParserInfo
+
 data Options = Options
   { clientFile :: FilePath
   , serverFile :: FilePath
@@ -18,6 +20,7 @@ data Options = Options
     mode :: Maybe ReportMode
   , outputMode :: OutputMode
   , reportTreeStyle :: ReportTreeStyle
+  , signalExitCode :: Bool
   }
   deriving stock (Generic)
 
@@ -62,7 +65,7 @@ optionsParser =
     <*> (flag'
            Nothing
            (long "silent"
-              <> help "Silence all output.")
+              <> help "Silence all output. Only makes sense in combination with --signal-exit-code.")
            <|> flag'
              (Just OnlyErrors)
              (long "only-breaking"
@@ -100,6 +103,13 @@ optionsParser =
                   "The report tree is structured using \
                   \increasing levels of headers.")
            <|> pure HeadersTreeStyle)
+    <*> switch 
+        (long "signal-exit-code"
+            <> helpDoc (Just $ 
+                par "Signal API compatibility with the exit code."
+                  <$$> hardline <> par "Exit with 0 if there are no breaking changes."
+                  <$$> par "Exit with 1 if there are breaking changes."
+                  <$$> par "Exit with 2 if could not determine compatibility."))
 
 par :: String -> Doc
 par = foldr1 (</>) . fmap string . words
