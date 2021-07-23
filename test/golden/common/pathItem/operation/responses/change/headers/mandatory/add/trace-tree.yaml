@@ -1,5 +1,5 @@
-breakingChanges: {}
-nonBreakingChanges:
+forwardChanges: {}
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       WithStatusCode 200: ProducerDoesntHaveResponseHeader "Test2"

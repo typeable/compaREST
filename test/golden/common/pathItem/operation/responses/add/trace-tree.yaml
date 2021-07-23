@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod: ConsumerDoesntHaveResponseCode 500
-nonBreakingChanges: {}
+backwardChanges: {}

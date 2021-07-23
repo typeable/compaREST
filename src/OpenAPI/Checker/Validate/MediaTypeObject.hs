@@ -38,9 +38,9 @@ instance Issuable 'PayloadLevel where
     | MediaEncodingMissing Text
     | EncodingNotSupported
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    EncodingNotSupported -> True
-    _ -> False
+  issueKind = \case
+    EncodingNotSupported -> Unsupported
+    _ -> CertainIssue
 
   describeIssue _ MediaTypeSchemaRequired = para "Media type expected, but was not specified."
   describeIssue Forward (MediaEncodingMissing enc) = para $ "Media encoding " <> str enc <> " has been removed."
@@ -51,7 +51,7 @@ instance Behavable 'PayloadLevel 'SchemaLevel where
   data Behave 'PayloadLevel 'SchemaLevel
     = PayloadSchema
     deriving stock (Eq, Ord, Show)
-  describeBehaviour PayloadSchema = "JSON Schema"
+  describeBehavior PayloadSchema = "JSON Schema"
 
 instance Subtree MediaTypeObject where
   type SubtreeLevel MediaTypeObject = 'PayloadLevel
@@ -143,7 +143,7 @@ instance Behavable 'OperationLevel 'ResponseLevel where
   data Behave 'OperationLevel 'ResponseLevel
     = WithStatusCode HttpStatusCode
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (WithStatusCode c) = "Response code " <> (fromString . show $ c)
+  describeBehavior (WithStatusCode c) = "Response code " <> (fromString . show $ c)
 
 instance Issuable 'OperationLevel where
   data Issue 'OperationLevel
@@ -152,8 +152,8 @@ instance Issuable 'OperationLevel where
     | PathFragmentNotMatched Int
     | NoRequestBody
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    _ -> False
+  issueKind = \case
+    _ -> CertainIssue
   describeIssue Forward (ConsumerDoesntHaveResponseCode c) =
     para $ "Response code " <> (str . T.pack . show $ c) <> " has been removed."
   describeIssue Backward (ConsumerDoesntHaveResponseCode c) =

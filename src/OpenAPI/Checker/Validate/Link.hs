@@ -17,6 +17,6 @@ instance Issuable 'LinkLevel where
   data Issue 'LinkLevel
     = LinksUnsupported
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    LinksUnsupported -> True
+  issueKind = \case
+    LinksUnsupported -> Unsupported
   describeIssue _ LinksUnsupported = para "OpenApi Diff does not currently support Link Objects."

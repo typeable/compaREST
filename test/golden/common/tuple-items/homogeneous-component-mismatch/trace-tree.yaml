@@ -1,4 +1,4 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:
@@ -15,7 +15,7 @@ breakingChanges:
             - ArrayToTuple
             - InItem 0:
                 OfType Number: TypeBecomesEmpty
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest:

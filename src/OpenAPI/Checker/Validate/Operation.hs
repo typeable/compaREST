@@ -101,21 +101,21 @@ instance Behavable 'OperationLevel 'PathFragmentLevel where
     = InParam Text
     | InFragment (PathFragment Text)
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (InParam p) = "Parameter " <> text p
-  describeBehaviour (InFragment (StaticPath p)) = "Static fragment " <> code p
-  describeBehaviour (InFragment (DynamicPath p)) = "Dynamic fragment " <> code p
+  describeBehavior (InParam p) = "Parameter " <> text p
+  describeBehavior (InFragment (StaticPath p)) = "Static fragment " <> code p
+  describeBehavior (InFragment (DynamicPath p)) = "Dynamic fragment " <> code p
 
 instance Behavable 'OperationLevel 'RequestLevel where
   data Behave 'OperationLevel 'RequestLevel
     = InRequest
     deriving stock (Eq, Ord, Show)
-  describeBehaviour InRequest = "Request"
+  describeBehavior InRequest = "Request"
 
 instance Behavable 'OperationLevel 'SecurityRequirementLevel where
   data Behave 'OperationLevel 'SecurityRequirementLevel
     = SecurityRequirementStep Int
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (SecurityRequirementStep i) =
+  describeBehavior (SecurityRequirementStep i) =
     "Security requirement " <> (text . T.pack . show $ i)
 
 instance Subtree MatchedOperation where
@@ -335,7 +335,11 @@ instance Issuable 'APILevel where
     | AllPathsFailed FilePath
     -- When several paths match given but all checks failed
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    _ -> CertainIssue
+  relatedIssues = (==) `withClass` \case
+    NoPathsMatched fp -> Just fp
+    AllPathsFailed fp -> Just fp
   describeIssue Forward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
   describeIssue Backward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been added."
   describeIssue Forward (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
@@ -346,7 +350,7 @@ instance Behavable 'APILevel 'PathLevel where
     = AtPath FilePath
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (AtPath p) = str (T.pack p)
+  describeBehavior (AtPath p) = str (T.pack p)
 
 instance Subtree ProcessedPathItems where
   type SubtreeLevel ProcessedPathItems = 'APILevel
@@ -440,7 +444,8 @@ instance Issuable 'PathLevel where
   data Issue 'PathLevel
     = OperationMissing OperationMethod
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    OperationMissing _ -> CertainIssue
   describeIssue Forward (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " has been removed."
   describeIssue Backward (OperationMissing op) = para $ "Method " <> strong (showMethod op) <> " has been added."
 
@@ -449,7 +454,7 @@ instance Behavable 'PathLevel 'OperationLevel where
     = InOperation OperationMethod
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (InOperation method) = showMethod method
+  describeBehavior (InOperation method) = showMethod method
 
 showMethod :: IsString s => OperationMethod -> s
 showMethod = \case
@@ -557,8 +562,8 @@ instance Issuable 'CallbackLevel where
   data Issue 'CallbackLevel
     = CallbacksUnsupported
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported = \case
-    CallbacksUnsupported -> True
+  issueKind = \case
+    CallbacksUnsupported -> Unsupported
   describeIssue _ CallbacksUnsupported = para "OpenApi Diff does not currently support callbacks."
 
 tracedCallbackPathItems :: Traced Callback -> Traced ProcessedPathItems
@@ -573,4 +578,4 @@ instance Behavable 'OperationLevel 'CallbackLevel where
   data Behave 'OperationLevel 'CallbackLevel = OperationCallback Text
     deriving stock (Eq, Ord, Show)
 
-  describeBehaviour (OperationCallback key) = "Operation " <> code key
+  describeBehavior (OperationCallback key) = "Operation " <> code key

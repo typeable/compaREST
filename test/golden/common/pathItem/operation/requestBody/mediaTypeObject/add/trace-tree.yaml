@@ -1,5 +1,5 @@
-breakingChanges: {}
-nonBreakingChanges:
+forwardChanges: {}
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InRequest: RequestMediaTypeNotFound application/x-www-form-urlencoded

@@ -30,7 +30,8 @@ instance Issuable 'RequestLevel where
     = RequestBodyRequired
     | RequestMediaTypeNotFound MediaType
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    _ -> CertainIssue
   describeIssue Forward RequestBodyRequired =
     para "Request body has become required."
   describeIssue Backward RequestBodyRequired =
@@ -44,7 +45,7 @@ instance Behavable 'RequestLevel 'PayloadLevel where
   data Behave 'RequestLevel 'PayloadLevel
     = InPayload
     deriving stock (Eq, Ord, Show)
-  describeBehaviour InPayload = "Payload"
+  describeBehavior InPayload = "Payload"
 
 instance Subtree RequestBody where
   type SubtreeLevel RequestBody = 'RequestLevel

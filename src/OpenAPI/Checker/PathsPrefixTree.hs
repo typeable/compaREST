@@ -10,7 +10,9 @@ module OpenAPI.Checker.PathsPrefixTree
   , foldWith
   , toList
   , filter
+  , filterWithKey
   , takeSubtree
+  , lookup
   , embed
   , size
   , partition
@@ -33,7 +35,7 @@ import qualified Data.Vector as V
 import qualified GHC.Exts as Exts
 import OpenAPI.Checker.Paths
 import Type.Reflection
-import Prelude hiding (filter, map, null)
+import Prelude hiding (filter, map, null, lookup)
 
 -- | A list of @AnItem r f@, but optimized into a prefix tree.
 data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPrefixTree
@@ -56,9 +58,26 @@ filter f (PathsPrefixTree roots branches) = PathsPrefixTree roots' branches'
     roots' = filterASet f roots
     branches' =
       Exts.fromList
-        . fmap (\(TRM.WrapTypeable (AStep x)) -> TRM.WrapTypeable . AStep . M.filter (not . null) . fmap (filter f) $ x)
+        . fmap (\(TRM.WrapTypeable (AStep x)) -> TRM.WrapTypeable . AStep . M.mapMaybe (maybeNonEmpty . filter f) $ x)
         . Exts.toList
         $ branches
+
+    maybeNonEmpty = mfilter (not . null) . Just
+
+filterWithKey :: (forall a. Paths q r a -> f a -> Bool) -> PathsPrefixTree q f r -> PathsPrefixTree q f r
+filterWithKey = go Root
+  where
+    go :: Paths q r b -> (forall a. Paths q r a -> f a -> Bool) -> PathsPrefixTree q f b -> PathsPrefixTree q f b
+    go xs f (PathsPrefixTree roots branches) = PathsPrefixTree roots' branches'
+      where
+        roots' = filterASet (f xs) roots
+        branches' =
+          Exts.fromList
+            . fmap (\(TRM.WrapTypeable (AStep x)) -> TRM.WrapTypeable . AStep . M.mapMaybeWithKey (\k -> maybeNonEmpty . go (xs `Snoc` k) f) $ x)
+            . Exts.toList
+            $ branches
+
+    maybeNonEmpty = mfilter (not . null) . Just
 
 -- | The number of leaves.
 size :: PathsPrefixTree q f r -> Int
@@ -224,6 +243,9 @@ takeSubtree Root t = t
 takeSubtree (Snoc xs x) t =
   foldMap (\(AStep m) -> fold $ M.lookup x m) $
     TRM.lookup @a $ snocItems $ takeSubtree xs t
+
+lookup :: Paths q r a -> PathsPrefixTree q f r -> S.Set (f a)
+lookup xs = toSet . rootItems . takeSubtree xs
 
 -- | Embed a subtree in a larger tree with given prefix
 embed :: Paths q r a -> PathsPrefixTree q f a -> PathsPrefixTree q f r

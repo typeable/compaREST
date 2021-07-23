@@ -12,11 +12,11 @@ import OpenAPI.Checker.Report
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.OpenApi ()
 
-runChecker :: (OpenApi, OpenApi) -> ReportInput
+runChecker :: (OpenApi, OpenApi) -> CheckerOutput
 runChecker (client, server) =
-  ReportInput
-    { breakingChanges = run client server
-    , nonBreakingChanges = run server client
+  CheckerOutput
+    { forwardChanges = run client server
+    , backwardChanges = run server client
     }
   where
     toPC p c =
@@ -27,4 +27,4 @@ runChecker (client, server) =
     run p c = either id mempty . runCompatFormula . checkCompatibility Root HNil $ toPC p c
 
 runReport :: ReportConfig -> (OpenApi, OpenApi) -> (Pandoc, ReportStatus)
-runReport cfg = generateReport cfg . runChecker
+runReport cfg = generateReport cfg . segregateIssues . runChecker

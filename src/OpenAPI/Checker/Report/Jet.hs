@@ -23,7 +23,7 @@ import Text.Pandoc.Builder
 -- The term "jet" in this context was introduced in the Urbit project:
 --   https://urbit.org/docs/vere/jetting/
 --
--- The pattern fits well for simplifying 'Behaviour' tree paths.
+-- The pattern fits well for simplifying 'Behavior' tree paths.
 class ConstructReportJet x f where
   constructReportJet :: x -> ReportJetResult f (Maybe Inlines)
 

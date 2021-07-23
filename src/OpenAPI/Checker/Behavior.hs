@@ -1,11 +1,15 @@
 module OpenAPI.Checker.Behavior
   ( BehaviorLevel (..)
   , Behavable (..)
+  , IssueKind (..)
   , Issuable (..)
   , Orientation (..)
   , toggleOrientation
   , Behavior
   , AnIssue (..)
+  , withClass
+  , anIssueKind
+  , relatedAnIssues
   )
 where
 
@@ -39,9 +43,22 @@ class
   Behavable (a :: BehaviorLevel) (b :: BehaviorLevel)
   where
   data Behave a b
-  describeBehaviour :: Behave a b -> Inlines
+  describeBehavior :: Behave a b -> Inlines
 
 type instance AdditionalQuiverConstraints Behave a b = Behavable a b
+
+data IssueKind
+  = -- | This is certainly an issue, we can demonstrate a "counterexample"
+    CertainIssue
+  | -- | Change looks breaking but we don't have a complete comprehension of the problem
+    ProbablyIssue
+  | -- | We don't really support this feature at all, outside structural comparison
+    Unsupported
+  | -- | This is not an issue in itself, but a clarifying comment providing context for some other issues
+    Comment
+  | -- | We detected an issue with one of the input schemata itself
+    SchemaInvalid
+  deriving stock (Eq, Ord, Show)
 
 class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLevel) where
   data Issue l :: Type
@@ -58,7 +75,22 @@ class (Typeable l, Ord (Issue l), Show (Issue l)) => Issuable (l :: BehaviorLeve
   -- If _producer_ doesn't have something, the element was "added".
   describeIssue :: Orientation -> Issue l -> Blocks
 
-  issueIsUnsupported :: Issue l -> Bool
+  issueKind :: Issue l -> IssueKind
+
+  -- | An equivalence relation designating whether two issues are talking about the aspect of the schema. This is used
+  -- to remove duplicates from the "reverse" error tree we get when we look for non-breaking changes.
+  -- Generally if checking X->Y raises issue I, and checking Y->X raises issue J, I and J should be related.
+  relatedIssues :: Issue l -> Issue l -> Bool
+  relatedIssues = (==)
+
+-- Utility function for 'relatedIssues'. In @withClass eq f@, @f@ attempts to partition inputs into equivalence classes,
+-- and two items in the same equivalence class are related. If both items aren't assigned to a class by @f@, instead
+-- @eq@ is used to compare them.
+withClass :: Eq b => (a -> a -> Bool) -> (a -> Maybe b) -> a -> a -> Bool
+withClass eq f = \x y -> case (f x, f y) of
+  (Just fx, Just fy) -> fx == fy
+  (Nothing, Nothing) -> eq x y
+  (_, _) -> False
 
 data Orientation = Forward | Backward
   deriving stock (Eq, Ord, Show)
@@ -84,3 +116,9 @@ deriving stock instance Ord (AnIssue l)
 
 instance ToJSON (AnIssue l) where
   toJSON (AnIssue _ issue) = toJSON issue
+
+anIssueKind :: AnIssue l -> IssueKind
+anIssueKind (AnIssue _ i) = issueKind i
+
+relatedAnIssues :: AnIssue l -> AnIssue l -> Bool
+relatedAnIssues (AnIssue _ x) (AnIssue _ y) = relatedIssues x y

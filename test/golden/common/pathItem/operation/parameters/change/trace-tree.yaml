@@ -1,10 +1,10 @@
-breakingChanges:
+forwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InParam "test":
         InParamSchema:
           OfType String: TypeBecomesEmpty
-nonBreakingChanges:
+backwardChanges:
   AtPath "/test":
     InOperation PostMethod:
       InParam "test":

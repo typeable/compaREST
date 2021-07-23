@@ -103,7 +103,9 @@ instance Issuable 'SecurityRequirementLevel where
     = SecurityRequirementNotMet
     | UndefinedSecurityScheme Text
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    SecurityRequirementNotMet -> CertainIssue
+    UndefinedSecurityScheme _ -> SchemaInvalid
   describeIssue Forward SecurityRequirementNotMet = para "Security scheme has been removed."
   describeIssue Backward SecurityRequirementNotMet = para "Security scheme was added."
   describeIssue _ (UndefinedSecurityScheme k) = para $ "Security scheme " <> code k <> " is not defined."
@@ -129,11 +131,14 @@ instance Issuable 'SecuritySchemeLevel where
     | CanNotHaveScopes
     | ScopeNotDefined Text
     deriving stock (Eq, Ord, Show)
-  issueIsUnsupported _ = False
+  issueKind = \case
+    CanNotHaveScopes -> SchemaInvalid
+    ScopeNotDefined _ -> SchemaInvalid
+    _ -> CertainIssue
   describeIssue _ RefreshUrlsDontMatch = para "Refresh URL changed."
   describeIssue _ (HttpSchemeTypesDontMatch _ _) = para "HTTP scheme type changed."
   describeIssue _ (ApiKeyParamsDontMatch _ _) = para "API Key parameters changed."
-  describeIssue _ (OpenIdConnectUrlsDontMatch _ _) = para "OpenaId Connect URL changed."
+  describeIssue _ (OpenIdConnectUrlsDontMatch _ _) = para "OpenID Connect URL changed."
   describeIssue _ (CustomHttpSchemesDontMatch e a) =
     para $ "Changed HTTP scheme from " <> code e <> " to " <> code a <> "."
   describeIssue Forward ConsumerDoesNotSupportImplicitFlow = para "Implicit flow support has been removed."
@@ -162,4 +167,4 @@ instance Behavable 'SecurityRequirementLevel 'SecuritySchemeLevel where
   data Behave 'SecurityRequirementLevel 'SecuritySchemeLevel
     = SecuritySchemeStep Text
     deriving stock (Eq, Ord, Show)
-  describeBehaviour (SecuritySchemeStep s) = text s
+  describeBehavior (SecuritySchemeStep s) = text s
