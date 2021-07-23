@@ -162,10 +162,6 @@ instance Issuable 'TypedSchemaLevel where
   describeIssue Forward (PartitionBecomesEmpty part) = para $ "The case where " <> showPartition part <> " – has been removed."
   describeIssue Backward (PartitionBecomesEmpty part) = para $ "The case where " <> showPartition part <> " – has been added."
 
-orientProdCons :: Orientation -> ProdCons x -> ProdCons x
-orientProdCons Forward x = x
-orientProdCons Backward (ProdCons p c) = ProdCons c p
-
 show' :: Show x => x -> Inlines
 show' = str . T.pack . show
 

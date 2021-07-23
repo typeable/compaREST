@@ -66,7 +66,7 @@ instance Issuable 'PathFragmentLevel where
       ParamStyleMismatch
     | -- | One of schemas not presented
       ParamSchemaMismatch
-    | PathFragmentsDontMatch Text Text
+    | PathFragmentsDontMatch (ProdCons Text)
     deriving stock (Eq, Ord, Show)
   issueIsUnsupported _ = False
   describeIssue _ ParamNameMismatch = para "The path fragments don't match."
@@ -77,7 +77,8 @@ instance Issuable 'PathFragmentLevel where
   describeIssue _ ParamPlaceIncompatible = para "Parameters in incompatible locations."
   describeIssue _ ParamStyleMismatch = para "Different parameter styles (encodings)."
   describeIssue _ ParamSchemaMismatch = para "Expected a schema, but didn't find one."
-  describeIssue _ (PathFragmentsDontMatch e a) = para $ "Parameter changed from " <> code e <> " to " <> code a <> "."
+  describeIssue ori (PathFragmentsDontMatch (orientProdCons ori -> ProdCons e a)) = 
+    para $ "Parameter changed from " <> code e <> " to " <> code a <> "."
 
 instance Behavable 'PathFragmentLevel 'SchemaLevel where
   data Behave 'PathFragmentLevel 'SchemaLevel
