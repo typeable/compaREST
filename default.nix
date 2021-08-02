@@ -12,7 +12,7 @@ let
       include = [
         ./stack.yaml
         ./stack.yaml.lock
-        ./openapi-diff.cabal
+        ./comparest.cabal
       ];
     };
 
@@ -21,11 +21,11 @@ let
         dontStrip = false;
         dontPatchELF = false;
         enableDeadCodeElimination = true;
-        packages.openapi-diff.src = nix-filter {
+        packages.comparest.src = nix-filter {
           root = ./.;
           name = "compaREST-src";
           include = with nix-filter; [
-            (./openapi-diff.cabal)
+            (./comparest.cabal)
             (inDirectory ./test)
             (inDirectory ./src)
             (inDirectory ./app)
@@ -47,15 +47,15 @@ let
 
   compaREST = pkgs.dockerTools.buildImage {
     name = "compaREST";
-    contents = [ (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.openapi-diff) ];
+    contents = [ (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest) ];
     config = {
-      Entrypoint = [ "/bin/openapi-diff" ];
+      Entrypoint = [ "/bin/comparest" ];
     };
   };
 
   compaRESTGithubAction =
     let
-      action = staticify "compaREST-github-action-static" hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.comparest-github-action;
+      action = staticify "compaREST-github-action-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest-github-action;
       wrapped = pkgs.runCommand "wrapped-compaREST-github-action" { buildInputs = [ pkgs.makeWrapper ]; } ''
         makeWrapper ${action}/bin/comparest-github-action $out/bin/pre --add-flags "pre"
         makeWrapper ${action}/bin/comparest-github-action $out/bin/run --add-flags "run"

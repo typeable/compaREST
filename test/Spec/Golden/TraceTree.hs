@@ -10,8 +10,8 @@ import Data.Default
 import Data.Text (Text)
 import qualified Data.Text.Encoding as T
 import qualified Data.Yaml as Yaml
-import OpenAPI.Checker.Run
-import OpenAPI.Checker.Validate.OpenApi ()
+import Data.OpenApi.Compare.Run
+import Data.OpenApi.Compare.Validate.OpenApi ()
 import Spec.Golden.Extra
 import Test.Tasty (TestTree, testGroup)
 import Text.Pandoc.Builder

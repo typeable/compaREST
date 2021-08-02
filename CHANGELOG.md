@@ -1,6 +1,6 @@
 # Changelog
 
-`openapi-diff` uses [PVP Versioning][1].
+`comparest` uses [PVP Versioning][1].
 
 ## 0.0.0.0
 

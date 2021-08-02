@@ -9,8 +9,8 @@ import Data.Maybe
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import FormatHeuristic
-import OpenAPI.Checker.Options
-import OpenAPI.Checker.Run
+import Data.OpenApi.Compare.Options
+import Data.OpenApi.Compare.Run
 import System.Exit
 import System.IO
 import Text.Pandoc hiding (report)

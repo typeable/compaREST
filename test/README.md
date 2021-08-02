@@ -30,7 +30,7 @@ This test would read the files `a.yaml` and `b.yaml` using the `Yaml.decodeFileT
 
 ## Supported feature tests
 
-If a test starts with either `x ` or `v `, the test is assumed to test the support of some OpenApi functionality. If the test begins `x ` it means that the feature is expected to be not supported, and the result will only be checked to have an "unsupported" flag set. If it starts with `v ` the test is expected to be supported and the result is compared to some file on disk.
+If a test starts with either `x ` or `v `, the test is assumed to test the support of some OpenAPI functionality. If the test begins `x ` it means that the feature is expected to be not supported, and the result will only be checked to have an "unsupported" flag set. If it starts with `v ` the test is expected to be supported and the result is compared to some file on disk.
 
 The result will be reflected in the generated compatibility matrix.
 

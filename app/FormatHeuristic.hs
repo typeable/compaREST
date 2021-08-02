@@ -13,7 +13,7 @@ import qualified Data.Map as M
 import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
-import qualified OpenAPI.Checker.Report.Html.Template as Html
+import qualified Data.OpenApi.Compare.Report.Html.Template as Html
 import System.FilePath (takeExtension)
 import Text.DocTemplates.Internal
 import Text.Pandoc
@@ -80,7 +80,7 @@ formatFromFilePath x =
           def
             { writerTemplate = Just Html.template
             , -- Not actually used. Needed to silence warning.
-              writerVariables = Context $ M.fromList [("pagetitle", toVal ("OpenApi Diff" :: Text))]
+              writerVariables = Context $ M.fromList [("pagetitle", toVal ("CompaREST" :: Text))]
             }
     _ -> Nothing
   where

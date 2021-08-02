@@ -10,7 +10,7 @@ import Control.Monad.Freer.Reader
 import Data.Text (Text)
 import qualified Data.Yaml.Aeson as Yaml
 import qualified GitHub as GH
-import OpenAPI.Checker.Run
+import Data.OpenApi.Compare.Run
 import System.Environment
 import System.Envy (decodeEnv)
 import System.FilePath ((</>))

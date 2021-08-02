@@ -14,17 +14,17 @@
 , bumpDocumentation ? null
 }:
 let
-  typeable-openapi-diff = (pkgs.haskell-nix.stackProject {
+  typeable-comparest = (pkgs.haskell-nix.stackProject {
     src = pkgs.haskell-nix.haskellLib.cleanGit {
-      name = "openapi-diff";
+      name = "comparest";
       src = ./..;
     };
-  }).openapi-diff.components.exes.openapi-diff;
-  typeable-openapi-diff-exe = typeable-openapi-diff + "/bin/openapi-diff";
-  typeable-openapi-diff-differ = pkgs.writeScript "typeable-openapi-diff-differ" ''
+  }).comparest.components.exes.comparest;
+  typeable-comparest-exe = typeable-comparest + "/bin/comparest";
+  typeable-comparest-differ = pkgs.writeScript "typeable-comparest-differ" ''
     #!${pkgs.stdenv.shell}
     set +e
-    ${typeable-openapi-diff-exe} -c $1 -s $2 -o $3/typeable.md
+    ${typeable-comparest-exe} -c $1 -s $2 -o $3/typeable.md
     exit 0
   '';
 
@@ -130,7 +130,7 @@ let
         })
         (getInputs root);
       differs = [
-        typeable-openapi-diff-differ
+        typeable-comparest-differ
         atlassian-openapi-diff-differ
         openapitools-openapi-diff-differ
         oasdiff-differ
@@ -164,7 +164,7 @@ let
       tools = [
         "Typeable"
         "Atlassian"
-        "OpenApi Tools"
+        "OpenAPI Tools"
         "oasdiff"
         "Bump.sh"
       ];
