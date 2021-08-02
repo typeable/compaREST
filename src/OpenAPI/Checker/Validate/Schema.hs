@@ -45,28 +45,29 @@ checkFormulas env beh trs defs (ProdCons (fp, ep) (fc, ec)) =
     issues@(_ : _) -> for_ issues $ embedFormula beh . anItem
     [] -> do
       -- We have the following isomorphisms:
-      --   (A ⊂ X ∪ Y) = (A ⊂ X) \/ (A ⊂ Y)
       --   (A ⊂ X ∩ Y) = (A ⊂ X) /\ (A ⊂ Y)
       --   (A ⊂ ⊤) = 1
       --   (X ∪ Y ⊂ B) = (X ⊂ B) /\ (Y ⊂ B)
       --   (∅ ⊂ B) = 1
       -- The remaining cases are, notably, not isomorphisms:
-      --   1) (A ⊂ ∅) <= 0
-      --   2) (X ∩ Y ⊂ B) <= (X ⊂ B) \/ (Y ⊂ B)
-      --   3) (⊤ ⊂ B) <= 0
-      -- Therefore we have the isomorphisms with (∃ and ∀ being the N-ary
+      --   1) (A ⊂ X ∪ Y) <= (A ⊂ X) \/ (A ⊂ Y)
+      --   2) (A ⊂ ∅) <= 0
+      --   3) (X ∩ Y ⊂ B) <= (X ⊂ B) \/ (Y ⊂ B)
+      --   4) (⊤ ⊂ B) <= 0
+      -- Therefore we have the implications with (∃ and ∀ being the N-ary
       -- versions of \/ and /\ respectively):
       --   (⋃_i ⋂_j A[i,j]) ⊂ (⋃_k ⋂_l B[k,l])
-      --   = ∃k ∀l ∀i, (⋂_j A[i,j]) ⊂ B[k,l]
+      --   <= ∃k ∀l ∀i, (⋂_j A[i,j]) ⊂ B[k,l]
       --   = ∀i ∃k ∀l, (⋂_j A[i,j]) ⊂ B[k,l]
       -- with the caveat that the the set over which k ranges is nonempty.
-      -- This is because 1) is not an isomorphism.
+      -- (because 2) is not an isomorphism), and that this is a sufficient
+      -- but not necessary condition (because 1) is not an isomorphism).
       -- Our disjunction loses information, so it makes sense to nest it as
       -- deeply as possible, hence we choose the latter representation.
       --
       -- We delegate the verification of (⋂_j A[j]) ⊂ B to a separate heuristic
       -- function, with the understanding that ∃j, A[j] ⊂ B is a sufficient,
-      -- but not necessary condition (because of 2) and 3)).
+      -- but not necessary condition (because of 3) and 4)).
       --
       -- If k ranges over an empty set, we have the isomorphism:
       --   (⋃_i ⋂_j A[i,j]) ⊂ ∅ = ∀i, (⋂_j A[i,j]) ⊂ ∅
