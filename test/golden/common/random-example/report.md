@@ -1,14 +1,14 @@
 # Summary
 
-| [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
-|------------------------------------------|-------------------------------------------------|-------------------------------|
-| 5                                        | 6                                               | 0                             |
+| [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
+|-----------------------------------------|--------------------------------------------------|
+| 5                                       | 6                                                |
 
-# <span id="breaking-changes"></span>⚠️ Breaking changes
+# <span id="breaking-changes"></span>❌ Breaking changes
 
 ## **GET** /pets
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 #### `$[*].name(String)`
 
@@ -18,7 +18,7 @@
 
 ## **POST** /pets
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 #### `$.weight`
 
@@ -33,7 +33,7 @@
 
 Value is now a multiple of 1.0.
 
-# <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+# <span id="non-breaking-changes"></span>⚠️ Non-breaking changes
 
 ## **GET** /pets
 
@@ -45,7 +45,7 @@ Value is now a multiple of 1.0.
 
 Upper bound changed from 20.0 inclusive to 30.0 inclusive.
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 #### `$[*].weight`
 
@@ -62,7 +62,7 @@ Value is now a multiple of 1.0.
 
 ## **POST** /pets
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 #### `$.name(String)`
 

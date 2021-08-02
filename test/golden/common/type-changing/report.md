@@ -1,14 +1,14 @@
 # Summary
 
-| [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
-|------------------------------------------|-------------------------------------------------|-------------------------------|
-| 6                                        | 6                                               | 0                             |
+| [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
+|-----------------------------------------|--------------------------------------------------|
+| 6                                       | 6                                                |
 
-# <span id="breaking-changes"></span>⚠️ Breaking changes
+# <span id="breaking-changes"></span>❌ Breaking changes
 
 ## **POST** /test1
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 Values are now limited to the following types:
 
@@ -16,7 +16,7 @@ Values are now limited to the following types:
 
 ## **POST** /test2
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 Values are now limited to the following types:
 
@@ -28,7 +28,7 @@ Values are now limited to the following types:
 
 ## **POST** /test3
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 #### `$(Array)`
 
@@ -36,7 +36,7 @@ The type has been removed.
 
 ## **POST** /test4
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 #### `$(Object)`
 
@@ -44,7 +44,7 @@ The type has been removed.
 
 ## **POST** /test5
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 Values are now limited to the following types:
 
@@ -54,11 +54,11 @@ Values are now limited to the following types:
 
 Value is now a multiple of 1.0.
 
-# <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+# <span id="non-breaking-changes"></span>⚠️ Non-breaking changes
 
 ## **POST** /test1
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 Values are now limited to the following types:
 
@@ -66,7 +66,7 @@ Values are now limited to the following types:
 
 ## **POST** /test2
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 Values are now limited to the following types:
 
@@ -78,7 +78,7 @@ Values are now limited to the following types:
 
 ## **POST** /test3
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 #### `$(Array)`
 
@@ -86,7 +86,7 @@ The type has been removed.
 
 ## **POST** /test4
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 #### `$(Object)`
 
@@ -94,7 +94,7 @@ The type has been removed.
 
 ## **POST** /test5
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 Values are now limited to the following types:
 

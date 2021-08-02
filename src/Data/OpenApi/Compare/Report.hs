@@ -120,40 +120,42 @@ generateReport cfg inp =
             <> twoRowTable
               (when'
                  schemaIssuesPresent
-                 [ ( refOpt schemaIssuesPresent schemaIssuesId "❌ Schema issues"
+                 [ ( refOpt schemaIssuesPresent schemaIssuesId "‼️ Schema issues"
                    , show' $ P.size $ schemaIssues inp
                    )
                  ]
                  ++
-                   [ ( refOpt breakingChangesPresent breakingChangesId "⚠️ Breaking changes"
+                   [ ( refOpt breakingChangesPresent breakingChangesId "❌ Breaking changes"
                      , show' $ P.size $ breakingChanges inp
                      )
                    ]
                  ++ when'
                    nonBreakingChangesShown
-                   [ ( refOpt nonBreakingChangesPresent nonBreakingChangesId "🙆 Non-breaking changes"
+                   [ ( refOpt nonBreakingChangesPresent nonBreakingChangesId "⚠️ Non-breaking changes"
                      , show' $ P.size $ nonBreakingChanges inp
                      )
                    ]
-                 ++ [ ( refOpt unsupportedChangesPresent unsupportedChangesId "🤷 Unsupported feature changes"
-                      , show' $ P.size $ unsupportedChanges inp
-                      )
-                    ])
+                 ++ when'
+                   unsupportedChangesPresent
+                   [ ( refOpt unsupportedChangesPresent unsupportedChangesId "❓ Unsupported feature changes"
+                     , show' $ P.size $ unsupportedChanges inp
+                     )
+                   ])
             <> when'
               schemaIssuesPresent
-              (header 1 (anchor schemaIssuesId <> "❌ Schema issues")
+              (header 1 (anchor schemaIssuesId <> "‼️ Schema issues")
                  <> builder (showErrs $ schemaIssues inp))
             <> when'
               breakingChangesPresent
-              (header 1 (anchor breakingChangesId <> "⚠️ Breaking changes")
+              (header 1 (anchor breakingChangesId <> "❌ Breaking changes")
                  <> builder (showErrs $ breakingChanges inp))
             <> when'
               (nonBreakingChangesPresent && nonBreakingChangesShown)
-              (header 1 (anchor nonBreakingChangesId <> "🙆 Non-breaking changes")
+              (header 1 (anchor nonBreakingChangesId <> "⚠️ Non-breaking changes")
                  <> builder (showErrs $ nonBreakingChanges inp))
             <> when'
               unsupportedChangesPresent
-              (header 1 (anchor unsupportedChangesId <> "🤷 Unsupported feature changes")
+              (header 1 (anchor unsupportedChangesId <> "❓ Unsupported feature changes")
                  <> builder (showErrs $ unsupportedChanges inp))
       status =
         if
@@ -239,8 +241,8 @@ jets =
         , constructReportJet $ \p@(AtPath _) op@(InOperation _) ->
             strong (describeBehavior op) <> " " <> describeBehavior p :: Inlines
         , constructReportJet $ \(WithStatusCode c) ResponsePayload PayloadSchema ->
-            "📱⬅️ JSON Response – " <> str (T.pack . show $ c) :: Inlines
-        , constructReportJet $ \InRequest InPayload PayloadSchema -> "📱➡️ JSON Request" :: Inlines
+            "⬅️☁️ JSON Response – " <> str (T.pack . show $ c) :: Inlines
+        , constructReportJet $ \InRequest InPayload PayloadSchema -> "➡️☁️ JSON Request" :: Inlines
         ]
   where
     unwrapReportJetResult :: ReportJetResult Behave x -> ReportJet' Behave x

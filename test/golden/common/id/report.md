@@ -1,5 +1,5 @@
 # Summary
 
-| ⚠️ Breaking changes | 🙆 Non-breaking changes | 🤷 Unsupported feature changes |
-|---------------------|------------------------|-------------------------------|
-| 0                   | 0                      | 0                             |
+| ❌ Breaking changes | ⚠️ Non-breaking changes |
+|--------------------|-------------------------|
+| 0                  | 0                       |
