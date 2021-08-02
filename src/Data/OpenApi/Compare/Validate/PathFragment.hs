@@ -7,12 +7,12 @@ where
 
 import qualified Data.Aeson as A
 import Data.OpenApi
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Typeable
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.Param
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Typeable
 
 -- TODO: templates can be only part of the PathFragment. Currently only supports templates as full PathFragment.
 -- #23

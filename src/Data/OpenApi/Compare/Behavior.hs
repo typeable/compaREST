@@ -15,8 +15,8 @@ where
 
 import Data.Aeson
 import Data.Kind
-import Data.Typeable
 import Data.OpenApi.Compare.Paths
+import Data.Typeable
 import Text.Pandoc.Builder
 
 -- | Kind

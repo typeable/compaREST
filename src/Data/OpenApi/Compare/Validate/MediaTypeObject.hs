@@ -12,15 +12,15 @@ import Data.HList
 import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
 import Data.OpenApi
-import Data.String
-import Data.Text (Text)
-import qualified Data.Text as T
-import Network.HTTP.Media (MediaType, mainType, subType)
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.Header ()
 import Data.OpenApi.Compare.Validate.Products
 import Data.OpenApi.Compare.Validate.Schema ()
+import Data.String
+import Data.Text (Text)
+import qualified Data.Text as T
+import Network.HTTP.Media (MediaType, mainType, subType)
 import Text.Pandoc.Builder
 
 tracedSchema :: Traced MediaTypeObject -> Maybe (Traced (Referenced Schema))

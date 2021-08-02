@@ -32,10 +32,6 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import Data.Maybe
 import Data.OpenApi
-import Data.Ord
-import qualified Data.Set as S
-import Data.Text (Text)
-import qualified Data.Text as T
 import Data.OpenApi.Compare.Memo
 import Data.OpenApi.Compare.References
 import Data.OpenApi.Compare.Subtree
@@ -43,6 +39,10 @@ import Data.OpenApi.Compare.Validate.Schema.DNF
 import Data.OpenApi.Compare.Validate.Schema.JsonFormula
 import Data.OpenApi.Compare.Validate.Schema.Traced
 import Data.OpenApi.Compare.Validate.Schema.TypedJson
+import Data.Ord
+import qualified Data.Set as S
+import Data.Text (Text)
+import qualified Data.Text as T
 import Text.Pandoc.Builder hiding (Format, Null)
 
 data PartitionData

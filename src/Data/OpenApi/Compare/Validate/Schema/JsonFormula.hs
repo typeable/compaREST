@@ -27,6 +27,10 @@ import Data.Kind
 import qualified Data.Map as M
 import Data.Maybe
 import Data.OpenApi
+import Data.OpenApi.Compare.Orphans ()
+import Data.OpenApi.Compare.Subtree
+import Data.OpenApi.Compare.Validate.Schema.DNF
+import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Data.Ord
 import Data.Ratio
 import Data.Scientific
@@ -35,10 +39,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Typeable
-import Data.OpenApi.Compare.Orphans ()
-import Data.OpenApi.Compare.Subtree
-import Data.OpenApi.Compare.Validate.Schema.DNF
-import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Text.Pandoc.Builder hiding (Format, Null)
 import Text.Regex.Pcre2
 

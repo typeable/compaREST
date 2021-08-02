@@ -11,8 +11,8 @@ module Data.OpenApi.Compare.Formula
   ) where
 
 import Data.Kind
-import Data.Monoid
 import qualified Data.List.NonEmpty as NE
+import Data.Monoid
 import Data.OpenApi.Compare.Paths
 import qualified Data.OpenApi.Compare.PathsPrefixTree as P
 

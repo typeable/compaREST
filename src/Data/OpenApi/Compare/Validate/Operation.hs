@@ -29,9 +29,6 @@ import qualified Data.List as L
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
-import Data.String
-import Data.Text (Text)
-import qualified Data.Text as T
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.References
 import Data.OpenApi.Compare.Subtree
@@ -44,6 +41,9 @@ import Data.OpenApi.Compare.Validate.Responses
 import Data.OpenApi.Compare.Validate.SecurityRequirement ()
 import Data.OpenApi.Compare.Validate.Server ()
 import Data.OpenApi.Compare.Validate.Sums
+import Data.String
+import Data.Text (Text)
+import qualified Data.Text as T
 import Text.Pandoc.Builder
 
 data MatchedOperation = MatchedOperation

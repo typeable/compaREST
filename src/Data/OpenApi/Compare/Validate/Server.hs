@@ -19,15 +19,15 @@ import qualified Data.HashSet.InsOrd as IOHM
 import qualified Data.HashSet.InsOrd as IOHS
 import Data.Maybe
 import Data.OpenApi
-import qualified Data.Set as S
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.Traversable
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Common
 import Data.OpenApi.Compare.Paths
 import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.MediaTypeObject
+import qualified Data.Set as S
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.Traversable
 import Text.Pandoc.Builder
 import Prelude as P
 

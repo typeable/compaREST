@@ -60,13 +60,13 @@ import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.Hashable
 import Data.Kind
 import Data.OpenApi
-import qualified Data.Set as S
-import Data.Typeable
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Formula
 import Data.OpenApi.Compare.Memo
 import Data.OpenApi.Compare.Paths
 import qualified Data.OpenApi.Compare.PathsPrefixTree as P
+import qualified Data.Set as S
+import Data.Typeable
 
 class
   (Typeable Step, Typeable a, Typeable b, Ord (Step a b), Show (Step a b)) =>

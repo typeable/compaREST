@@ -14,8 +14,6 @@ import qualified Data.HashMap.Strict.InsOrd as IOHM
 import qualified Data.Map as M
 import Data.Maybe
 import Data.OpenApi hiding (get)
-import Data.Ord
-import qualified Data.Set as S
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Memo
 import Data.OpenApi.Compare.Paths
@@ -28,6 +26,8 @@ import Data.OpenApi.Compare.Validate.Schema.JsonFormula
 import Data.OpenApi.Compare.Validate.Schema.Partition
 import Data.OpenApi.Compare.Validate.Schema.Traced
 import Data.OpenApi.Compare.Validate.Schema.TypedJson
+import Data.Ord
+import qualified Data.Set as S
 
 -- | A fake writer monad that doesn't actually record anything and allows lazy recursion.
 newtype Silent w a = Silent {runSilent :: a}

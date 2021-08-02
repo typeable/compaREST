@@ -15,11 +15,6 @@ import qualified Data.Map as M
 import Data.List (group, genericLength, genericIndex)
 import Data.Maybe
 import Data.OpenApi
-import Data.Ord
-import Data.Ratio
-import Data.Semigroup
-import qualified Data.Set as S
-import Data.Text (Text)
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Paths
 import qualified Data.OpenApi.Compare.PathsPrefixTree as P
@@ -31,6 +26,11 @@ import Data.OpenApi.Compare.Validate.Schema.Traced
 import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Data.OpenApi.Compare.Validate.Schema.Partition
 import Data.OpenApi.Compare.Validate.Schema.Process
+import Data.Ord
+import Data.Ratio
+import Data.Semigroup
+import qualified Data.Set as S
+import Data.Text (Text)
 
 checkFormulas
   :: (ReassembleHList xs (CheckEnv (Referenced Schema)))

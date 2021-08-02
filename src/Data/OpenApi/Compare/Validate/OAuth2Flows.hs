@@ -12,13 +12,13 @@ import Data.Function
 import Data.Functor
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import Data.OpenApi
+import Data.OpenApi.Compare.Behavior
+import Data.OpenApi.Compare.Orphans ()
+import Data.OpenApi.Compare.Subtree
 import Data.Proxy
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Text (Text)
-import Data.OpenApi.Compare.Behavior
-import Data.OpenApi.Compare.Orphans ()
-import Data.OpenApi.Compare.Subtree
 import Text.Pandoc.Builder
 
 instance Subtree OAuth2Flows where

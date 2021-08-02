@@ -10,10 +10,10 @@ import Data.ByteString.Lazy (ByteString)
 import Data.Char (toLower)
 import Data.Functor
 import qualified Data.Map as M
+import qualified Data.OpenApi.Compare.Report.Html.Template as Html
 import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
-import qualified Data.OpenApi.Compare.Report.Html.Template as Html
 import System.FilePath (takeExtension)
 import Text.DocTemplates.Internal
 import Text.Pandoc

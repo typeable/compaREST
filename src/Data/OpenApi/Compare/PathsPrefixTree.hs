@@ -27,13 +27,13 @@ import qualified Data.HashMap.Strict as HM
 import Data.Kind
 import qualified Data.Map as M
 import Data.Monoid
+import Data.OpenApi.Compare.Paths
 import qualified Data.Set as S
 import qualified Data.Text as T
 import Data.Type.Equality
 import qualified Data.TypeRepMap as TRM
 import qualified Data.Vector as V
 import qualified GHC.Exts as Exts
-import Data.OpenApi.Compare.Paths
 import Type.Reflection
 import Prelude hiding (filter, map, null, lookup)
 

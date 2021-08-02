@@ -5,8 +5,8 @@ module Data.OpenApi.Compare.Options
   )
 where
 
-import GHC.Generics (Generic)
 import Data.OpenApi.Compare.Report
+import GHC.Generics (Generic)
 import Options.Applicative
 import Options.Applicative.Help hiding (fullDesc)
 

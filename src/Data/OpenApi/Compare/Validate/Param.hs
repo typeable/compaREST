@@ -11,11 +11,11 @@ import Control.Monad
 import Data.Functor
 import Data.Maybe
 import Data.OpenApi
-import Data.Text as T
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Orphans ()
 import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.Schema ()
+import Data.Text as T
 import Text.Pandoc.Builder
 
 -- | The type is normalized encoding style of the parameter. If two encoding

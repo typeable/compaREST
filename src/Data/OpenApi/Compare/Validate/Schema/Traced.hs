@@ -21,9 +21,9 @@ import Data.Functor
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import qualified Data.List.NonEmpty as NE
 import Data.OpenApi
+import Data.OpenApi.Compare.Subtree
 import qualified Data.Set as S
 import Data.Text (Text)
-import Data.OpenApi.Compare.Subtree
 
 data PartitionChoice
   = CByEnumValue (S.Set A.Value)

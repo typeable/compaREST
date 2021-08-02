@@ -8,14 +8,14 @@ where
 
 import qualified Data.Aeson as A
 import Data.OpenApi
-import Data.Scientific
-import Data.Text (Text)
-import qualified Data.Text as T
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.Schema.JsonFormula
 import Data.OpenApi.Compare.Validate.Schema.Partition
 import Data.OpenApi.Compare.Validate.Schema.TypedJson
+import Data.Scientific
+import Data.Text (Text)
+import qualified Data.Text as T
 import Text.Pandoc.Builder hiding (Format, Null)
 
 instance Issuable 'TypedSchemaLevel where

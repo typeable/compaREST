@@ -11,8 +11,6 @@ import Data.HashMap.Strict.InsOrd as IOHM
 import Data.Map.Strict as M
 import Data.Maybe
 import Data.OpenApi
-import qualified Data.Text as T
-import Network.HTTP.Media (MediaType)
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.References
 import Data.OpenApi.Compare.Subtree
@@ -22,6 +20,8 @@ import Data.OpenApi.Compare.Validate.MediaTypeObject
 import Data.OpenApi.Compare.Validate.Products
 import Data.OpenApi.Compare.Validate.Schema ()
 import Data.OpenApi.Compare.Validate.Sums
+import qualified Data.Text as T
+import Network.HTTP.Media (MediaType)
 import Text.Pandoc.Builder
 
 tracedResponses :: Traced Responses -> IOHM.InsOrdHashMap HttpStatusCode (Traced (Referenced Response))

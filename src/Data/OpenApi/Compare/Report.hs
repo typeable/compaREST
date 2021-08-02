@@ -23,15 +23,6 @@ import qualified Data.Map as M
 import Data.Map.Ordered (OMap)
 import qualified Data.Map.Ordered as OM
 import Data.Maybe
-import Data.OpenUnion
-import Data.OpenUnion.Extra
-import Data.Set
-import qualified Data.Set as S
-import Data.Text (Text)
-import qualified Data.Text as T
-import Data.TypeRepMap hiding (empty)
-import Data.Typeable
-import Generic.Data
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Paths
 import Data.OpenApi.Compare.PathsPrefixTree hiding (empty)
@@ -41,6 +32,15 @@ import Data.OpenApi.Compare.Subtree (invertIssueOrientationP)
 import Data.OpenApi.Compare.Validate.OpenApi
 import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Data.OpenApi.Compare.Validate.Schema.Issues
+import Data.OpenUnion
+import Data.OpenUnion.Extra
+import Data.Set
+import qualified Data.Set as S
+import Data.Text (Text)
+import qualified Data.Text as T
+import Data.TypeRepMap hiding (empty)
+import Data.Typeable
+import Generic.Data
 import Text.Pandoc.Builder
 
 type Changes = P.PathsPrefixTree Behave AnIssue 'APILevel

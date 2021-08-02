@@ -17,14 +17,14 @@ import Data.HList
 import qualified Data.HashMap.Strict.InsOrd as IOHM
 import qualified Data.List.NonEmpty as NE
 import Data.OpenApi
-import Data.Set (Set)
-import qualified Data.Set as S
-import Data.Text (Text)
-import Data.Traversable
 import Data.OpenApi.Compare.Behavior
 import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.OAuth2Flows
 import Data.OpenApi.Compare.Validate.SecurityScheme ()
+import Data.Set (Set)
+import qualified Data.Set as S
+import Data.Text (Text)
+import Data.Traversable
 
 instance Subtree SecurityRequirement where
   type SubtreeLevel SecurityRequirement = 'SecurityRequirementLevel
