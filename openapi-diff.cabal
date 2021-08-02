@@ -196,3 +196,25 @@ test-suite openapi-diff-test
   ghc-options:         -threaded
                        -rtsopts
                        -with-rtsopts=-N
+
+executable testgen
+  import:            common-options
+  hs-source-dirs:    testgen
+  main-is:           Main.hs
+  other-modules:
+    Yaml
+    Components
+  build-depends:
+    , transformers
+    , containers
+    , lens
+    , yaml
+    , libyaml
+    , aeson
+    , random
+    , filepath
+    , directory
+    , optparse-applicative
+  ghc-options:         -threaded
+                       -rtsopts
+                       -with-rtsopts=-N
