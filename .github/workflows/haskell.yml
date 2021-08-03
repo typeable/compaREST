@@ -52,3 +52,9 @@ jobs:
           title: "Pre-Release"
           files: |
             *.zip
+  comparest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ./.
