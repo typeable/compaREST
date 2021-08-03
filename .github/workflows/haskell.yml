@@ -57,4 +57,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - uses: ./.
+      - uses: ./
+        with:
+          old: test/golden/property-removed/a.yaml
+          new: test/golden/property-removed/b.yaml
