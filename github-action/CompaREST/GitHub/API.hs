@@ -24,7 +24,7 @@ findComment = do
   let tryStripPrefix :: GH.Comment -> Maybe GH.Comment
       tryStripPrefix c@GH.Comment {commentBody = (T.stripPrefix htmlComment -> Just b)} = Just $ c {GH.commentBody = b}
       tryStripPrefix _ = Nothing
-  pure . V.headM $ V.mapMaybe tryStripPrefix comments
+  pure . (V.!? 0) $ V.mapMaybe tryStripPrefix comments
 
 mapComment :: Members '[GitHub, Reader Config] effs => (Text -> Text) -> Eff effs ()
 mapComment f = do
