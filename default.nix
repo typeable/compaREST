@@ -63,7 +63,7 @@ let
     in
     pkgs.dockerTools.buildImage {
       name = "compaREST-github-action";
-      contents = [ wrapped ];
+      contents = [ wrapped pkgs.cacert ];
     };
 
 in
