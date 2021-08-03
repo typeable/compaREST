@@ -16,6 +16,7 @@ data Options = Options
   { optBaseDir :: FilePath
   , optMainTypeVariant :: (ComponentType, ComponentVariant)
   , optOverrides :: [(ComponentType, ComponentVariant)]
+  , optSeed :: Maybe Int
   }
 
 main :: IO ()
@@ -33,20 +34,26 @@ main = do
         \ same id are resolved to the same file."
       ]
     ))
-  gen <- newStdGen
-  (treeA, treeB) <- readTreePair gen (optBaseDir opts) (optMainTypeVariant opts) (M.fromList $ optOverrides opts)
+  seed <- case optSeed opts of
+    Just seed -> pure seed
+    Nothing -> randomIO
+  hPutStrLn stderr $ "Using seed: " <> show seed
+
+  (treeA, treeB) <- readTreePair (mkStdGen seed) (optBaseDir opts) (optMainTypeVariant opts) (M.fromList $ optOverrides opts)
   BS.hPut stdout $ encode treeA
   BS.hPut stderr $ encode treeB
   where
-    parser = Options <$> baseDirOpt <*> tyVarOpt <*> overrideOpts
+    parser = Options <$> baseDirOpt <*> tyVarOpt <*> overrideOpts <*> seedOpt
     baseDirOpt :: Parser FilePath
     baseDirOpt = strOption (long "base-dir" <> metavar "<baseDir>" <> value "." <> showDefaultWith id
       <> help "The base directory for YAML files")
+    readOverride = eitherReader $ \xs -> case break (== '=') xs of
+      (name, '=':var) -> Right (name, var)
+      _ -> Left "Expected name=variant"
     tyVarOpt :: Parser (ComponentType, ComponentVariant)
     tyVarOpt = argument readOverride (metavar "<mainName>=<mainVariant>")
     overrideOpts :: Parser [(ComponentType, ComponentVariant)]
     overrideOpts = many $ option readOverride (long "override" <> metavar "<name>=<variant>"
       <> help "Ensure that references to <name> are resolved to <variant> (multiple allowed)")
-    readOverride = eitherReader $ \xs -> case break (== '=') xs of
-      (name, '=':var) -> Right (name, var)
-      _ -> Left "Expected name=variant"
+    seedOpt :: Parser (Maybe Int)
+    seedOpt = optional $ option auto (long "seed" <> metavar "<seed>" <> help "Supply a random seed")

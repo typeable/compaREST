@@ -9,6 +9,7 @@ import Control.Monad.Trans.Reader
 import Control.Monad.Trans.State
 import Control.Monad.IO.Class
 import Data.Aeson hiding ((.=))
+import Data.List (sort)
 import qualified Data.Map.Strict as M
 import System.Directory
 import System.FilePath
@@ -40,7 +41,7 @@ componentDirectory k = k
 randomVariant :: IOGenM StdGen -> FilePath -> ComponentType -> IO ComponentVariant
 randomVariant gen baseDir k = listDirectory (baseDir </> componentDirectory k) >>= \case
   [] -> error $ "No variants for " <> k
-  xs -> (xs !!) <$> randomRM (0, length xs - 1) gen
+  xs -> (sort xs !!) <$> randomRM (0, length xs - 1) gen
 
 type ComponentChoices = M.Map (ComponentType, String) ComponentVariant
 type ComponentOverrides = M.Map ComponentType (ComponentVariant, AorB)
