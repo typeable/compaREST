@@ -22,5 +22,17 @@
         "type": "tarball",
         "url": "https://github.com/nmattia/niv/archive/e0ca65c81a2d7a4d82a189f1e23a48d59ad42070.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nix-filter": {
+        "branch": "master",
+        "description": "a small self-container source filtering lib",
+        "homepage": "",
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "rev": "3c9e33ed627e009428197b07216613206f06ed80",
+        "sha256": "19w142crrkywxynmyw4rhz4nglrg64yjawfkw3j91qwkwbfjds84",
+        "type": "tarball",
+        "url": "https://github.com/numtide/nix-filter/archive/3c9e33ed627e009428197b07216613206f06ed80.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
