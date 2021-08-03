@@ -104,7 +104,7 @@ data ReportTreeStyle = HeadersTreeStyle | FoldingBlockquotesTreeStyle
 twoRowTable :: [(Inlines, Inlines)] -> Blocks
 twoRowTable x = simpleTable (para . fst <$> x) [para . snd <$> x]
 
-generateReport :: ReportConfig -> ReportInput -> (Pandoc, ReportStatus)
+generateReport :: ReportConfig -> ReportInput -> (Blocks, ReportStatus)
 generateReport cfg inp =
   let
       schemaIssuesPresent = not $ P.null $ schemaIssues inp
@@ -116,7 +116,6 @@ generateReport cfg inp =
         OnlyErrors -> False
       builder = buildReport cfg
       report =
-        doc $
           header 1 "Summary"
             <> twoRowTable
               (when'

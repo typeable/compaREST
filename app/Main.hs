@@ -14,6 +14,7 @@ import OpenAPI.Checker.Run
 import System.Exit
 import System.IO
 import Text.Pandoc hiding (report)
+import Text.Pandoc.Builder
 
 main :: IO ()
 main = do
@@ -47,7 +48,7 @@ main = do
           }
       (report, status) = runReport reportConfig (a, b)
   case mode opts of
-    Just _ -> either handler pure <=< runExceptT $ write report
+    Just _ -> either handler pure <=< runExceptT $ write $ doc report
     Nothing -> pure ()
   when (signalExitCode opts) $
     case status of

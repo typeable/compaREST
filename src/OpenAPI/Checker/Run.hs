@@ -11,6 +11,7 @@ import OpenAPI.Checker.Paths
 import OpenAPI.Checker.Report
 import OpenAPI.Checker.Subtree
 import OpenAPI.Checker.Validate.OpenApi ()
+import Text.Pandoc.Builder
 
 runChecker :: (OpenApi, OpenApi) -> CheckerOutput
 runChecker (client, server) =
@@ -26,5 +27,5 @@ runChecker (client, server) =
         }
     run p c = either id mempty . runCompatFormula . checkCompatibility Root HNil $ toPC p c
 
-runReport :: ReportConfig -> (OpenApi, OpenApi) -> (Pandoc, ReportStatus)
+runReport :: ReportConfig -> (OpenApi, OpenApi) -> (Blocks, ReportStatus)
 runReport cfg = generateReport cfg . segregateIssues . runChecker

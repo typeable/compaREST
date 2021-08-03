@@ -1,0 +1,45 @@
+name: compaREST
+author: Typeable
+description: API reliability checker
+inputs:
+  GITHUB_TOKEN:
+    description: "The GitHub access token (e.g. secrets.GITHUB_TOKEN) used to create or update the comment. This defaults to {{ github.token }}."
+    default: "${{ github.token }}"
+    required: false
+  repo:
+    description: The owner of the repo in which to post the comment.
+    default: "${{ github.repository }}"
+    required: false
+  pull_request:
+    description: The pull request in which to post the comment.
+    default: "${{ github.event.pull_request.number }}"
+    required: false
+  project_name:
+    description: The name of the project to which the API pertains.
+    required: true
+  footer:
+    description: A footer that can be appended to the comment.
+    required: false
+    default: ""
+  old:
+    description: The path to old specification of the API.
+    required: true
+  new:
+    description: The path to new specification of the API.
+    required: true
+runs:
+  using: "docker"
+  image: "ilyakooo0/comparest-action:latest"
+  env:
+    GITHUB_TOKEN: "${{ inputs.GITHUB_TOKEN }}"
+    REPO: "${{ inputs.repo }}"
+    PR_NUMBER: "${{ inputs.pull_request }}"
+    PROJECT_NAME: "${{ inputs.project_name }}"
+    FOOTER: "${{ inputs.footer }}"
+    ROOT: "/github/workspace"
+  pre-entrypoint: "/bin/comparest-github-action pre"
+  entrypoint: "/bin/comparest-github-action run ${{ inputs.old }} ${{ inputs.new }}"
+
+branding:
+  icon: crosshair
+  color: gray-dark

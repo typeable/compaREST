@@ -1,6 +1,6 @@
 { sources ? import ./nix/sources.nix
 , haskellNix ? import sources.haskellNix { inherit system; }
-, pkgs ? import haskellNix.sources.nixpkgs-2105 (haskellNix.nixpkgsArgs // {inherit system;})
+, pkgs ? import haskellNix.sources.nixpkgs-2105 (haskellNix.nixpkgsArgs // { inherit system; })
 , system ? builtins.currentSystem
 }:
 let
@@ -16,18 +16,20 @@ let
     ];
   };
 
-  compaREST-static = pkgs.runCommand "compaREST-static" { } ''
-    mkdir $out
-    cp ${hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.openapi-diff + "/bin/openapi-diff"} $out/compaREST
+  staticify = drv: pkgs.runCommand "compaREST-static" { } ''
+    mkdir -p $out
+    cp -R ${drv}/bin $out
 
-    ${pkgs.nukeReferences}/bin/nuke-refs $out/compaREST
+    ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*
   '';
+
   compaREST = pkgs.dockerTools.buildImage {
     name = "compaREST";
-    contents = [compaREST-static];
+    contents = [ (staticify hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.openapi-diff) ];
     config = {
-      Entrypoint = [ "/compaREST" ];
+      Entrypoint = [ "/bin/compaREST" ];
     };
   };
 
-in compaREST
+in
+compaREST
