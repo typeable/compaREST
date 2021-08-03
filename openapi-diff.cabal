@@ -209,11 +209,12 @@ executable testgen
     , containers
     , lens
     , yaml
-    , libyaml
     , aeson
     , random
     , filepath
     , directory
+    , cryptohash
+    , base16-bytestring
     , optparse-applicative
   ghc-options:         -threaded
                        -rtsopts
