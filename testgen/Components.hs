@@ -12,7 +12,7 @@ import Data.Aeson hiding ((.=))
 import qualified Data.Map.Strict as M
 import System.Directory
 import System.FilePath
-import System.Random
+import System.Random.Stateful
 
 import Yaml
 
@@ -37,60 +37,68 @@ componentFilePath baseDir Component{..} = baseDir </> componentType </> componen
 componentDirectory :: ComponentType -> FilePath
 componentDirectory k = k
 
-randomVariant :: FilePath -> ComponentType -> IO ComponentVariant
-randomVariant baseDir k = listDirectory (baseDir </> componentDirectory k) >>= \case
+randomVariant :: IOGenM StdGen -> FilePath -> ComponentType -> IO ComponentVariant
+randomVariant gen baseDir k = listDirectory (baseDir </> componentDirectory k) >>= \case
   [] -> error $ "No variants for " <> k
-  xs -> (xs !!) <$> randomRIO (0, length xs - 1)
+  xs -> (xs !!) <$> randomRM (0, length xs - 1) gen
 
-data AnchorOccurrence = All | Named String | Unnamed Int
-  deriving stock (Eq, Ord, Show)
+type ComponentChoices = M.Map (ComponentType, String) ComponentVariant
+type ComponentOverrides = M.Map ComponentType (ComponentVariant, AorB)
 
-type AnchorOccurrences = M.Map ComponentType Int
+type ParseM = ReaderT (FilePath, ComponentOverrides, IOGenM StdGen) (StateT ComponentChoices IO)
 
-type ComponentChoices = M.Map (ComponentType, AnchorOccurrence) (ComponentVariant, AorB)
-
-type ParseM = ReaderT FilePath (StateT (AnchorOccurrences, ComponentChoices) IO)
-
-nextIndex :: ComponentType -> ParseM Int
-nextIndex k = _1 . iat k %%= ((,) <*> Just) . maybe 0 (+ 1)
-
-parseAnchor :: String -> ParseM (ComponentType, AnchorOccurrence)
-parseAnchor xs = case break (== '-') xs of
-  (k, '-':name) -> pure $ (k, Named name)
-  (k, _) -> (k,) . Unnamed <$> nextIndex k
-
-chooseComponent :: (ComponentType, AnchorOccurrence) -> ParseM Component
-chooseComponent (k, occ) = do
-  (var, aorb) <- use (_2 . iat (k, All)) >>= \case
-    Just varOcc -> pure varOcc
-    Nothing -> use (_2 . iat (k, occ)) >>= \case
-      Just varOcc -> pure varOcc
+chooseComponent :: Reference -> ParseM Component
+chooseComponent (Labelled key ident) = do
+  (var, aorb) <- view (_2 . iat key) >>= \case
+    Just (var, aorb) -> pure (var, aorb)
+    Nothing -> use (iat (key, ident)) >>= \case
+      Just var -> pure (var, A)
       Nothing -> do
-        baseDir <- ask
-        var <- liftIO $ randomVariant baseDir k
-        _2 . iat (k, occ) .= Just (var, A)
+        baseDir <- view _1
+        gen <- view _3
+        var <- liftIO $ randomVariant gen baseDir key
+        iat (key, ident) .= Just var
         pure (var, A)
   pure Component
-    { componentType = k
+    { componentType = key
+    , componentVariant = var
+    , componentAB = aorb
+    }
+chooseComponent (Unlabelled key) = do
+  (var, aorb) <- view (_2 . iat key) >>= \case
+    Just (var, aorb) -> pure (var, aorb)
+    Nothing -> do
+      baseDir <- view _1
+      gen <- view _3
+      var <- liftIO $ randomVariant gen baseDir key
+      pure (var, A)
+  pure Component
+    { componentType = key
     , componentVariant = var
     , componentAB = aorb
     }
 
 parseTree :: ParseM Value
 parseTree = do
-  baseDir <- ask
-  readYamlTree resolveAnchor $ baseDir </> "root.yaml"
+  baseDir <- view _1
+  readYamlTree resolveRef $ baseDir </> "root.yaml"
   where
-    resolveAnchor k = do
-      tyOcc <- parseAnchor k
-      component <- chooseComponent tyOcc
-      baseDir <- ask
+    resolveRef ref = do
+      component <- chooseComponent ref
+      baseDir <- view _1
       pure $ componentFilePath baseDir component
 
-readTreePair :: FilePath -> ComponentType -> ComponentVariant -> M.Map ComponentType ComponentVariant -> IO (Value, Value)
-readTreePair baseDir mainK mainVar overrides = do
-  (treeA, (_, choices)) <- runStateT (runReaderT parseTree baseDir) (M.empty, M.insert (mainK, All) (mainVar, A) initChoices)
-  (treeB, _) <- runStateT (runReaderT parseTree baseDir) (M.empty, M.insert (mainK, All) (mainVar, B) choices)
+readTreePair
+  :: StdGen
+  -> FilePath
+  -> (ComponentType, ComponentVariant)
+  -> M.Map ComponentType ComponentVariant
+  -> IO (Value, Value)
+readTreePair gen baseDir (mainK, mainVar) overrides = do
+  genA <- newIOGenM gen
+  treeA <- evalStateT (runReaderT parseTree (baseDir, M.insert mainK (mainVar, A) overrides', genA)) M.empty
+  genB <- newIOGenM gen
+  treeB <- evalStateT (runReaderT parseTree (baseDir, M.insert mainK (mainVar, B) overrides', genB)) M.empty
   pure (treeA, treeB)
   where
-    initChoices = M.mapKeysMonotonic (,All) $ M.map (,A) overrides
+    overrides' = M.map (,A) overrides

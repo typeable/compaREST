@@ -8,13 +8,13 @@ import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as M
 import Data.Yaml hiding (Parser)
 import System.IO
+import System.Random
 
 import Components
 
 data Options = Options
   { optBaseDir :: FilePath
-  , optComponentType :: ComponentType
-  , optComponentVariant :: ComponentVariant
+  , optMainTypeVariant :: (ComponentType, ComponentVariant)
   , optOverrides :: [(ComponentType, ComponentVariant)]
   }
 
@@ -33,18 +33,17 @@ main = do
         \ same id are resolved to the same file."
       ]
     ))
-  (treeA, treeB) <- readTreePair (optBaseDir opts) (optComponentType opts) (optComponentVariant opts) (M.fromList $ optOverrides opts)
+  gen <- newStdGen
+  (treeA, treeB) <- readTreePair gen (optBaseDir opts) (optMainTypeVariant opts) (M.fromList $ optOverrides opts)
   BS.hPut stdout $ encode treeA
   BS.hPut stderr $ encode treeB
   where
-    parser = Options <$> baseDirOpt <*> typeOpt <*> varOpt <*> overrideOpts
+    parser = Options <$> baseDirOpt <*> tyVarOpt <*> overrideOpts
     baseDirOpt :: Parser FilePath
     baseDirOpt = strOption (long "base-dir" <> metavar "<baseDir>" <> value "." <> showDefaultWith id
       <> help "The base directory for YAML files")
-    typeOpt :: Parser ComponentType
-    typeOpt = strArgument (metavar "<mainName>")
-    varOpt :: Parser ComponentVariant
-    varOpt = strArgument (metavar "<mainVariant>")
+    tyVarOpt :: Parser (ComponentType, ComponentVariant)
+    tyVarOpt = argument readOverride (metavar "<mainName>=<mainVariant>")
     overrideOpts :: Parser [(ComponentType, ComponentVariant)]
     overrideOpts = many $ option readOverride (long "override" <> metavar "<name>=<variant>"
       <> help "Ensure that references to <name> are resolved to <variant> (multiple allowed)")

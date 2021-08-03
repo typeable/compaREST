@@ -1,41 +1,23 @@
 module Yaml
-  ( readYamlTree
+  ( Reference (..)
+  , readYamlTree
   ) where
 
-import Data.Char
-import Control.Exception
+import Data.Aeson
 import Control.Monad.IO.Class
-import Data.Aeson.Types
 import qualified Data.Text as T
-import Data.Text.Encoding
-import Data.Text.Encoding.Error
-import Data.Yaml.Parser
-import Data.Yaml.Internal
-import Text.Libyaml
+import Data.Yaml
 
--- copied from Data.Yaml.Internal
-textToValue :: Style -> Tag -> T.Text -> Value
-textToValue SingleQuoted _ t = String t
-textToValue DoubleQuoted _ t = String t
-textToValue _ StrTag t = String t
-textToValue Folded _ t = String t
-textToValue _ _ t
-  | t `elem` ["null", "Null", "NULL", "~", ""] = Null
-  | any (t `isLike`) ["y", "yes", "on", "true"] = Bool True
-  | any (t `isLike`) ["n", "no", "off", "false"] = Bool False
-  | Right x <- textToScientific t = Number x
-  | otherwise = String t
+data Reference = Unlabelled String | Labelled String String
+  deriving stock (Eq, Ord, Show)
+
+readYamlTree :: MonadIO m => (Reference -> m FilePath) -> FilePath -> m Value
+readYamlTree resolve root = liftIO (decodeFileThrow root) >>= go
   where
-    x `isLike` ref = x `elem` [ref, T.toUpper ref, titleCased]
-      where titleCased = toUpper (T.head ref) `T.cons` T.tail ref
-
-readYamlTree :: MonadIO m => (String -> m FilePath) -> FilePath -> m Value
-readYamlTree resolve root = liftIO (readYamlFile root) >>= go
-  where
-    go (Mapping kv mAnchor) = noAnchor mAnchor $ object <$> mapM (mapM go) kv
-    go (Sequence xs mAnchor) = noAnchor mAnchor $ listValue id <$> mapM go xs
-    go (Scalar bs tag style mAnchor) = noAnchor mAnchor $ pure $ textToValue style tag (decodeUtf8With lenientDecode bs)
-    go (Alias anchor) = resolve anchor >>= liftIO . readYamlFile >>= go
-
-    noAnchor (Just anchor) _ = throw (FromYamlException $ "Unexpected anchor binding: " <> T.pack anchor)
-    noAnchor Nothing act = act
+    go (Object kv) = Object <$> mapM go kv
+    go (Array xs) = Array <$> mapM go xs
+    go (String str) | Just ('$', kv) <- T.uncons str = resolve (ref kv) >>= liftIO . decodeFileThrow >>= go
+      where
+        ref kv | (key, T.uncons -> Just ('=', value)) <- T.break (== '=') kv = Labelled (T.unpack key) (T.unpack value)
+               | otherwise = Unlabelled (T.unpack kv)
+    go value = pure value
