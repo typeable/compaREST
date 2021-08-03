@@ -11,7 +11,7 @@ import Data.Text (Text)
 import qualified Data.Yaml.Aeson as Yaml
 import qualified GitHub as GH
 import OpenAPI.Checker.Run
-import Options.Applicative hiding (header)
+import System.Environment
 import System.Envy (decodeEnv)
 import System.FilePath ((</>))
 import Text.Pandoc (runPure)
@@ -22,34 +22,13 @@ import Text.Pandoc.Writers
 main :: IO ()
 main = do
   cfg <- decodeEnv >>= either error pure
-  execParser
-    ( info
-        (helper <*> actionParser)
-        ( fullDesc
-            <> progDesc "compaREST GitHub Action. You prabably shouldn't be running this manually."
-        )
-    )
-    >>= \case
-      Pre -> runPre cfg
-      Run {..} -> runRun cfg (root cfg </> oldFile) (root cfg </> newFile)
-
-data Action
-  = Pre
-  | Run
-      { oldFile :: FilePath
-      , newFile :: FilePath
-      }
-
-actionParser :: Parser Action
-actionParser =
-  hsubparser (command "pre" $ info preParser mempty)
-    <|> hsubparser (command "run" $ info runParser mempty)
-  where
-    preParser, runParser :: Parser Action
-    preParser = pure Pre
-    runParser =
-      Run <$> strArgument (metavar "OLD_FILE_PATH")
-        <*> strArgument (metavar "NEW_FILE_PATH")
+  getArgs >>= \case
+    ["pre"] -> runPre cfg
+    ["run"] -> do
+      oldFile <- getEnv "OLD"
+      newFile <- getEnv "NEW"
+      runRun cfg (root cfg </> oldFile) (root cfg </> newFile)
+    _ -> error "Invalid arguments."
 
 runner :: Config -> Eff '[GitHub, Error GH.Error, Reader Config, IO] a -> IO a
 runner cfg =

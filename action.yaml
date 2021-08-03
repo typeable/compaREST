@@ -37,8 +37,10 @@ runs:
     PROJECT_NAME: "${{ inputs.project_name }}"
     FOOTER: "${{ inputs.footer }}"
     ROOT: "/github/workspace"
+    OLD: "${{ inputs.old }}"
+    NEW: "${{ inputs.new }}"
   pre-entrypoint: "/bin/comparest-github-action pre"
-  entrypoint: "/bin/comparest-github-action run ${{ inputs.old }} ${{ inputs.new }}"
+  entrypoint: "/bin/comparest-github-action run"
 
 branding:
   icon: crosshair

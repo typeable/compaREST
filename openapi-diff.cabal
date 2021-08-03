@@ -38,7 +38,6 @@ common common-options
     -fconstraint-solver-iterations=0
   default-language:    Haskell2010
   build-depends:       base >= 4.12.0.0 && < 4.16
-                     , bytestring
                      , text
 
   default-extensions: ApplicativeDo
@@ -111,6 +110,7 @@ library
                      , file-embed
                      , data-default
                      , ordered-containers
+                     , bytestring
   hs-source-dirs:      src
   exposed-modules:  Data.HList
                   , OpenAPI.Checker.Behavior
@@ -183,7 +183,6 @@ executable comparest-github-action
       openapi-diff
     , pandoc
     , yaml
-    , optparse-applicative
     , aeson
     , github
     , freer-simple
