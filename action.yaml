@@ -39,8 +39,8 @@ runs:
     ROOT: "/github/workspace"
     OLD: "${{ inputs.old }}"
     NEW: "${{ inputs.new }}"
-  pre-entrypoint: "/bin/comparest-github-action pre"
-  entrypoint: "/bin/comparest-github-action run"
+  pre-entrypoint: "/bin/pre"
+  entrypoint: "/bin/run"
 
 branding:
   icon: crosshair

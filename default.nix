@@ -53,13 +53,18 @@ let
     };
   };
 
-  compaRESTGithubAction = pkgs.dockerTools.buildImage {
-    name = "compaREST-github-action";
-    contents = [ (staticify hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.comparest-github-action) ];
-    config = {
-      Entrypoint = [ "/bin/comparest-github-action" ];
+  compaRESTGithubAction =
+    let
+      action = staticify hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.comparest-github-action;
+      wrapped = pkgs.runCommand "wrapped-compaREST-github-action" { buildInputs = [ pkgs.makeWrapper ]; } ''
+        makeWrapper ${action}/bin/comparest-github-action $out/bin/pre --add-flags "pre"
+        makeWrapper ${action}/bin/comparest-github-action $out/bin/run --add-flags "run"
+      '';
+    in
+    pkgs.dockerTools.buildImage {
+      name = "compaREST-github-action";
+      contents = [ wrapped ];
     };
-  };
 
 in
 { inherit compaREST compaRESTGithubAction; }
