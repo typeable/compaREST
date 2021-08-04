@@ -194,7 +194,6 @@ executable comparest-github-action
                        -rtsopts
                        -with-rtsopts=-N
   other-modules:
-    GitHub.Extra
     Control.Monad.Freer.GitHub
     CompaREST.GitHub.API
     CompaREST.GitHub.Action.Config

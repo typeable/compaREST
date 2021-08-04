@@ -13,8 +13,8 @@ import Data.Foldable
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import GitHub
 import qualified GitHub as GH
-import GitHub.Extra
 
 findComment :: Members '[GitHub, Reader Config] effs => Eff effs (Maybe GH.Comment)
 findComment = do
@@ -22,7 +22,7 @@ findComment = do
   comments <- sendGitHub $ GH.pullRequestCommentsR repoOwner repoName issue GH.FetchAll
   htmlComment <- getHTMLComment
   let tryStripPrefix :: GH.Comment -> Maybe GH.Comment
-      tryStripPrefix c@GH.Comment {commentBody = (T.stripPrefix htmlComment -> Just b)} = Just $ c {GH.commentBody = b}
+      tryStripPrefix c@GH.Comment {commentBody = (T.stripSuffix htmlComment -> Just b)} = Just $ c {GH.commentBody = b}
       tryStripPrefix _ = Nothing
   pure . (V.!? 0) $ V.mapMaybe tryStripPrefix comments
 
@@ -33,7 +33,7 @@ mapComment f = do
       ( \comment -> do
           Config {..} <- ask
           htmlComment <- getHTMLComment
-          sendGitHub $ editPullCommentR repoOwner repoName (GH.commentId comment) ((<> htmlComment) . f $ GH.commentBody comment)
+          sendGitHub $ editCommentR repoOwner repoName (GH.commentId comment) ((<> htmlComment) . f $ GH.commentBody comment)
           pure ()
       )
 
@@ -44,8 +44,8 @@ createOrUpdateComment body' = do
   let body = body' <> htmlComment
   void $
     findComment >>= \case
-      Just comment -> sendGitHub $ editPullCommentR repoOwner repoName (GH.commentId comment) body
-      Nothing -> sendGitHub $ createPullCommentSimpleR repoOwner repoName issue body
+      Just comment -> sendGitHub $ editCommentR repoOwner repoName (GH.commentId comment) body
+      Nothing -> sendGitHub $ createCommentR repoOwner repoName issue body
 
 getHTMLComment :: Member (Reader Config) effs => Eff effs Text
 getHTMLComment = do
