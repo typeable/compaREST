@@ -75,7 +75,7 @@ runRun cfg old' new' = runner cfg $ do
                     NoBreakingChanges -> "No breaking changes found ✨"
                     OnlyUnsupportedChanges -> "🤷 Couldn't determine compatibility"
                 )
-                <> summaryDetail (para "ℹ️ Details") report
+                <> summaryDetail (plain "ℹ️ Details") report
       messageBody = markdown message <> "\n\n" <> footerText cfg
   createOrUpdateComment messageBody
 
