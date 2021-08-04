@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 jobs:
-  linux-build:
+  build-github-action-image:
     runs-on: ubuntu-latest
 
     steps:
