@@ -62,7 +62,8 @@ let
       '';
     in
     pkgs.dockerTools.buildImage {
-      name = "compaREST-github-action";
+      name = "typeable/comparest-github-action";
+      tag = "latest";
       contents = [ wrapped pkgs.cacert ];
     };
 
