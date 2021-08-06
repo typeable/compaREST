@@ -1,5 +1,5 @@
 module Spec.Golden.TraceTree
-  ( tests
+  ( tests,
   )
 where
 
@@ -14,6 +14,7 @@ import OpenAPI.Checker.Run
 import OpenAPI.Checker.Validate.OpenApi ()
 import Spec.Golden.Extra
 import Test.Tasty (TestTree, testGroup)
+import Text.Pandoc.Builder
 import Text.Pandoc.Class
 import Text.Pandoc.Options
 import Text.Pandoc.Writers
@@ -37,7 +38,7 @@ tests = do
       "report.md"
       ("a.yaml", "b.yaml")
       Yaml.decodeFileThrow
-      (runPandoc . writeMarkdown def {writerExtensions = githubMarkdownExtensions} . fst . runReport def)
+      (runPandoc . writeMarkdown def {writerExtensions = githubMarkdownExtensions} . doc . fst . runReport def)
 
   return $ testGroup "Golden tests" [traceTreeTests, reportTests]
 
