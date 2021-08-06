@@ -38,7 +38,7 @@ let
     ];
   };
 
-  staticify = drv: pkgs.runCommand "compaREST-static" { } ''
+  staticify = name: drv: pkgs.runCommand name { } ''
     mkdir -p $out/bin
     cp ${drv + "/bin"}/* $out/bin
 
@@ -47,7 +47,7 @@ let
 
   compaREST = pkgs.dockerTools.buildImage {
     name = "compaREST";
-    contents = [ (staticify hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.openapi-diff) ];
+    contents = [ (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.openapi-diff) ];
     config = {
       Entrypoint = [ "/bin/openapi-diff" ];
     };
@@ -55,7 +55,7 @@ let
 
   compaRESTGithubAction =
     let
-      action = staticify hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.comparest-github-action;
+      action = staticify "compaREST-github-action-static" hsPkgs.projectCross.musl64.hsPkgs.openapi-diff.components.exes.comparest-github-action;
       wrapped = pkgs.runCommand "wrapped-compaREST-github-action" { buildInputs = [ pkgs.makeWrapper ]; } ''
         makeWrapper ${action}/bin/comparest-github-action $out/bin/pre --add-flags "pre"
         makeWrapper ${action}/bin/comparest-github-action $out/bin/run --add-flags "run"

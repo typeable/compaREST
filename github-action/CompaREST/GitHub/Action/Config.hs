@@ -1,6 +1,5 @@
 module CompaREST.GitHub.Action.Config
   ( Config (..),
-  -- configParser,
   )
 where
 
@@ -9,7 +8,6 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified GitHub as GH
 
--- import Options.Applicative
 import System.Envy
 
 data Config = Config
@@ -21,27 +19,6 @@ data Config = Config
   , footerText :: Text
   , root :: FilePath
   }
-
--- configParser :: Parser Config
--- configParser = do
---   token <- GH.OAuth <$> strArgument (metavar "GITHUB_TOKEN")
---   ownerRepo <-
---     strArgument (metavar "REPO") <&> T.split (== '/') <&> \case
---       [owner, name] -> (owner, name)
---       _ -> error "malformed repo"
---   issue <- GH.IssueNumber <$> argument auto (metavar "PR_NUMBER")
---   projectName <- strArgument (metavar "PROJECT_NAME")
---   footerText <- strArgument (metavar "FOOTER")
---   pure $
---     let (owner, repo) = ownerRepo
---      in Config
---           { githubToken = token
---           , repoOwner = GH.mkName Proxy owner
---           , repoName = GH.mkName Proxy repo
---           , issue = issue
---           , projectName = projectName
---           , footerText = footerText
---           }
 
 instance FromEnv Config where
   fromEnv _ = do
