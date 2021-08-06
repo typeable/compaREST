@@ -43,14 +43,14 @@ jobs:
           nix-build -A compaRESTGithubAction -j auto -o image
 
       - name: Log into Docker Hub
-        if: github.ref == 'refs/heads/master'
+        # if: github.ref == 'refs/heads/master'
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
       - name: Upload Image to Docker Hub
-        if: github.ref == 'refs/heads/master'
+        # if: github.ref == 'refs/heads/master'
         run: |
           docker load -i image
           docker push typeable/comparest-github-action:latest
