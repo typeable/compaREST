@@ -68,4 +68,4 @@ let
     };
 
 in
-{ inherit compaREST compaRESTGithubAction; }
+{ inherit compaREST compaRESTGithubAction hsPkgs haskellNix; }

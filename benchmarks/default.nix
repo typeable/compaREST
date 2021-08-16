@@ -1,6 +1,6 @@
 { sources ? import ./nix/sources.nix
-, haskellNix ? import sources.haskellNix { }
 , gomod2nix ? sources.gomod2nix
+, haskellNix ? (import ../. {}).haskellNix
 , pkgs ? import haskellNix.sources.nixpkgs-2105 (haskellNix.nixpkgsArgs // {
     overlays = haskellNix.nixpkgsArgs.overlays ++ [
       (self: super: {
@@ -8,18 +8,14 @@
       })
     ];
   })
+, compaRESThsPkgs ? (import ../. {}).hsPkgs
 , npmNix ? import (sources.npmNix + "/npmPackages") { inherit pkgs; }
 , mavenix ? import (sources.mavenix) { inherit pkgs; }
 , bumpToken ? null
 , bumpDocumentation ? null
 }:
 let
-  typeable-comparest = (pkgs.haskell-nix.stackProject {
-    src = pkgs.haskell-nix.haskellLib.cleanGit {
-      name = "comparest";
-      src = ./..;
-    };
-  }).comparest.components.exes.comparest;
+  typeable-comparest = compaRESThsPkgs.comparest.components.exes.comparest;
   typeable-comparest-exe = typeable-comparest + "/bin/comparest";
   typeable-comparest-differ = pkgs.writeScript "typeable-comparest-differ" ''
     #!${pkgs.stdenv.shell}
