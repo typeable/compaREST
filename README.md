@@ -1,8 +1,8 @@
-# openapi-diff
+# CompaREST
 
-[![Hackage](https://img.shields.io/hackage/v/openapi-diff.svg?logo=haskell)](https://hackage.haskell.org/package/openapi-diff)
-[![Stackage Lts](http://stackage.org/package/openapi-diff/badge/lts)](http://stackage.org/lts/package/openapi-diff)
-[![Stackage Nightly](http://stackage.org/package/openapi-diff/badge/nightly)](http://stackage.org/nightly/package/openapi-diff)
+[![Hackage](https://img.shields.io/hackage/v/comparest.svg?logo=haskell)](https://hackage.haskell.org/package/comparest)
+[![Stackage Lts](http://stackage.org/package/comparest/badge/lts)](http://stackage.org/lts/package/comparest)
+[![Stackage Nightly](http://stackage.org/package/comparest/badge/nightly)](http://stackage.org/nightly/package/comparest)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Compatibility checker for OpenAPI
@@ -241,32 +241,32 @@ docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.y
 # CLI docs
 
 ```
-Usage: openapi-diff (-c|--client ARG) (-s|--server ARG)
-                    [--silent | --only-breaking | --all] [-o|--output ARG]
-                    [--folding-block-quotes-style | --header-style]
-                    [--signal-exit-code]
-  A tool to check compatibility between two OpenApi specifications.
+Usage: comparest (-c|--client ARG) (-s|--server ARG)
+                 [--silent | --only-breaking | --all] [-o|--output ARG]
+                 [--folding-block-quotes-style | --header-style]
+                 [--signal-exit-code]
+  A tool to check compatibility between two OpenAPI specifications.
 
   Usage examples
 
       Compare files old.yaml with new.yaml and output the resulting report to
       stdout:
 
-          openapi-diff -c old.yaml -s new.yaml
+          comparest -c old.yaml -s new.yaml
 
       Only output breaking changes and write a styled HTML report to file
       report.html:
 
-          openapi-diff -c old.yaml -s new.yaml --only-breaking -o report
+          comparest -c old.yaml -s new.yaml --only-breaking -o report
 
       Don't output anything, only fail if there are breaking changes:
 
-          openapi-diff -c old.json -s new.json --silent
+          comparest -c old.json -s new.json --silent
 
       Write full report suitable for embedding into a GitHub comment to
       report.html:
 
-          openapi-diff -c old.json -s new.json --folding-block-quotes-style -o report.html
+          comparest -c old.json -s new.json --folding-block-quotes-style -o report.html
 
 Available options:
   -h,--help                Show this help text

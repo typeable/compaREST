@@ -1,6 +1,6 @@
 # OpenApi comparison benchmarks
 
-This is a nix expression that automatically downloads, builds and runs multiple OpenApi comparison tools on the same set of inputs to compare how well they behave.
+This is a nix expression that automatically downloads, builds and runs multiple OpenAPI comparison tools on the same set of inputs to compare how well they behave.
 
 To run the benchmarks run the following command in this directory:
 
@@ -12,7 +12,7 @@ nix-build
 
 | Tool                                                                       | Output file name                            |
 | -------------------------------------------------------------------------- | ------------------------------------------- |
-| [Typeable OpenApi Diff](https://github.com/typeable/openapi-diff)          | `typeable.md`                               |
+| [Typeable CompaREST](https://github.com/typeable/compaREST)                | `typeable.md`                               |
 | [Atlassian OpenApi Diff](https://bitbucket.org/atlassian/openapi-diff)     | `atlassian.json`, `atlassian.error.txt`     |
 | [OpenApi Tools OpenApi Diff](https://github.com/OpenAPITools/openapi-diff) | `openapitools.md`, `openapitools.error.txt` |
 | [Tufin OpenApi Diff](https://github.com/tufin/oasdiff)                     | `oasdiff.txt`, `oasdiff.error.txt`          |

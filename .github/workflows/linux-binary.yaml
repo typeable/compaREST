@@ -35,14 +35,14 @@ jobs:
 
       - name: Build
         run: |
-          stack build --ghc-options=-O3 --local-bin-path openapi-diff-linux --copy-bins --flag openapi-diff:Static
+          stack build --ghc-options=-O3 --local-bin-path comparest-linux --copy-bins --flag comparest:Static
       - name: Test
-        run: stack test --ghc-options=-O3 --flag openapi-diff:Static --test-arguments='--hide-successes --no-create'
+        run: stack test --ghc-options=-O3 --flag comparest:Static --test-arguments='--hide-successes --no-create'
 
       - name: Zip
         if: github.ref == 'refs/heads/master'
         run: |
-          zip openapi-diff-linux openapi-diff-linux/openapi-diff
+          zip comparest-linux comparest-linux/comparest
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: github.ref == 'refs/heads/master'
         with:

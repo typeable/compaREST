@@ -6,11 +6,11 @@ import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Default
 import Data.Maybe
+import Data.OpenApi.Compare.Options
+import Data.OpenApi.Compare.Run
 import qualified Data.Text.IO as T
 import qualified Data.Yaml as Yaml
 import FormatHeuristic
-import OpenAPI.Checker.Options
-import OpenAPI.Checker.Run
 import System.Exit
 import System.IO
 import Text.Pandoc hiding (report)

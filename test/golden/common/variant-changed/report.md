@@ -1,14 +1,14 @@
 # Summary
 
-| [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
-|------------------------------------------|-------------------------------------------------|-------------------------------|
-| 2                                        | 2                                               | 0                             |
+| [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
+|-----------------------------------------|--------------------------------------------------|
+| 2                                       | 2                                                |
 
-# <span id="breaking-changes"></span>⚠️ Breaking changes
+# <span id="breaking-changes"></span>❌ Breaking changes
 
 ## **POST** /test
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 #### In cases where `$.tag` is `"B"`
 
@@ -16,7 +16,7 @@
 
 The type has been removed.
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 #### In cases where `$.tag` is `"B"`
 
@@ -24,11 +24,11 @@ The type has been removed.
 
 The type has been added.
 
-# <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+# <span id="non-breaking-changes"></span>⚠️ Non-breaking changes
 
 ## **POST** /test
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 #### In cases where `$.tag` is `"B"`
 
@@ -36,7 +36,7 @@ The type has been added.
 
 The type has been added.
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 #### In cases where `$.tag` is `"B"`
 

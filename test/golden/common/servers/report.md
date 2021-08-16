@@ -1,10 +1,10 @@
 # Summary
 
-| [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
-|------------------------------------------|-------------------------------------------------|-------------------------------|
-| 3                                        | 1                                               | 0                             |
+| [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
+|-----------------------------------------|--------------------------------------------------|
+| 3                                       | 1                                                |
 
-# <span id="breaking-changes"></span>⚠️ Breaking changes
+# <span id="breaking-changes"></span>❌ Breaking changes
 
 ## **GET** /pets
 
@@ -18,7 +18,7 @@ The server was removed.
 
 2.  A variable has been changed from being open to being closed.
 
-# <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+# <span id="non-breaking-changes"></span>⚠️ Non-breaking changes
 
 ## **GET** /pets
 

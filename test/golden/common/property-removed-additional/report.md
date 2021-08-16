@@ -1,14 +1,14 @@
 # Summary
 
-| [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
-|------------------------------------------|-------------------------------------------------|-------------------------------|
-| 3                                        | 3                                               | 0                             |
+| [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
+|-----------------------------------------|--------------------------------------------------|
+| 3                                       | 3                                                |
 
-# <span id="breaking-changes"></span>⚠️ Breaking changes
+# <span id="breaking-changes"></span>❌ Breaking changes
 
 ## **POST** /test
 
-### 📱⬅️ JSON Response – 200
+### ⬅️☁️ JSON Response – 200
 
 #### `$.property2`
 
@@ -21,11 +21,11 @@
 
 3.  The property may not be present.
 
-# <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+# <span id="non-breaking-changes"></span>⚠️ Non-breaking changes
 
 ## **POST** /test
 
-### 📱➡️ JSON Request
+### ➡️☁️ JSON Request
 
 #### `$.property2`
 
