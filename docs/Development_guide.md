@@ -3,24 +3,24 @@ CompaREST
 The tool works by simultaneously looking at a pair of nodes in OpenAPI schema
 trees. At every place we try to understand whether one side (the producer) can
 produce something that the other side (the consumer) cannot consume. This often
-involves recursively running the same check on child sub-nodes. The criteria for
-are implemented manually for all types of nodes that appear in the schema. The
-`Subtree` class in `Data.OpenApi.Compare.Subtree` designates types of nodes for
-which this compatibility checking is defined. The implementations for various
-types reside in `Data.OpenApi.Compare.Validate.*`.
+involves recursively running the same check on child sub-nodes. The necessary
+criteria are implemented manually for all types of nodes that appear in the
+schema. The `Subtree` class in `Data.OpenApi.Compare.Subtree` designates types
+of nodes for which this compatibility checking is defined. The implementations
+for various types reside in `Data.OpenApi.Compare.Validate.*`.
 
 Producer/Consumer
 -----------------
 Rather than looking at which schema is the server's and which is the client's,
-in terms of compatinbility checking it is more useful to track which side is the
+in terms of compatibility checking it is more useful to track which side is the
 "producer" and which is the "consumer". At the root of the schema the producer
 is the client, but as we descend into an HTTP response, the direction flips and
 the producer becomes the server.
 
-We deal with a lot of things in pairs, where one thing belongs to the producer,
+We deal with a lot of things in pairs, where one thing belongs to the producer
 and another belongs to the consumer. The `ProdCons` datatype (in
 `Data.OpenApi.Compare.Subtree`) is just a pair type that provides an Applicative
-abstraction for working with two things simultaneously
+abstraction for working with two things simultaneously.
 
 Trees
 -----
@@ -33,8 +33,8 @@ specific type).
 
 A `Trace` is a sequence of steps, except in a path the types of adjacent steps
 have to agree. The `Paths` datatype achieves this. Together all paths form a
-`Category`, and we often concatenate them using `>>>`
-(`Data.OpenApi.Compare.Paths`).
+`Category`, and we often concatenate them using `>>>`. This is defined in
+`Data.OpenApi.Compare.Paths`.
 
 We often keep a node and a path to it next to each other using an environment
 comonad. `Traced` is a type alias around `Env` which ensures that the type of
@@ -53,7 +53,7 @@ the issue. While a `Trace` describes a syntactic path down the schema tree, a
 issue to manifest itself.
 
 In most places where we keep multiple issues (e.g. the output), to store them we
-use a prefix tree map, indexed by both types and values of `Step`s. See
+use a prefix tree map, indexed by both types and values of `Behavior`s. See
 `Data.OpenApi.Compare.PathsPrefixTree`.
 
 Report
@@ -146,4 +146,4 @@ partition by an `enum` value that is accessible via a chain of `required`
 fields.
 
 The same partitioning mechanism is used to test whether the branches of a
-`oneOf` are disjoin, and emit a warning otherwise.
+`oneOf` are disjoint, and emit a warning otherwise.

@@ -3,13 +3,12 @@ CompaREST User Guide
 
 Running the Tool
 ----------------
-
-The tool accepts two OpenAPI 3.0.0 schema files, in either JSON or YAML format.
+The tool accepts two OpenAPI 3.0.0 schema files in either JSON or YAML format.
 One is assumed to be the client version of the schema, and the other is the
 server version.
 
-The tool will look for changes between the schemas, and detect whether they are
-breaking or not, that is, if they prevent interoperability between the client
+The tool will look for changes between the schemas and detect whether they are
+breaking or not -- that is, if they prevent interoperability between the client
 and the server.
 
 Running:
@@ -32,7 +31,6 @@ be 0.
 
 Controlling the Report
 ----------------------
-
 By default the report includes breaking changes, as well as non-breaking:
 changes that would be considered breaking in the opposite direction. To only
 include breaking changes in the report use `--only-breaking`. The `--all` option
