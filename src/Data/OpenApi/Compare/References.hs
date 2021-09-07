@@ -13,7 +13,6 @@ import Data.Maybe
 import Data.OpenApi
 import Data.OpenApi.Compare.Orphans ()
 import Data.OpenApi.Compare.Subtree
-import Data.Typeable
 
 instance Typeable a => Steppable (Referenced a) a where
   data Step (Referenced a) a = InlineStep
