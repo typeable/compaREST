@@ -30,7 +30,7 @@ inputs:
   sha:
     description: The sha of the commit to post to
     required: false
-    default: "${{ github.sha }}"
+    default: "${{ github.event.pull_request.head.sha }}"
 runs:
   using: "docker"
   image: "ilyakooo0/comparest-action:latest"
