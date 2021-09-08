@@ -52,13 +52,3 @@ jobs:
           title: "Pre-Release"
           files: |
             *.zip
-  comparest:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: ./.
-        with:
-          old: test/golden/common/property-removed/a.yaml
-          new: test/golden/common/property-removed/b.yaml
-          project_name: Test project
