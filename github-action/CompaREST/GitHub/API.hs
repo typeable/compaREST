@@ -49,7 +49,7 @@ postStatus ::
 postStatus x = do
   let (body, (title, conclusion)) = case x of
         Just (b, s) -> (b,) $ case s of
-          BreakingChanges -> ("⚠️ Breaking changes found!", CheckFailure)
+          BreakingChanges -> ("⚠️ Breaking changes found!", CheckNeutral)
           NoBreakingChanges -> ("No breaking changes found ✨", CheckSuccess)
           OnlyUnsupportedChanges -> ("🤷 Couldn't determine compatibility", CheckNeutral)
         Nothing -> ("", ("✅ The API did not change", CheckSuccess))
