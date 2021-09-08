@@ -62,27 +62,28 @@ postStatus s conc body = do
   Config {..} <- ask
   -- htmlComment <- getHTMLComment
   -- let body = body' <> htmlComment
-  sendGitHub $
-    checkR
-      repoOwner
-      repoName
-      Check
-        { checkName = mkName Proxy $ "compaREST – " <> projectName
-        , checkSha = sha
-        , checkDetailsURL = Nothing -- !(Maybe URL)
-        , checkExternalId = Nothing -- !(Maybe (Id Check))
-        , checkStatus = Just s -- !(Maybe CheckStatus)
-        , checkStartedAt = Nothing -- !(Maybe UTCTime)
-        , checkConclusion = conc -- !(Maybe CheckConclusion)
-        , checkCompletedAt = Nothing
-        , checkOutput =
-            Just $
-              CheckOutput
-                { checkTitle = "Title" -- !Text
-                , checkSummary = "Summary" -- !Text
-                , checkText = Just body -- !(Maybe Text)
-                , checkAnnotations = Nothing -- !(Maybe (Vector CheckAnnotation))
-                , checkImages = Nothing -- !(Maybe (Vector CheckImage))
-                }
-        , checkActions = Nothing -- !(Maybe (Vector CheckAction))
-        }
+  void $
+    sendGitHub $
+      checkR
+        repoOwner
+        repoName
+        Check
+          { checkName = mkName Proxy $ "compaREST – " <> projectName
+          , checkSha = sha
+          , checkDetailsURL = Nothing -- !(Maybe URL)
+          , checkExternalId = Nothing -- !(Maybe (Id Check))
+          , checkStatus = Just s -- !(Maybe CheckStatus)
+          , checkStartedAt = Nothing -- !(Maybe UTCTime)
+          , checkConclusion = conc -- !(Maybe CheckConclusion)
+          , checkCompletedAt = Nothing
+          , checkOutput =
+              Just $
+                CheckOutput
+                  { checkTitle = "Title" -- !Text
+                  , checkSummary = "Summary" -- !Text
+                  , checkText = Just body -- !(Maybe Text)
+                  , checkAnnotations = Nothing -- !(Maybe (Vector CheckAnnotation))
+                  , checkImages = Nothing -- !(Maybe (Vector CheckImage))
+                  }
+          , checkActions = Nothing -- !(Maybe (Vector CheckAction))
+          }
