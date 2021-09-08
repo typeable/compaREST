@@ -10,10 +10,6 @@ inputs:
     description: The owner of the repo in which to post the comment.
     default: "${{ github.repository }}"
     required: false
-  pull_request:
-    description: The pull request in which to post the comment.
-    default: "${{ github.event.pull_request.number }}"
-    required: false
   project_name:
     description: The name of the project to which the API pertains.
     required: true
@@ -27,18 +23,22 @@ inputs:
   new:
     description: The path to new specification of the API.
     required: true
+  sha:
+    description: The sha of the commit to post the check for.
+    required: false
+    default: "${{ github.event.pull_request.head.sha }}"
 runs:
   using: "docker"
   image: "typeable/comparest-github-action:latest"
   env:
     GITHUB_TOKEN: "${{ inputs.GITHUB_TOKEN }}"
     REPO: "${{ inputs.repo }}"
-    PR_NUMBER: "${{ inputs.pull_request }}"
     PROJECT_NAME: "${{ inputs.project_name }}"
     FOOTER: "${{ inputs.footer }}"
     ROOT: "/github/workspace"
     OLD: "${{ inputs.old }}"
     NEW: "${{ inputs.new }}"
+    SHA: "${{ inputs.sha }}"
   pre-entrypoint: "/bin/pre"
   entrypoint: "/bin/run"
 

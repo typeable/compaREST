@@ -38,11 +38,11 @@ We can now run our action:
       project_name: TEST
 ```
 
-This will create a comment on the pull request displaying the changes (if there are any) similar to this:
+This will create a check on the pull request displaying the changes (if there are any) similar to this:
 
-![](img/github-action-comment.png)
+![](img/github-action-report.png)
 
-Consecutive runs of the action will update the comment instead of creating new ones. This will prevent the pile-up of compaREST comments and save you from distracting notifications.
+The check will show success when there are no breaking changes, and be neutral otherwise.
 
 ## Integrating into something other than Github Actions
 

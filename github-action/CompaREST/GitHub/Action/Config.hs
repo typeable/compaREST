@@ -14,10 +14,10 @@ data Config = Config
   { githubToken :: GH.Auth
   , repoOwner :: GH.Name GH.Owner
   , repoName :: GH.Name GH.Repo
-  , issue :: GH.IssueNumber
   , projectName :: Text
   , footerText :: Text
   , root :: FilePath
+  , sha :: GH.Name GH.Commit
   }
 
 instance FromEnv Config where
@@ -27,17 +27,17 @@ instance FromEnv Config where
       T.split (== '/') <$> env "REPO" >>= \case
         [owner, name] -> pure (owner, name)
         _ -> fail "malformed repo"
-    issue <- GH.IssueNumber <$> env "PR_NUMBER"
     projectName <- env "PROJECT_NAME"
     footerText <- env "FOOTER"
     root <- envMaybe "ROOT" .!= "."
+    sha <- env "SHA"
     pure $
       Config
         { githubToken = token
         , repoOwner = GH.mkName Proxy owner
         , repoName = GH.mkName Proxy repo
-        , issue = issue
         , projectName = projectName
         , footerText = footerText
         , root = root
+        , sha = GH.mkName Proxy sha
         }

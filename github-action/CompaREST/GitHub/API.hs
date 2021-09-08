@@ -1,55 +1,86 @@
 module CompaREST.GitHub.API
-  ( mapComment,
-    createOrUpdateComment,
+  ( postStatus,
+    postStatusProcessing,
   )
 where
 
 import CompaREST.GitHub.Action.Config
-import Control.Monad
 import Control.Monad.Freer
 import Control.Monad.Freer.GitHub
 import Control.Monad.Freer.Reader
-import Data.Foldable
+import Control.Monad.IO.Class
+import Data.Aeson
+import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.OpenApi.Compare.Report
 import Data.Proxy
 import Data.Text (Text)
-import qualified Data.Text as T
-import qualified Data.Vector as V
 import GitHub
-import qualified GitHub as GH
+import GitHub.Data.Checks
+import GitHub.Endpoints.Checks
 
-findComment :: Members '[GitHub, Reader Config] effs => Eff effs (Maybe GH.IssueComment)
-findComment = do
+postStatusProcessing ::
+  (Members '[GitHub, Reader Config] effs, MonadIO (Eff effs)) =>
+  Eff effs ()
+postStatusProcessing = do
   Config {..} <- ask
-  comments <- sendGitHub $ GH.commentsR repoOwner repoName issue GH.FetchAll
-  htmlComment <- getHTMLComment
-  let tryStripPrefix :: GH.IssueComment -> Maybe GH.IssueComment
-      tryStripPrefix c@GH.IssueComment {issueCommentBody = (T.stripSuffix htmlComment -> Just b)} =
-        Just $ c {GH.issueCommentBody = b}
-      tryStripPrefix _ = Nothing
-  pure . (V.!? 0) $ V.mapMaybe tryStripPrefix comments
+  printJSON $
+    sendGitHub $
+      checkR
+        repoOwner
+        repoName
+        Check
+          { checkName = mkName Proxy $ "compaREST – " <> projectName
+          , checkSha = sha
+          , checkDetailsURL = Nothing
+          , checkExternalId = Nothing
+          , checkStatus = Just CheckInProgress
+          , checkStartedAt = Nothing
+          , checkConclusion = Nothing
+          , checkCompletedAt = Nothing
+          , checkOutput = Nothing
+          , checkActions = Nothing
+          }
 
-mapComment :: Members '[GitHub, Reader Config] effs => (Text -> Text) -> Eff effs ()
-mapComment f = do
-  findComment
-    >>= traverse_
-      ( \comment -> do
-          Config {..} <- ask
-          htmlComment <- getHTMLComment
-          sendGitHub $ editCommentR repoOwner repoName (GH.mkId Proxy $ GH.issueCommentId comment) ((<> htmlComment) . f $ GH.issueCommentBody comment)
-          pure ()
-      )
-
-createOrUpdateComment :: Members '[GitHub, Reader Config] effs => Text -> Eff effs ()
-createOrUpdateComment body' = do
+postStatus ::
+  (Members '[GitHub, Reader Config] effs, MonadIO (Eff effs)) =>
+  -- | 'Nothing' means that there were no changes at all
+  Maybe (Text, ReportStatus) ->
+  Eff effs ()
+postStatus x = do
+  let (body, (title, conclusion)) = case x of
+        Just (b, s) -> (b,) $ case s of
+          BreakingChanges -> ("⚠️ Breaking changes found!", CheckNeutral)
+          NoBreakingChanges -> ("No breaking changes found ✨", CheckSuccess)
+          OnlyUnsupportedChanges -> ("🤷 Couldn't determine compatibility", CheckNeutral)
+        Nothing -> ("", ("✅ The API did not change", CheckSuccess))
   Config {..} <- ask
-  htmlComment <- getHTMLComment
-  let body = body' <> htmlComment
-  void $
-    findComment >>= \case
-      Just comment -> sendGitHub $ editCommentR repoOwner repoName (GH.mkId Proxy $ GH.issueCommentId comment) body
-      Nothing -> sendGitHub $ createCommentR repoOwner repoName issue body
+  printJSON $
+    sendGitHub $
+      checkR
+        repoOwner
+        repoName
+        Check
+          { checkName = mkName Proxy $ "compaREST – " <> projectName
+          , checkSha = sha
+          , checkDetailsURL = Nothing
+          , checkExternalId = Nothing
+          , checkStatus = Just CheckCompleted
+          , checkStartedAt = Nothing
+          , checkConclusion = Just conclusion
+          , checkCompletedAt = Nothing
+          , checkOutput =
+              Just $
+                CheckOutput
+                  { checkTitle = title
+                  , checkSummary = body
+                  , checkText = Nothing
+                  , checkAnnotations = Nothing
+                  , checkImages = Nothing
+                  }
+          , checkActions = Nothing
+          }
 
-getHTMLComment :: Member (Reader Config) effs => Eff effs Text
-getHTMLComment = do
-  name <- asks projectName
-  pure $ "\n\n<!-- compaREST comment – " <> name <> " -->"
+printJSON :: MonadIO (Eff effs) => Eff effs Value -> Eff effs ()
+printJSON m = do
+  x <- m
+  liftIO . BSLC.putStrLn $ encode x

@@ -190,6 +190,7 @@ executable comparest-github-action
     , pandoc-types
     , envy
     , filepath
+    , bytestring
   ghc-options:         -threaded
                        -rtsopts
                        -with-rtsopts=-N
@@ -197,6 +198,8 @@ executable comparest-github-action
     Control.Monad.Freer.GitHub
     CompaREST.GitHub.API
     CompaREST.GitHub.Action.Config
+    GitHub.Data.Checks
+    GitHub.Endpoints.Checks
 
 test-suite comparest-tests
   import:              common-options
