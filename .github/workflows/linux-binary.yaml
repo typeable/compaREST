@@ -61,3 +61,4 @@ jobs:
         with:
           old: test/golden/common/property-removed/a.yaml
           new: test/golden/common/property-removed/b.yaml
+          project_name: Test project
