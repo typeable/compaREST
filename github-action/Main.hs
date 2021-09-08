@@ -11,6 +11,7 @@ import Data.OpenApi.Compare.Run
 import Data.Text (Text)
 import qualified Data.Yaml.Aeson as Yaml
 import qualified GitHub as GH
+import GitHub.Data.Checks
 import System.Environment
 import System.Envy (decodeEnv)
 import System.FilePath ((</>))
@@ -77,6 +78,11 @@ runRun cfg old' new' = runner cfg $ do
                 )
                 <> summaryDetail (plain "ℹ️ Details") report
       messageBody = markdown message <> "\n\n" <> footerText cfg
+      checkStatus = case status of
+        BreakingChanges -> CheckFailure
+        NoBreakingChanges -> CheckSuccess
+        OnlyUnsupportedChanges -> CheckFailure
+  postStatus CheckCompleted (Just checkStatus) messageBody
   createOrUpdateComment messageBody
 
 markdown :: Blocks -> Text

@@ -27,9 +27,13 @@ inputs:
   new:
     description: The path to new specification of the API.
     required: true
+  sha:
+    description: The sha of the commit to post to
+    required: false
+    default: "${{ github.sha }}"
 runs:
   using: "docker"
-  image: "typeable/comparest-github-action:latest"
+  image: "ilyakooo0/comparest-action:latest"
   env:
     GITHUB_TOKEN: "${{ inputs.GITHUB_TOKEN }}"
     REPO: "${{ inputs.repo }}"
@@ -39,6 +43,7 @@ runs:
     ROOT: "/github/workspace"
     OLD: "${{ inputs.old }}"
     NEW: "${{ inputs.new }}"
+    SHA: "${{ inputs.sha }}"
   pre-entrypoint: "/bin/pre"
   entrypoint: "/bin/run"
 

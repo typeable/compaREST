@@ -18,6 +18,7 @@ data Config = Config
   , projectName :: Text
   , footerText :: Text
   , root :: FilePath
+  , sha :: GH.Name GH.Commit
   }
 
 instance FromEnv Config where
@@ -31,6 +32,7 @@ instance FromEnv Config where
     projectName <- env "PROJECT_NAME"
     footerText <- env "FOOTER"
     root <- envMaybe "ROOT" .!= "."
+    sha <- env "SHA"
     pure $
       Config
         { githubToken = token
@@ -40,4 +42,5 @@ instance FromEnv Config where
         , projectName = projectName
         , footerText = footerText
         , root = root
+        , sha = GH.mkName Proxy sha
         }

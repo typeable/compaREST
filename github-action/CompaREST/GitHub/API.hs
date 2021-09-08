@@ -1,6 +1,7 @@
 module CompaREST.GitHub.API
   ( mapComment,
     createOrUpdateComment,
+    postStatus,
   )
 where
 
@@ -16,6 +17,8 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import GitHub
 import qualified GitHub as GH
+import GitHub.Data.Checks
+import GitHub.Endpoints.Checks
 
 findComment :: Members '[GitHub, Reader Config] effs => Eff effs (Maybe GH.IssueComment)
 findComment = do
@@ -53,3 +56,33 @@ getHTMLComment :: Member (Reader Config) effs => Eff effs Text
 getHTMLComment = do
   name <- asks projectName
   pure $ "\n\n<!-- compaREST comment – " <> name <> " -->"
+
+postStatus :: Members '[GitHub, Reader Config] effs => CheckStatus -> Maybe CheckConclusion -> Text -> Eff effs ()
+postStatus s conc body = do
+  Config {..} <- ask
+  -- htmlComment <- getHTMLComment
+  -- let body = body' <> htmlComment
+  sendGitHub $
+    checkR
+      repoOwner
+      repoName
+      Check
+        { checkName = mkName Proxy $ "compaREST – " <> projectName
+        , checkSha = sha
+        , checkDetailsURL = Nothing -- !(Maybe URL)
+        , checkExternalId = Nothing -- !(Maybe (Id Check))
+        , checkStatus = Just s -- !(Maybe CheckStatus)
+        , checkStartedAt = Nothing -- !(Maybe UTCTime)
+        , checkConclusion = conc -- !(Maybe CheckConclusion)
+        , checkCompletedAt = Nothing
+        , checkOutput =
+            Just $
+              CheckOutput
+                { checkTitle = "Title" -- !Text
+                , checkSummary = "Summary" -- !Text
+                , checkText = Just body -- !(Maybe Text)
+                , checkAnnotations = Nothing -- !(Maybe (Vector CheckAnnotation))
+                , checkImages = Nothing -- !(Maybe (Vector CheckImage))
+                }
+        , checkActions = Nothing -- !(Maybe (Vector CheckAction))
+        }
