@@ -11,7 +11,6 @@ import Data.OpenApi.Compare.Run
 import Data.Text (Text)
 import qualified Data.Yaml.Aeson as Yaml
 import qualified GitHub as GH
-import GitHub.Data.Checks
 import System.Environment
 import System.Envy (decodeEnv)
 import System.FilePath ((</>))
@@ -38,10 +37,7 @@ runner cfg =
     . runGitHub (githubToken cfg)
 
 runPre :: Config -> IO ()
-runPre cfg =
-  runner cfg $
-    mapComment
-      (markdown (header 4 "⏳ Report might not be accurate. Attempting to update." <> horizontalRule) <>)
+runPre cfg = runner cfg postStatusProcessing
 
 runRun :: Config -> FilePath -> FilePath -> IO ()
 runRun cfg old' new' = runner cfg $ do
@@ -54,36 +50,13 @@ runRun cfg old' new' = runner cfg $ do
           }
       (report, status) = runReport reportConfig (old, new)
 
-      summaryDetail s d =
-        rawHtml "<details>"
-          <> rawHtml "<summary>"
-          <> s
-          <> rawHtml "</summary>"
-          <> d
-          <> rawHtml "</details>"
-        where
-          rawHtml = rawBlock "html"
+      body = markdown report <> "\n\n" <> footerText cfg
 
-      message =
-        header 3 (text $ "⛄ compaREST – " <> projectName cfg)
-          <> if old == new
-            then header 1 "✅ The API did not change"
-            else
-              header
-                1
-                ( case status of
-                    BreakingChanges -> "⚠️ Breaking changes found!"
-                    NoBreakingChanges -> "No breaking changes found ✨"
-                    OnlyUnsupportedChanges -> "🤷 Couldn't determine compatibility"
-                )
-                <> summaryDetail (plain "ℹ️ Details") report
-      messageBody = markdown message <> "\n\n" <> footerText cfg
-      checkStatus = case status of
-        BreakingChanges -> CheckFailure
-        NoBreakingChanges -> CheckSuccess
-        OnlyUnsupportedChanges -> CheckFailure
-  postStatus CheckCompleted (Just checkStatus) messageBody
-  createOrUpdateComment messageBody
+      result =
+        if old == new
+          then Nothing
+          else Just (body, status)
+  postStatus result
 
 markdown :: Blocks -> Text
 markdown =
