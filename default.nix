@@ -45,9 +45,11 @@ let
     ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*
   '';
 
+  compaRESTBin = hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest;
+
   compaREST = pkgs.dockerTools.buildImage {
     name = "compaREST";
-    contents = [ (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest) ];
+    contents = [ (staticify "compaREST-static" compaRESTBin) ];
     config = {
       Entrypoint = [ "/bin/comparest" ];
     };
@@ -68,4 +70,4 @@ let
     };
 
 in
-{ inherit compaREST compaRESTGithubAction hsPkgs haskellNix; }
+{ inherit compaREST compaRESTGithubAction hsPkgs haskellNix compaRESTBin; }
