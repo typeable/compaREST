@@ -37,7 +37,7 @@ jobs:
       - name: Build Linux static binary
         run: |
           mkdir compaREST-binary
-          cp $(nix-build -A compaRESTBin -j auto) -o compaREST-binary/compaREST
+          cp $(nix-build -A compaRESTBin -j auto) compaREST-binary/compaREST
 
       - name: Upload compaREST Github Action Image
         uses: actions/upload-artifact@v2
