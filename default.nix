@@ -21,6 +21,7 @@ let
         dontStrip = false;
         dontPatchELF = false;
         enableDeadCodeElimination = true;
+        ghcOptions = [ "-O2" ];
         packages.comparest.src = nix-filter {
           root = ./.;
           name = "compaREST-src";
