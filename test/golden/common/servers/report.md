@@ -1,8 +1,8 @@
 # Summary
 
 | [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
-|-----------------------------------------|--------------------------------------------------|
-| 3                                       | 1                                                |
+|------------------------------------------|--------------------------------------------------|
+| 3                                        | 1                                                |
 
 # <span id="breaking-changes"></span>❌ Breaking changes
 
