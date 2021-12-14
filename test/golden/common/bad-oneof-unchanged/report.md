@@ -1,8 +1,8 @@
 # Summary
 
 | ❌ Breaking changes | ⚠️ Non-breaking changes | [❓ Unsupported feature changes](#unsupported-changes) |
-|--------------------|-------------------------|-------------------------------------------------------|
-| 0                  | 0                       | 2                                                     |
+|---------------------|-------------------------|--------------------------------------------------------|
+| 0                   | 0                       | 2                                                      |
 
 # <span id="unsupported-changes"></span>❓ Unsupported feature changes
 

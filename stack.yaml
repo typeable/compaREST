@@ -9,3 +9,7 @@ extra-deps:
 
 apply-ghc-options: everything
 rebuild-ghc-options: true
+
+ghc-options:
+  "$everything": -O2 -fexpose-all-unfoldings -fspecialise-aggressively
+  "pandoc": -O2 -fno-expose-all-unfoldings -fno-specialise-aggressively
