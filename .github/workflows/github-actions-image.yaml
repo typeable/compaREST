@@ -33,7 +33,7 @@ jobs:
 
       - name: Build Linux static binary
         run: |
-          cp $(nix-build -A compaRESTStaticBin -j auto)/bin/compaREST compaREST
+          cp $(nix-build -A compaRESTStaticBin -j auto)/bin/comparest compaREST
 
       - name: Upload compaREST Linux Binary
         uses: actions/upload-artifact@v2
