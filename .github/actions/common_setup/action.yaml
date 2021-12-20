@@ -7,24 +7,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install skopeo
-      shell: bash
-      run: |
-        sudo apt-get -y update
-        sudo apt-get -y install skopeo
-
-    - name: Increase swap
-      shell: bash
-      run: |
-        free -h
-
-        sudo swapoff /mnt/swapfile
-        sudo fallocate -l 12G /mnt/swapfile
-        sudo mkswap /mnt/swapfile
-        sudo swapon /mnt/swapfile
-
-        free -h
-
     - name: Install Nix
       uses: cachix/install-nix-action@v16
       with:
@@ -33,8 +15,8 @@ runs:
           trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://hydra.iohk.io https://cache.nixos.org/
 
-    - name: Login to Cachix
-      uses: cachix/cachix-action@v10
-      with:
-        name: octopod
-        signingKey: ${{ inputs.cachixSigningKey }}
+    # - name: Login to Cachix
+    #   uses: cachix/cachix-action@v10
+    #   with:
+    #     name: octopod
+    #     signingKey: ${{ inputs.cachixSigningKey }}

@@ -5,6 +5,8 @@
 , nix-filter ? import sources.nix-filter
 }:
 let
+  masterPkgs = import sources.nixpkgs { inherit system; };
+
   hsPkgs = pkgs.haskell-nix.stackProject {
     src = nix-filter {
       root = ./.;
@@ -21,7 +23,12 @@ let
         dontStrip = false;
         dontPatchELF = false;
         enableDeadCodeElimination = true;
-        ghcOptions = [ "-O2" ];
+        ghcOptions = [
+          "-O2"
+          "-fexpose-all-unfoldings"
+          "-fspecialise-aggressively"
+        ];
+        packages.pandoc.ghcOptions = [ "-O1" ];
         packages.comparest.src = nix-filter {
           root = ./.;
           name = "compaREST-src";
@@ -46,15 +53,34 @@ let
     ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*
   '';
 
-  compaRESTBin = hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest;
+  compaRESTBin = hsPkgs.comparest.components.exes.comparest;
+  compaRESTStaticBin = (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest);
 
-  compaREST = pkgs.dockerTools.buildImage {
+
+  # doesn't work
+  armDarwinCompaREST = hsPkgs.projectCross.aarch64-darwin.hsPkgs.comparest.components.exes.comparest;
+
+  compaRESTImage = pkgs.dockerTools.buildImage {
     name = "compaREST";
-    contents = [ (staticify "compaREST-static" compaRESTBin) ];
+    contents = [ compaRESTStaticBin ];
     config = {
       Entrypoint = [ "/bin/comparest" ];
     };
   };
+
+  macOSCompaRESTBundle = pkgs.runCommand "compaREST-macos-bundled"
+    {
+      buildInputs = [ masterPkgs.macdylibbundler ];
+    } ''
+    mkdir -p $out/lib
+    cp ${compaRESTBin}/bin/comparest $out/comparest
+    chmod 755 $out/comparest
+    dylibbundler -b \
+      -x $out/comparest \
+      -d $out/lib \
+      -p '@executable_path/lib'
+  '';
+
 
   compaRESTGithubAction =
     let
@@ -70,5 +96,16 @@ let
       contents = [ wrapped pkgs.cacert ];
     };
 
+  WindowsCompaRESTBin = hsPkgs.projectCross.mingwW64.hsPkgs.comparest.components.exes.comparest;
 in
-{ inherit compaREST compaRESTGithubAction hsPkgs haskellNix compaRESTBin; }
+{
+  inherit compaRESTImage
+    compaRESTGithubAction
+    compaRESTStaticBin
+    compaRESTBin
+    hsPkgs
+    macOSCompaRESTBundle
+    WindowsCompaRESTBin
+    ;
+  test = hsPkgs.comparest.components.tests.comparest-tests;
+}
