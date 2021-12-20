@@ -90,6 +90,7 @@ jobs:
 
       - name: Build macOS binary bundle
         run: |
+          export NIXPKGS_ALLOW_BROKEN=1
           cp -LR $(nix-build -A macOSCompaRESTBundle -j auto)/bin/compaREST compaREST
 
       - name: Upload macOS compaREST bundle
