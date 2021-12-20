@@ -5,39 +5,46 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
-  workflow_dispatch:
-    inputs:
-      release:
-        description: Release the new version?
-        required: false
-        default: "true"
-      version:
-        description: The version to release
-        required: true
+  release:
+    types: [prereleased]
 
 jobs:
-  build-github-action-image:
+  Linux:
     runs-on: ubuntu-latest
-
     steps:
+      - name: Increase swap
+        shell: bash
+        run: |
+          free -h
+
+          sudo swapoff /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+          free -h
+
       - uses: actions/checkout@v2
         with:
           submodules: recursive
 
       - name: Common setup
         uses: ./.github/actions/common_setup
+
+      - name: Build Linux static binary
+        run: |
+          cp $(nix-build -A compaRESTStaticBin -j auto)/bin/compaREST compaREST
+
+      - name: Upload compaREST Linux Binary
+        uses: actions/upload-artifact@v2
         with:
-          cachixSigningKey: ${{ secrets.CACHIX_SIGNING_KEY }}
+          name: compaREST-Linux
+          path: compaREST
 
       - name: Build Github Action Docker Image
         run: |
           cp $(nix-build -A compaRESTGithubAction -j auto) compaREST-Github-Action-image.tar.gz
-          cp $(nix-build -A compaREST -j auto) compaREST-image.tar.gz
-
-      - name: Build Linux static binary
-        run: |
-          mkdir compaREST-binary
-          cp $(nix-build -A compaRESTBin -j auto)/bin/compaREST compaREST-binary/compaREST
+          cp $(nix-build -A compaRESTImage-j auto) compaREST-image.tar.gz
 
       - name: Upload compaREST Github Action Image
         uses: actions/upload-artifact@v2
@@ -51,60 +58,80 @@ jobs:
           name: compaREST-image
           path: compaREST-image.tar.gz
 
+      - name: Install skopeo
+        shell: bash
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install skopeo
+
+      - name: Login to DockerHub
+        if: github.event_name == 'release'
+        uses: docker/login-action@v1.10.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker Images to DockerHub
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto) docker://typeable/comparest-github-action:${{ github.event.payload.name }}
+          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto) docker://typeable/comparest:${{ github.event.payload.name }}
+
+  macOS:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+
+      - name: Build macOS binary bundle
+        run: |
+          cp -LR $(nix-build -A macOSCompaRESTBundle -j auto)/bin/compaREST compaREST
+
+      - name: Upload macOS compaREST bundle
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST-macOS
+          path: compaREST
+
+  Linux-Windows:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Increase swap
+        shell: bash
+        run: |
+          free -h
+
+          sudo swapoff /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+          free -h
+
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+
+      - name: Build Windows binary
+        run: |
+          cp -LR $(nix-build -A WindowsCompaRESTBin -j auto)/bin compaREST
+
       - name: Upload compaREST Linux Binary
         uses: actions/upload-artifact@v2
         with:
-          name: compaREST-linux
-          path: compaREST-binary/compaREST
+          name: compaREST-Windows
+          path: compaREST
 
-      - name: Push Nightly Docker Images to DockerHub
-        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-        uses: ./.github/actions/push_docker_images
+      - name: Upload Windows compaREST bundle
+        uses: actions/upload-artifact@v2
         with:
-          tag: nightly
-          docker_username: ${{ secrets.DOCKERHUB_USERNAME }}
-          docker_password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-  release:
-    name: Release
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release == 'true'
-    needs: [build-github-action-image]
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/checkout@v2
-      - name: Common setup
-        uses: ./.github/actions/common_setup
-        with:
-          cachixSigningKey: ${{ secrets.CACHIX_SIGNING_KEY }}
-
-      - name: Push Docker Release Images to DockerHub
-        uses: ./.github/actions/push_docker_images
-        with:
-          tag: ${{ github.event.inputs.version }}
-          docker_username: ${{ secrets.DOCKERHUB_USERNAME }}
-          docker_password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Push Docker latest Images to DockerHub
-        uses: ./.github/actions/push_docker_images
-        with:
-          tag: latest
-          docker_username: ${{ secrets.DOCKERHUB_USERNAME }}
-          docker_password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - uses: actions/download-artifact@v2
-      - name: Zip and move
-        run: |
-          chmod +x compaREST-linux/compaREST
-          zip compaREST-linux compaREST-linux/compaREST
-
-          mv compaREST-Github-Action-image/* .
-          mv compaREST-image/* .
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
-          prerelease: false
-          title: "${{ github.event.inputs.version }}"
-          files: |
-            *.zip
-            *.tar.gz
+          name: compaREST-Windows
+          path: compaREST
