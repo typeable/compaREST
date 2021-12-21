@@ -84,10 +84,10 @@ let
 
   compaRESTGithubAction =
     let
-      action = staticify "compaREST-github-action-static" hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.exes.compaREST-github-action;
-      wrapped = pkgs.runCommand "wrapped-compaREST-github-action" { buildInputs = [ pkgs.makeWrapper ]; } ''
-        makeWrapper ${action}/bin/compaREST-github-action $out/bin/pre --add-flags "pre"
-        makeWrapper ${action}/bin/compaREST-github-action $out/bin/run --add-flags "run"
+      action = staticify "compaREST-GitHub-Action-static" hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.exes.compaREST-GitHub-Action;
+      wrapped = pkgs.runCommand "wrapped-compaREST-GitHub-Action" { buildInputs = [ pkgs.makeWrapper ]; } ''
+        makeWrapper ${action}/bin/compaREST-GitHub-Action $out/bin/pre --add-flags "pre"
+        makeWrapper ${action}/bin/compaREST-GitHub-Action $out/bin/run --add-flags "run"
       '';
     in
     pkgs.dockerTools.buildImage {
