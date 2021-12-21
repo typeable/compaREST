@@ -57,16 +57,17 @@ jobs:
       - name: Upload compaREST Github Action Image
         uses: actions/upload-artifact@v2
         with:
-          name: compaREST-Github-Action-image
+          name: compaREST Github Action Docker Image
           path: compaREST-Github-Action-image.tar.gz
 
       - name: Upload compaREST Image
         uses: actions/upload-artifact@v2
         with:
-          name: compaREST-image
+          name: compaREST Docker Image
           path: compaREST-image.tar.gz
 
       - name: Install skopeo
+        if: github.event_name == 'release'
         shell: bash
         run: |
           sudo apt-get -y update
@@ -83,8 +84,35 @@ jobs:
         if: github.event_name == 'release'
         shell: bash
         run: |
-          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto) docker://typeable/comparest-github-action:${{ github.event.payload.name }}
-          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto) docker://typeable/comparest:${{ github.event.payload.name }}
+          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto) docker://typeable/comparest-github-action:${{ github.event.release.tag_name }}
+          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto) docker://typeable/comparest:${{ github.event.release.tag_name }}
+
+      - name: Upload compaREST Github Action Docker Image to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST-Github-Action-image.tar.gz
+          asset_name: compaREST Github Action Docker Image
+          tag: ${{ github.ref }}
+
+      - name: Upload compaREST Docker Image to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST-image.tar.gz
+          asset_name: compaREST Docker Image
+          tag: ${{ github.ref }}
+
+      - name: Upload compaREST binary – Linux – x86 to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST
+          asset_name: compaREST binary – Linux – x86
+          tag: ${{ github.ref }}
 
       - name: Cache Nix post
         uses: ./.github/actions/nix_cache_post
@@ -112,8 +140,17 @@ jobs:
       - name: Upload macOS compaREST bundle
         uses: actions/upload-artifact@v2
         with:
-          name: compaREST-macOS
+          name: compaREST binary – macOS – x86
           path: compaREST
+
+      - name: Upload compaREST binary – macOS – x86 to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST
+          asset_name: compaREST binary – macOS – x86
+          tag: ${{ github.ref }}
 
       - name: Cache Nix post
         uses: ./.github/actions/nix_cache_post
@@ -150,17 +187,20 @@ jobs:
         run: |
           cp -LR $(nix-build -A WindowsCompaRESTBin -j auto)/bin compaREST
 
-      - name: Upload compaREST Linux Binary
-        uses: actions/upload-artifact@v2
-        with:
-          name: compaREST-Windows
-          path: compaREST
-
       - name: Upload Windows compaREST bundle
         uses: actions/upload-artifact@v2
         with:
-          name: compaREST-Windows
+          name: compaREST binary – Windows
           path: compaREST
+
+      - name: Upload compaREST binary – Windows to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST
+          asset_name: compaREST binary – Windows
+          tag: ${{ github.ref }}
 
       - name: Cache Nix post
         uses: ./.github/actions/nix_cache_post
