@@ -33,9 +33,9 @@ jobs:
         with:
           key: |
             Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
-            Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-
-            Linux-${{ hashFiles('**.nix') }}-
-            Linux-
+            Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
+            Linux-${{ hashFiles('**.nix') }}
+            Linux
 
       - name: Build Linux static binary
         shell: bash
@@ -101,9 +101,9 @@ jobs:
         with:
           key: |
             macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
-            macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-
-            macOS-${{ hashFiles('**.nix') }}-
-            macOS-
+            macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
+            macOS-${{ hashFiles('**.nix') }}
+            macOS
 
       - name: Build macOS binary bundle
         run: |
@@ -142,9 +142,9 @@ jobs:
         with:
           key: |
             Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
-            Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-
-            Linux-Windows-${{ hashFiles('**.nix') }}-
-            Linux-Windows-
+            Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
+            Linux-Windows-${{ hashFiles('**.nix') }}
+            Linux-Windows
 
       - name: Build Windows binary
         run: |
