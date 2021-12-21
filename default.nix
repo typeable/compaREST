@@ -98,7 +98,8 @@ let
 
   WindowsCompaRESTBin = hsPkgs.projectCross.mingwW64.hsPkgs.compaREST.components.exes.compaREST;
 in
-builtins.trace hsPkgs.compaREST.components.exes
+builtins.trace
+  hsPkgs.compaREST.components.exes
 {
   inherit compaRESTImage
     compaRESTGithubAction
