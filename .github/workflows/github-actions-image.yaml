@@ -29,7 +29,9 @@ jobs:
           submodules: recursive
 
       - name: Common setup
-        uses: ./.github/actions/common_setup
+        uses: ./.github/actions/nix_cache
+        with:
+          key: Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
 
       - name: Build Linux static binary
         shell: bash
@@ -80,6 +82,9 @@ jobs:
           skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto) docker://typeable/comparest-github-action:${{ github.event.payload.name }}
           skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto) docker://typeable/comparest:${{ github.event.payload.name }}
 
+      - name: Cache Nix post
+        uses: ./.github/actions/nix_cache_post
+
   macOS:
     runs-on: macos-latest
     steps:
@@ -89,6 +94,8 @@ jobs:
 
       - name: Common setup
         uses: ./.github/actions/common_setup
+        with:
+          key: macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
 
       - name: Build macOS binary bundle
         run: |
@@ -99,6 +106,9 @@ jobs:
         with:
           name: compaREST-macOS
           path: compaREST
+
+      - name: Cache Nix post
+        uses: ./.github/actions/nix_cache_post
 
   Linux-Windows:
     runs-on: ubuntu-latest
@@ -121,6 +131,8 @@ jobs:
 
       - name: Common setup
         uses: ./.github/actions/common_setup
+        with:
+          key: Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
 
       - name: Build Windows binary
         run: |
@@ -137,3 +149,6 @@ jobs:
         with:
           name: compaREST-Windows
           path: compaREST
+
+      - name: Cache Nix post
+        uses: ./.github/actions/nix_cache_post
