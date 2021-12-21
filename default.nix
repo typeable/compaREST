@@ -101,7 +101,8 @@ in
 builtins.trace
   hsPkgs.compaREST.components.exes
 {
-  inherit compaRESTImage
+  inherit
+    compaRESTImage
     compaRESTGithubAction
     compaRESTStaticBin
     compaRESTBin
