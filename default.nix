@@ -14,7 +14,7 @@ let
       include = [
         ./stack.yaml
         ./stack.yaml.lock
-        ./comparest.cabal
+        ./compaREST.cabal
       ];
     };
 
@@ -29,11 +29,11 @@ let
           "-fspecialise-aggressively"
         ];
         packages.pandoc.ghcOptions = [ "-O1" ];
-        packages.comparest.src = nix-filter {
+        packages.compaREST.src = nix-filter {
           root = ./.;
           name = "compaREST-src";
           include = with nix-filter; [
-            (./comparest.cabal)
+            (./compaREST.cabal)
             (inDirectory ./test)
             (inDirectory ./src)
             (inDirectory ./app)
@@ -53,30 +53,30 @@ let
     ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*
   '';
 
-  compaRESTBin = hsPkgs.comparest.components.exes.comparest;
-  compaRESTStaticBin = (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest);
+  compaRESTBin = hsPkgs.compaREST.components.exes.compaREST;
+  compaRESTStaticBin = (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.exes.compaREST);
 
 
   # doesn't work
-  armDarwinCompaREST = hsPkgs.projectCross.aarch64-darwin.hsPkgs.comparest.components.exes.comparest;
+  armDarwinCompaREST = hsPkgs.projectCross.aarch64-darwin.hsPkgs.compaREST.components.exes.compaREST;
 
   compaRESTImage = pkgs.dockerTools.buildImage {
     name = "compaREST";
     contents = [ compaRESTStaticBin ];
     config = {
-      Entrypoint = [ "/bin/comparest" ];
+      Entrypoint = [ "/bin/compaREST" ];
     };
   };
 
-  macOSCompaRESTBundle = pkgs.runCommand "compaREST-macos-bundled"
+  macOSCompaRESTBundle = pkgs.runCommand "compaREST-macOS-bundled"
     {
       buildInputs = [ masterPkgs.macdylibbundler ];
     } ''
     mkdir -p $out/lib
-    cp ${compaRESTBin}/bin/comparest $out/comparest
-    chmod 755 $out/comparest
+    cp ${compaRESTBin}/bin/compaREST $out/compaREST
+    chmod 755 $out/compaREST
     dylibbundler -b \
-      -x $out/comparest \
+      -x $out/compaREST \
       -d $out/lib \
       -p '@executable_path/lib'
   '';
@@ -84,19 +84,19 @@ let
 
   compaRESTGithubAction =
     let
-      action = staticify "compaREST-github-action-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest-github-action;
+      action = staticify "compaREST-github-action-static" hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.exes.compaREST-github-action;
       wrapped = pkgs.runCommand "wrapped-compaREST-github-action" { buildInputs = [ pkgs.makeWrapper ]; } ''
-        makeWrapper ${action}/bin/comparest-github-action $out/bin/pre --add-flags "pre"
-        makeWrapper ${action}/bin/comparest-github-action $out/bin/run --add-flags "run"
+        makeWrapper ${action}/bin/compaREST-github-action $out/bin/pre --add-flags "pre"
+        makeWrapper ${action}/bin/compaREST-github-action $out/bin/run --add-flags "run"
       '';
     in
     pkgs.dockerTools.buildImage {
-      name = "typeable/comparest-github-action";
+      name = "typeable/compaREST-GitHub-Action";
       tag = "latest";
       contents = [ wrapped pkgs.cacert ];
     };
 
-  WindowsCompaRESTBin = hsPkgs.projectCross.mingwW64.hsPkgs.comparest.components.exes.comparest;
+  WindowsCompaRESTBin = hsPkgs.projectCross.mingwW64.hsPkgs.compaREST.components.exes.compaREST;
 in
 {
   inherit compaRESTImage
@@ -107,5 +107,5 @@ in
     macOSCompaRESTBundle
     WindowsCompaRESTBin
     ;
-  test = hsPkgs.comparest.components.tests.comparest-tests;
+  test = hsPkgs.compaREST.components.tests.compaREST-tests;
 }

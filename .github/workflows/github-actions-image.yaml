@@ -32,8 +32,9 @@ jobs:
         uses: ./.github/actions/common_setup
 
       - name: Build Linux static binary
+        shell: bash
         run: |
-          cp $(nix-build -A compaRESTStaticBin -j auto)/bin/comparest compaREST
+          cp $(nix-build -A compaRESTStaticBin -j auto)/bin/compaREST compaREST
 
       - name: Upload compaREST Linux Binary
         uses: actions/upload-artifact@v2
@@ -42,6 +43,7 @@ jobs:
           path: compaREST
 
       - name: Build Github Action Docker Image
+        shell: bash
         run: |
           cp $(nix-build -A compaRESTGithubAction -j auto) compaREST-Github-Action-image.tar.gz
           cp $(nix-build -A compaRESTImage-j auto) compaREST-image.tar.gz
@@ -90,7 +92,7 @@ jobs:
 
       - name: Build macOS binary bundle
         run: |
-          cp -LR $(nix-build -A macOSCompaRESTBundle -j auto)/bin/compaREST compaREST
+          cp -LR $(nix-build -A macOSCompaRESTBundle -j auto) compaREST
 
       - name: Upload macOS compaREST bundle
         uses: actions/upload-artifact@v2
