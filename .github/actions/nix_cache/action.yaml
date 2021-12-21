@@ -15,13 +15,17 @@ runs:
           ~/nix/store
         key: ${{ inputs.key }}
     - name: Move nix store
+      shell: bash
+      env:
+        CACHE_HIT: ${{ steps.cache-nix.outputs.cache-hit }}
+      run: |
+        if [[ "$CACHE_HIT" == 'true' ]]; then
+          sudo mkdir -p /nix/store
+          sudo mv -f ~/nix/store/* /nix/store/
+        fi
+    - name: Move nix store post
       uses: ilyakooo0/github-composite-action-pre-post@1.0.0
       with:
-        pre: |
-          if [[ -d ~/nix/store ]]; then
-            sudo mkdir -p /nix/store
-            sudo mv -f ~/nix/store/* /nix/store/
-          fi
         post: |
           mkdir -p ~/nix/store
           sudo mv -f /nix/store/* ~/nix/store/
