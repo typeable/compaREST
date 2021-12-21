@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           cp $(nix-build -A compaRESTGithubAction -j auto) compaREST-Github-Action-image.tar.gz
-          cp $(nix-build -A compaRESTImage-j auto) compaREST-image.tar.gz
+          cp $(nix-build -A compaRESTImage -j auto) compaREST-image.tar.gz
 
       - name: Upload compaREST Github Action Image
         uses: actions/upload-artifact@v2
@@ -114,9 +114,6 @@ jobs:
           asset_name: compaREST binary – Linux – x86
           tag: ${{ github.ref }}
 
-      - name: Cache Nix post
-        uses: ./.github/actions/nix_cache_post
-
   macOS:
     runs-on: macos-latest
     steps:
@@ -151,9 +148,6 @@ jobs:
           file: compaREST
           asset_name: compaREST binary – macOS – x86
           tag: ${{ github.ref }}
-
-      - name: Cache Nix post
-        uses: ./.github/actions/nix_cache_post
 
   Linux-Windows:
     runs-on: ubuntu-latest
@@ -201,6 +195,3 @@ jobs:
           file: compaREST
           asset_name: compaREST binary – Windows
           tag: ${{ github.ref }}
-
-      - name: Cache Nix post
-        uses: ./.github/actions/nix_cache_post
