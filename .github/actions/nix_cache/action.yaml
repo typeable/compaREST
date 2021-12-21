@@ -1,0 +1,25 @@
+name: "Nix cache"
+description: "Cache nix build"
+inputs:
+  key:
+    description: "Caching key"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Cache Nix
+      id: cache-nix
+      uses: actions/cache@latest
+      with:
+        path: |
+          ~/nix/store
+        key: ${{ inputs.key }}
+    - name: Move nix cache
+      shell: bash
+      env:
+        CACHE_HIT: ${{ steps.cache-nix.outputs.cache-hit }}
+      run: |
+        if [[ "$CACHE_HIT" == 'true' ]]; then
+          sudo mkdir -p $NIX_STORE
+          sudo mv -f ~/nix/store/* /nix/store/
+        fi
