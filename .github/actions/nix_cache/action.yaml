@@ -9,7 +9,7 @@ runs:
   steps:
     - name: Cache Nix
       id: cache-nix
-      uses: actions/cache@latest
+      uses: actions/cache@v2.1.7
       with:
         path: |
           ~/nix/store
