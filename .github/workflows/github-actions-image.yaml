@@ -29,7 +29,7 @@ jobs:
           submodules: recursive
 
       - name: Common setup
-        uses: ./.github/actions/nix_cache
+        uses: ./.github/actions/common_setup
         with:
           key: Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
 
