@@ -4,6 +4,9 @@ inputs:
   key:
     description: "Caching key"
     required: true
+  restore-keys:
+    description: "Restore keys"
+    required: false
 runs:
   using: "composite"
   steps:
@@ -19,3 +22,4 @@ runs:
       uses: ./.github/actions/nix_cache
       with:
         key: ${{ inputs.key }}
+        restore-keys: ${{ inputs.restore-keys }}

@@ -31,12 +31,11 @@ jobs:
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
-          key: |
-            Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          key: Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          restore-keys: |
             Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
             Linux-${{ hashFiles('**.nix') }}
             Linux
-
       - name: Build Linux static binary
         shell: bash
         run: |
@@ -124,8 +123,8 @@ jobs:
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
-          key: |
-            macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          key: macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          restore-keys: |
             macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
             macOS-${{ hashFiles('**.nix') }}
             macOS
@@ -171,8 +170,8 @@ jobs:
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
-          key: |
-            Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          key: Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          restore-keys: |
             Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
             Linux-Windows-${{ hashFiles('**.nix') }}
             Linux-Windows
