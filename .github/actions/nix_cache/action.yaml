@@ -12,7 +12,7 @@ runs:
       uses: actions/cache@v2.1.7
       with:
         path: |
-          ~/nix/store
+          ~/nix
         key: ${{ inputs.key }}
     - name: Move nix store
       shell: bash
@@ -20,12 +20,12 @@ runs:
         CACHE_HIT: ${{ steps.cache-nix.outputs.cache-hit }}
       run: |
         if [[ "$CACHE_HIT" == 'true' ]]; then
-          sudo mkdir -p /nix/store
-          sudo mv -f ~/nix/store/* /nix/store/
+          sudo mkdir -p /nix
+          sudo mv -f ~/nix/* /nix/
         fi
     - name: Move nix store post
       uses: ilyakooo0/github-composite-action-pre-post@1.0.0
       with:
         post: |
-          mkdir -p ~/nix/store
-          sudo mv -f /nix/store/* ~/nix/store/
+          mkdir -p ~/nix
+          sudo mv -f /nix/* ~/nix/
