@@ -21,8 +21,9 @@ runs:
     - name: make nix store writable
       shell: bash
       run: |
+        sudo mkdir /nix
         sudo chown -R $USER /nix
-        sudo rm -rf /nix/*
+        # sudo rm -rf /nix/*
     - name: Cache Nix
       id: cache-nix
       uses: actions/cache@v2.1.7
