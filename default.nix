@@ -108,6 +108,7 @@ builtins.trace
     compaRESTStaticBin
     compaRESTBin
     hsPkgs
+
     macOSCompaRESTBundle
     WindowsCompaRESTBin
     ;

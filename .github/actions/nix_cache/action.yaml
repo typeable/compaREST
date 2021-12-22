@@ -38,7 +38,6 @@ runs:
       run: |
         ls ~
         echo
-        ls ~/nix
         if [[ -d ~/nix ]]; then
           echo "in"
           ls ~/nix
