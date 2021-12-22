@@ -30,7 +30,9 @@ runs:
       uses: actions/cache@v2.1.7
       with:
         path: |
-          ~/nix
+          ~/nix/store/
+          ~/nix/var/nix/profiles/
+          ~/nix/var/nix/db/
         key: ${{ inputs.key }}
         restore-keys: ${{ inputs.restore-keys }}
     - name: make nix store writable
@@ -41,5 +43,7 @@ runs:
         if [[ -d ~/nix ]]; then
           echo "in"
           ls ~/nix
-          sudo mv -f ~/nix/* /nix/*
+          sudo mv -f ~/nix/store/* /nix/store/
+          sudo mv -f ~/nix/var/nix/profiles/* /nix/var/nix/profiles/
+          sudo mv -f ~/nix/var/nix/db/* /nix/var/nix/db/
         fi
