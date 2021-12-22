@@ -16,19 +16,22 @@ runs:
       uses: actions/cache@v2.1.7
       with:
         path: |
-          ~/nix/store
+          /nix/store/
+          /nix/var/nix/profiles/per-user/${{ env.USER }}/profile/bin
+          /nix/var/nix/profiles/default/bin/
+          /nix/var/nix/profiles/per-user/root/channels
         key: ${{ inputs.key }}
         restore-keys: ${{ inputs.restore-keys }}
-    - name: Move nix store
-      shell: bash
-      run: |
-        echo
-        ls /nix/store
-        if [[ -d "~/nix/store/" ]]; then
-          echo
-          ls ~/nix/store
-          sudo mkdir -p /nix/store
-          sudo mv -f ~/nix/store/* /nix/store/
-        fi
-        echo
-        ls /nix/store
+    # - name: Move nix store
+    #   shell: bash
+    #   run: |
+    #     echo
+    #     ls /nix/store
+    #     if [[ -d "~/nix/store/" ]]; then
+    #       echo
+    #       ls ~/nix/store
+    #       sudo mkdir -p /nix/store
+    #       sudo mv -f ~/nix/store/* /nix/store/
+    #     fi
+    #     echo
+    #     ls /nix/store
