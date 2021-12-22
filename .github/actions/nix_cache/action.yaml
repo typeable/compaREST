@@ -21,10 +21,8 @@ runs:
         restore-keys: ${{ inputs.restore-keys }}
     - name: Move nix store
       shell: bash
-      env:
-        CACHE_HIT: ${{ steps.cache-nix.outputs.cache-hit }}
       run: |
-        if [[ "$CACHE_HIT" == 'true' ]]; then
+        if [[ -d "~/nix/store/" ]]; then
           sudo mkdir -p /nix/store
           sudo mv -f ~/nix/store/* /nix/store/
         fi
