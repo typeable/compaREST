@@ -6,7 +6,6 @@ runs:
     - name: Move nix store
       shell: bash
       run: |
-        mkdir -p ~/nix/store/ ~/nix/var/nix/profiles/ ~/nix/var/nix/db/
+        mkdir -p ~/nix/store/ ~/nix/var/nix/db/
         sudo mv -f /nix/store/* ~/nix/store/
-        sudo mv -f /nix/var/nix/profiles/* ~/nix/var/nix/profiles/
         sudo mv -f /nix/var/nix/db/* ~/nix/var/nix/db/

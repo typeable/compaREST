@@ -31,7 +31,6 @@ runs:
       with:
         path: |
           ~/nix/store/
-          ~/nix/var/nix/profiles/
           ~/nix/var/nix/db/
         key: ${{ inputs.key }}
         restore-keys: ${{ inputs.restore-keys }}
@@ -44,6 +43,5 @@ runs:
           echo "in"
           ls ~/nix
           sudo mv -f ~/nix/store/* /nix/store/
-          sudo mv -f ~/nix/var/nix/profiles/* /nix/var/nix/profiles/
           sudo mv -f ~/nix/var/nix/db/* /nix/var/nix/db/
         fi
