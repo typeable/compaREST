@@ -36,6 +36,9 @@ runs:
     - name: make nix store writable
       shell: bash
       run: |
+        ls ~
+        echo
+        ls ~/nix
         if [[ -d ~/nix ]]; then
           echo "in"
           ls ~/nix
