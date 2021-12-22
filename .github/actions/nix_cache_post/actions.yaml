@@ -1,0 +1,10 @@
+name: "Nix cache post"
+description: "Cache nix build post"
+runs:
+  using: "composite"
+  steps:
+    - name: Move nix store
+      shell: bash
+      run: |
+        mkdir -p ~/nix
+        sudo mv -f /nix/* ~/nix/
