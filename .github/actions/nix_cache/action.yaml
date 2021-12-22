@@ -16,7 +16,7 @@ runs:
       uses: actions/cache@v2.1.7
       with:
         path: |
-          ~/nix
+          ~/nix/store
         key: ${{ inputs.key }}
         restore-keys: ${{ inputs.restore-keys }}
     - name: Move nix store
@@ -25,6 +25,6 @@ runs:
         CACHE_HIT: ${{ steps.cache-nix.outputs.cache-hit }}
       run: |
         if [[ "$CACHE_HIT" == 'true' ]]; then
-          sudo mkdir -p /nix
-          sudo mv -f ~/nix/* /nix/
+          sudo mkdir -p /nix/store
+          sudo mv -f ~/nix/store/* /nix/store/
         fi
