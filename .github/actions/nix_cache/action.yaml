@@ -18,20 +18,6 @@ runs:
     #       system-features = kvm
     #       trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
     #       substituters = https://hydra.iohk.io https://cache.nixos.org/
-    - name: make nix store writable
-      shell: bash
-      run: |
-        sudo mkdir /nix
-        sudo chown -R $USER /nix
-        # sudo rm -rf /nix/*
-    - name: Cache Nix
-      id: cache-nix
-      uses: actions/cache@v2.1.7
-      with:
-        path: |
-          /nix
-        key: ${{ inputs.key }}
-        restore-keys: ${{ inputs.restore-keys }}
     - name: Install Nix
       uses: cachix/install-nix-action@v16
       with:
@@ -39,16 +25,17 @@ runs:
           system-features = kvm
           trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://hydra.iohk.io https://cache.nixos.org/
-    # - name: Move nix store
-    #   shell: bash
-    #   run: |
-    #     echo
-    #     ls /nix/store
-    #     if [[ -d "~/nix/store/" ]]; then
-    #       echo
-    #       ls ~/nix/store
-    #       sudo mkdir -p /nix/store
-    #       sudo mv -f ~/nix/store/* /nix/store/
-    #     fi
-    #     echo
-    #     ls /nix/store
+    - name: Cache Nix
+      id: cache-nix
+      uses: actions/cache@v2.1.7
+      with:
+        path: |
+          ~/nix
+        key: ${{ inputs.key }}
+        restore-keys: ${{ inputs.restore-keys }}
+    - name: make nix store writable
+      shell: bash
+      run: |
+        if [[ -d ~/nix ]]; then
+          sudo mv -f ~/nix/* /nix/*
+        fi
