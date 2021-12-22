@@ -14,7 +14,7 @@ runs:
     - name: make nix store writable
       shell: bash
       run: |
-        sudo chmod +w /nix/store
+        sudo chown -R $USER /nix/store
     - name: Cache Nix
       id: cache-nix
       uses: actions/cache@v2.1.7
