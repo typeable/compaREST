@@ -37,5 +37,7 @@ runs:
       shell: bash
       run: |
         if [[ -d ~/nix ]]; then
+          echo "in"
+          ls ~/nix
           sudo mv -f ~/nix/* /nix/*
         fi
