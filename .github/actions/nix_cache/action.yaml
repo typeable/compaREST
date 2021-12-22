@@ -22,7 +22,9 @@ runs:
     - name: Move nix store
       shell: bash
       run: |
+        ls ~/nix/store
         if [[ -d "~/nix/store/" ]]; then
           sudo mkdir -p /nix/store
           sudo mv -f ~/nix/store/* /nix/store/
+          ls /nix/store
         fi
