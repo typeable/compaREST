@@ -17,7 +17,7 @@ runs:
       with:
         path: |
           /nix/store/
-          /nix/var/nix/profiles/per-user/${{ env.USER }}/profile/bin
+          /nix/var/nix/profiles/per-user/
           /nix/var/nix/profiles/default/bin/
           /nix/var/nix/profiles/per-user/root/channels
         key: ${{ inputs.key }}

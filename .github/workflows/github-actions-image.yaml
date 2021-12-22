@@ -113,9 +113,6 @@ jobs:
           asset_name: compaREST binary – Linux – x86
           tag: ${{ github.ref }}
 
-      - name: Cache Nix post
-        uses: ./.github/actions/nix_cache_post
-
   macOS:
     runs-on: macos-latest
     steps:
@@ -150,9 +147,6 @@ jobs:
           file: compaREST
           asset_name: compaREST binary – macOS – x86
           tag: ${{ github.ref }}
-
-      - name: Cache Nix post
-        uses: ./.github/actions/nix_cache_post
 
   Linux-Windows:
     runs-on: ubuntu-latest
@@ -200,6 +194,3 @@ jobs:
           file: compaREST
           asset_name: compaREST binary – Windows
           tag: ${{ github.ref }}
-
-      - name: Cache Nix post
-        uses: ./.github/actions/nix_cache_post

@@ -32,7 +32,6 @@ common common-options
   build-depends:       base >= 4.12.0.0 && < 4.16
                      , text
 
-
   default-extensions: ApplicativeDo
                     , BangPatterns
                     , ConstraintKinds
