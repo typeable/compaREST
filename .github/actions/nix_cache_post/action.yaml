@@ -7,5 +7,5 @@ runs:
       shell: bash
       run: |
         mkdir -p ~/nix/store/ ~/nix/var/nix/db/
-        sudo mv -f /nix/store/* ~/nix/store/
-        sudo mv -f /nix/var/nix/db/* ~/nix/var/nix/db/
+        find -d /nix/store -maxdepth 1 | sudo xargs -I {} mv -f {} ~/nix/store/
+        sudo mv -f /nix/var/nix/db/db.sqlite ~/nix/var/nix/db/db.sqlite
