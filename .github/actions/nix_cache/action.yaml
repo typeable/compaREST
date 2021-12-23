@@ -42,6 +42,6 @@ runs:
         if [[ -d ~/nix ]]; then
           echo "in"
           ls ~/nix
-          mv -f ~/nix/store /nix/store
+          sudo mv -f ~/nix/store /nix/store
           sudo mv -f ~/nix/var/nix/db/db.sqlite /nix/var/nix/db/db.sqlite
         fi
