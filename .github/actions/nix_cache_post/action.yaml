@@ -6,6 +6,6 @@ runs:
     - name: Move nix store
       shell: bash
       run: |
-        mkdir -p ~/nix/store/ ~/nix/var/nix/db/
-        find /nix/store -maxdepth 1 | sudo xargs -I {} mv -f {} ~/nix/store/
+        mkdir -p ~/nix ~/nix/var/nix/db/
+        mv -f /nix/store ~/nix/store
         sudo mv -f /nix/var/nix/db/db.sqlite ~/nix/var/nix/db/db.sqlite
