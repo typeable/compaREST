@@ -42,6 +42,6 @@ runs:
         if [[ -d ~/nix ]]; then
           echo "in"
           ls ~/nix
-          find -d ~/nix/store -maxdepth 1 | sudo xargs -I {} mv -f {} /nix/store/
+          find ~/nix/store -maxdepth 1 | sudo xargs -I {} mv -f {} /nix/store/
           sudo mv -f ~/nix/var/nix/db/db.sqlite /nix/var/nix/db/db.sqlite
         fi
