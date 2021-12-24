@@ -24,12 +24,11 @@ let
         dontPatchELF = false;
         enableDeadCodeElimination = true;
         ghcOptions = [
-          # "-O2"
-          # "-fexpose-all-unfoldings"
-          # "-fspecialise-aggressively"
-          "-O0"
+          "-O2"
+          "-fexpose-all-unfoldings"
+          "-fspecialise-aggressively"
         ];
-        # packages.pandoc.ghcOptions = [ "-O1" ];
+        packages.pandoc.ghcOptions = [ "-O1" ];
         packages.compaREST.src = nix-filter {
           root = ./.;
           name = "compaREST-src";
