@@ -1,15 +1,37 @@
 name: "Common setup"
 description: "Common setup steps"
 inputs:
-  key:
-    description: "Caching key"
+  authToken:
+    description: "Cachix auth token"
     required: true
-  restore-keys:
-    description: "Restore keys"
-    required: false
 runs:
   using: "composite"
   steps:
+    - name: Increase swap if linux
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+
+          echo "Is Linux"
+
+          free -h
+
+          sudo swapoff /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+          free -h
+
+        else
+
+          echo "Not Linux"
+
+        fi
+
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
     - name: Install Nix
       uses: cachix/install-nix-action@v16
       with:
@@ -17,8 +39,7 @@ runs:
           system-features = kvm
           trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://hydra.iohk.io https://cache.nixos.org/
-    - name: Cache Nix
-      uses: ./.github/actions/nix_cache
+    - uses: cachix/cachix-action@v10
       with:
-        key: ${{ inputs.key }}
-        restore-keys: ${{ inputs.restore-keys }}
+        name: typeable
+        authToken: "${{ inputs.authToken }}"

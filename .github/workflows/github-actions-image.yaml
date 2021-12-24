@@ -12,30 +12,11 @@ jobs:
   Linux:
     runs-on: ubuntu-latest
     steps:
-      - name: Increase swap
-        shell: bash
-        run: |
-          free -h
-
-          sudo swapoff /mnt/swapfile
-          sudo fallocate -l 12G /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
-
-          free -h
-
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
-          key: Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
-          restore-keys: |
-            Linux-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
-            Linux-${{ hashFiles('**.nix') }}
-            Linux
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
       - name: Build Linux static binary
         shell: bash
         run: |
@@ -113,24 +94,13 @@ jobs:
           asset_name: compaREST binary – Linux – x86
           tag: ${{ github.ref }}
 
-      - name: Cahce post
-        uses: ./.github/actions/nix_cache_post
-
   macOS:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
-          key: macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
-          restore-keys: |
-            macOS-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
-            macOS-${{ hashFiles('**.nix') }}
-            macOS
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Build macOS binary bundle
         run: |
@@ -151,36 +121,13 @@ jobs:
           asset_name: compaREST binary – macOS – x86
           tag: ${{ github.ref }}
 
-      - name: Cahce post
-        uses: ./.github/actions/nix_cache_post
-
   Linux-Windows:
     runs-on: ubuntu-latest
     steps:
-      - name: Increase swap
-        shell: bash
-        run: |
-          free -h
-
-          sudo swapoff /mnt/swapfile
-          sudo fallocate -l 12G /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
-
-          free -h
-
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
-          key: Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
-          restore-keys: |
-            Linux-Windows-${{ hashFiles('**.nix') }}-${{ hashFiles('stack.yaml') }}
-            Linux-Windows-${{ hashFiles('**.nix') }}
-            Linux-Windows
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Build Windows binary
         run: |
@@ -200,6 +147,3 @@ jobs:
           file: compaREST
           asset_name: compaREST binary – Windows
           tag: ${{ github.ref }}
-
-      - name: Cahce post
-        uses: ./.github/actions/nix_cache_post
