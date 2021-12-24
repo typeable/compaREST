@@ -12,6 +12,10 @@ jobs:
   Linux:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
@@ -97,6 +101,10 @@ jobs:
   macOS:
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
@@ -124,6 +132,10 @@ jobs:
   Linux-Windows:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
       - name: Common setup
         uses: ./.github/actions/common_setup
         with:
