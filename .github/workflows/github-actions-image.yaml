@@ -17,6 +17,7 @@ jobs:
         run: |
           if [ "$(awk -F ':' '/^version/ {gsub(/ /, "", $2); print $2}' compaREST.cabal)" != "0.0.0.1" ]; then
             echo "::error file=compaREST.cabal::Library version does not match release version."
+            exit 1
           fi
 
       - name: Check docker tag
@@ -24,6 +25,7 @@ jobs:
         run: |
           if [ "$(yq eval '.runs.image' action.yaml | awk -F ':' '{print $NF}')" != "latet" ]; then
             echo "::error file=action.yaml::Action docker tag does not match release tag."
+            exit 1
           fi
 
   Linux:
