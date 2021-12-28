@@ -23,7 +23,7 @@ jobs:
 
       - name: Run policeman
         run: |
-          jq --argjson msg $(nix-build ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs .) ".[0].message = \$msg" <policeman.json  >message.json
+          jq --argjson msg "$( $(nix-build ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . )" ".[0].message = \$msg" <policeman.json  >message.json
           cat message.json
 
       - name: Post notice
