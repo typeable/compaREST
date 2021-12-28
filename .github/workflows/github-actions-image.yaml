@@ -29,6 +29,7 @@ jobs:
       - name: Post notice
         uses: yuzutech/annotations-action@v0.4.0
         with:
+          title: 👮 Policeman
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           input: "./message.json"
 
