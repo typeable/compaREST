@@ -9,9 +9,36 @@ on:
     types: [prereleased]
 
 jobs:
+  policeman:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Run policeman
+        run: |
+          jq --argjson msg $($(nix-build ci/policeman.nix)/bin/policeman | jq -aRs .) ".[0].message = \$msg" <policeman.json  >message.json
+          cat message.json
+
+      - name: Post notice
+        uses: yuzutech/annotations-action@v0.4.0
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          input: "./message.json"
+
   check_versions:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
       - name: Check library version
         if: github.event_name == 'release'
         run: |
