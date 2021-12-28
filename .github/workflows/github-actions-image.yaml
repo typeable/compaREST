@@ -82,13 +82,18 @@ jobs:
           skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto --no-out-link) docker://typeable/comparest-github-action:${{ github.event.release.tag_name }}
           skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto --no-out-link) docker://typeable/comparest:${{ github.event.release.tag_name }}
 
+      - name: Zip Release Assets
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          zip compaREST-Linux-x86.zip compaREST
+
       - name: Upload compaREST Github Action Docker Image to release
         if: github.event_name == 'release'
         uses: svenstaro/upload-release-action@2.2.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: compaREST-Github-Action-image.tar.gz
-          asset_name: compaREST Github Action Docker Image
           tag: ${{ github.ref }}
 
       - name: Upload compaREST Docker Image to release
@@ -97,7 +102,6 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: compaREST-image.tar.gz
-          asset_name: compaREST Docker Image
           tag: ${{ github.ref }}
 
       - name: Upload compaREST binary – Linux – x86 to release
@@ -105,8 +109,7 @@ jobs:
         uses: svenstaro/upload-release-action@2.2.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: compaREST
-          asset_name: compaREST binary – Linux – x86
+          file: compaREST-Linux-x86.zip
           tag: ${{ github.ref }}
 
   macOS:
@@ -131,13 +134,18 @@ jobs:
           name: compaREST binary – macOS – x86
           path: compaREST
 
+      - name: Zip Release Assets
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          zip -r compaREST-macOS-x86.zip compaREST
+
       - name: Upload compaREST binary – macOS – x86 to release
         if: github.event_name == 'release'
         uses: svenstaro/upload-release-action@2.2.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: compaREST
-          asset_name: compaREST binary – macOS – x86
+          file: compaREST-macOS-x86.zip
           tag: ${{ github.ref }}
 
   Linux-Windows:
@@ -162,11 +170,16 @@ jobs:
           name: compaREST binary – Windows
           path: compaREST
 
+      - name: Zip Release Assets
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          zip -r compaREST-Windows.zip compaREST
+
       - name: Upload compaREST binary – Windows to release
         if: github.event_name == 'release'
         uses: svenstaro/upload-release-action@2.2.1
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: compaREST
-          asset_name: compaREST binary – Windows
+          file: compaREST-Windows.zip
           tag: ${{ github.ref }}
