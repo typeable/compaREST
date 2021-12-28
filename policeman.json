@@ -1,5 +1,7 @@
 [{
   "file": "compaREST.cabal",
   "title": "👮 Policeman",
-  "annotation_level": "notice"
+  "annotation_level": "notice",
+  "start-line": 0,
+  "end_lins": 0
 }]

@@ -42,7 +42,7 @@ jobs:
       - name: Check library version
         if: github.event_name == 'release'
         run: |
-          if [ "$(awk -F ':' '/^version/ {gsub(/ /, "", $2); print $2}' compaREST.cabal)" != "0.0.0.1" ]; then
+          if [ "$(awk -F ':' '/^version/ {gsub(/ /, "", $2); print $2}' compaREST.cabal)" != "${{ github.event.release.tag_name }}" ]; then
             echo "::error file=compaREST.cabal::Library version does not match release version."
             exit 1
           fi
@@ -50,7 +50,7 @@ jobs:
       - name: Check docker tag
         if: github.event_name == 'release'
         run: |
-          if [ "$(yq eval '.runs.image' action.yaml | awk -F ':' '{print $NF}')" != "latet" ]; then
+          if [ "$(yq eval '.runs.image' action.yaml | awk -F ':' '{print $NF}')" != "${{ github.event.release.tag_name }}" ]; then
             echo "::error file=action.yaml::Action docker tag does not match release tag."
             exit 1
           fi
