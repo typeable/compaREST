@@ -98,8 +98,6 @@ let
 
   WindowsCompaRESTBin = hsPkgs.projectCross.mingwW64.hsPkgs.compaREST.components.exes.compaREST;
 in
-builtins.trace
-  hsPkgs.compaREST.components.exes
 {
   inherit
     compaRESTImage
@@ -107,9 +105,10 @@ builtins.trace
     compaRESTStaticBin
     compaRESTBin
     hsPkgs
-
     macOSCompaRESTBundle
-    WindowsCompaRESTBin
-    ;
-  test = hsPkgs.compaREST.components.tests.compaREST-tests;
+    WindowsCompaRESTBin;
+
+  # We use the static version so that we don't have to rebuild everything on CI.
+  # The only binaries build on CI are static.
+  test = hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.tests.compaREST-tests;
 }

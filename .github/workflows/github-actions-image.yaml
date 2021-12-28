@@ -21,10 +21,15 @@ jobs:
         with:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      - name: Test
+        shell: bash
+        run: |
+          $(nix-build -A test -j auto --no-out-link)/bin/compaREST-tests
+
       - name: Build Linux static binary
         shell: bash
         run: |
-          cp $(nix-build -A compaRESTStaticBin -j auto)/bin/compaREST compaREST
+          cp $(nix-build -A compaRESTStaticBin -j auto --no-out-link)/bin/compaREST compaREST
 
       - name: Upload compaREST Linux Binary
         uses: actions/upload-artifact@v2
@@ -32,19 +37,19 @@ jobs:
           name: compaREST-Linux
           path: compaREST
 
-      - name: Build Github Action Docker Image
+      - name: Build Docker Images
         shell: bash
         run: |
-          cp $(nix-build -A compaRESTGithubAction -j auto) compaREST-Github-Action-image.tar.gz
-          cp $(nix-build -A compaRESTImage -j auto) compaREST-image.tar.gz
+          cp $(nix-build -A compaRESTGithubAction -j auto --no-out-link) compaREST-Github-Action-image.tar.gz
+          cp $(nix-build -A compaRESTImage -j auto --no-out-link) compaREST-image.tar.gz
 
-      - name: Upload compaREST Github Action Image
+      - name: Upload compaREST Docker Github Action Image
         uses: actions/upload-artifact@v2
         with:
           name: compaREST Github Action Docker Image
           path: compaREST-Github-Action-image.tar.gz
 
-      - name: Upload compaREST Image
+      - name: Upload compaREST Docker Image
         uses: actions/upload-artifact@v2
         with:
           name: compaREST Docker Image
@@ -58,18 +63,24 @@ jobs:
           sudo apt-get -y install skopeo
 
       - name: Login to DockerHub
-        if: github.event_name == 'release'
         uses: docker/login-action@v1.10.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Push Docker Images to DockerHub
+      - name: Push Nightly Docker Images to DockerHub
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        shell: bash
+        run: |
+          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto --no-out-link) docker://typeable/comparest-github-action:nightly
+          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto --no-out-link) docker://typeable/comparest:nightly
+
+      - name: Push Release Docker Images to DockerHub
         if: github.event_name == 'release'
         shell: bash
         run: |
-          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto) docker://typeable/comparest-github-action:${{ github.event.release.tag_name }}
-          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto) docker://typeable/comparest:${{ github.event.release.tag_name }}
+          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto --no-out-link) docker://typeable/comparest-github-action:${{ github.event.release.tag_name }}
+          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto --no-out-link) docker://typeable/comparest:${{ github.event.release.tag_name }}
 
       - name: Upload compaREST Github Action Docker Image to release
         if: github.event_name == 'release'
@@ -112,7 +123,7 @@ jobs:
 
       - name: Build macOS binary bundle
         run: |
-          cp -LR $(nix-build -A macOSCompaRESTBundle -j auto) compaREST
+          cp -LR $(nix-build -A macOSCompaRESTBundle -j auto --no-out-link) compaREST
 
       - name: Upload macOS compaREST bundle
         uses: actions/upload-artifact@v2
@@ -143,7 +154,7 @@ jobs:
 
       - name: Build Windows binary
         run: |
-          cp -LR $(nix-build -A WindowsCompaRESTBin -j auto)/bin compaREST
+          cp -LR $(nix-build -A WindowsCompaRESTBin -j auto --no-out-link)/bin compaREST
 
       - name: Upload Windows compaREST bundle
         uses: actions/upload-artifact@v2
