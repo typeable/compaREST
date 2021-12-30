@@ -14,6 +14,9 @@ extra-doc-files:     README.md
                      CHANGELOG.md
 tested-with:         GHC == 8.10.4
 extra-source-files: awsm-css/dist/awsm.min.css
+data-files:
+  test/golden/**/*.yaml
+  test/golden/**/*.md
 
 common common-options
   ghc-options:
@@ -203,6 +206,7 @@ test-suite compaREST-tests
   other-modules:
     Spec.Golden.Extra
     Spec.Golden.TraceTree
+    Paths_compaREST
   build-depends:
     , compaREST
     , tasty-golden

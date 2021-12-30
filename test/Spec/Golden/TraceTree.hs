@@ -1,5 +1,5 @@
 module Spec.Golden.TraceTree
-  ( tests,
+  ( tests
   )
 where
 
@@ -12,6 +12,7 @@ import Data.OpenApi.Compare.Validate.OpenApi ()
 import Data.Text (Text)
 import qualified Data.Text.Encoding as T
 import qualified Data.Yaml as Yaml
+import Paths_compaREST
 import Spec.Golden.Extra
 import Test.Tasty (TestTree, testGroup)
 import Text.Pandoc.Builder
@@ -22,10 +23,11 @@ import Prelude hiding (id, (.))
 
 tests :: IO TestTree
 tests = do
+  dir <- getDataDir
   traceTreeTests <-
     goldenInputsTreeUniform
       "TraceTree"
-      "test/golden/common"
+      dir
       "trace-tree.yaml"
       ("a.yaml", "b.yaml")
       Yaml.decodeFileThrow
@@ -34,7 +36,7 @@ tests = do
   reportTests <-
     goldenInputsTreeUniform
       "Report"
-      "test/golden/common"
+      dir
       "report.md"
       ("a.yaml", "b.yaml")
       Yaml.decodeFileThrow
