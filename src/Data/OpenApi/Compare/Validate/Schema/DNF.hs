@@ -1,12 +1,12 @@
 module Data.OpenApi.Compare.Validate.Schema.DNF
-  ( DNF (..)
-  , Disjunct (..)
-  , pattern SingleDisjunct
-  , pattern TopDNF
-  , pattern BottomDNF
-  , pattern LiteralDNF
-  , foldDNF
-  , forDNF
+  ( DNF (..),
+    Disjunct (..),
+    pattern SingleDisjunct,
+    pattern TopDNF,
+    pattern BottomDNF,
+    pattern LiteralDNF,
+    foldDNF,
+    forDNF,
   )
 where
 

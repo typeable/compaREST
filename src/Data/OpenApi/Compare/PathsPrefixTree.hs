@@ -1,22 +1,22 @@
 {-# LANGUAGE QuantifiedConstraints #-}
 
 module Data.OpenApi.Compare.PathsPrefixTree
-  ( PathsPrefixTree (PathsPrefixNode)
-  , AStep (..)
-  , empty
-  , singleton
-  , fromList
-  , null
-  , foldWith
-  , toList
-  , filter
-  , filterWithKey
-  , takeSubtree
-  , lookup
-  , embed
-  , size
-  , partition
-  , map
+  ( PathsPrefixTree (PathsPrefixNode),
+    AStep (..),
+    empty,
+    singleton,
+    fromList,
+    null,
+    foldWith,
+    toList,
+    filter,
+    filterWithKey,
+    takeSubtree,
+    lookup,
+    embed,
+    size,
+    partition,
+    map,
   )
 where
 
@@ -35,7 +35,7 @@ import qualified Data.TypeRepMap as TRM
 import qualified Data.Vector as V
 import qualified GHC.Exts as Exts
 import Type.Reflection
-import Prelude hiding (filter, map, null, lookup)
+import Prelude hiding (filter, lookup, map, null)
 
 -- | A list of @AnItem r f@, but optimized into a prefix tree.
 data PathsPrefixTree (q :: k -> k -> Type) (f :: k -> Type) (r :: k) = PathsPrefixTree
@@ -102,11 +102,11 @@ deriving stock instance Eq (PathsPrefixTree q f a)
 
 -- Kind of orphan. Treat the map as an infinite tuple of @Maybe (f a)@'s, where
 -- the components are ordered by the @SomeTypeRep@ of the @a@.
-compareTRM
-  :: (forall a. Typeable a => Ord (f a))
-  => TRM.TypeRepMap f
-  -> TRM.TypeRepMap f
-  -> Ordering
+compareTRM ::
+  (forall a. Typeable a => Ord (f a)) =>
+  TRM.TypeRepMap f ->
+  TRM.TypeRepMap f ->
+  Ordering
 compareTRM s1 s2 =
   foldMap (\k -> compareMaybe compareW (M.lookup k m1) (M.lookup k m2)) mKeys
   where
@@ -116,11 +116,11 @@ compareTRM s1 s2 =
     compareMaybe _ Nothing (Just _) = LT
     compareMaybe _ (Just _) Nothing = GT
     compareMaybe cmp (Just x) (Just y) = cmp x y
-    compareW
-      :: (forall a. Typeable a => Ord (f a))
-      => TRM.WrapTypeable f
-      -> TRM.WrapTypeable f
-      -> Ordering
+    compareW ::
+      (forall a. Typeable a => Ord (f a)) =>
+      TRM.WrapTypeable f ->
+      TRM.WrapTypeable f ->
+      Ordering
     compareW (TRM.WrapTypeable (x :: f a)) (TRM.WrapTypeable (y :: f b))
       | Just Refl <- testEquality (typeRep @a) (typeRep @b) = compare x y
       | otherwise = EQ -- unreachable
@@ -172,10 +172,10 @@ instance Monoid (ASet a) where
   mempty = AnEmptySet
 
 data AStep (q :: k -> k -> Type) (f :: k -> Type) (r :: k) (a :: k) where
-  AStep
-    :: NiceQuiver q r a =>
-    !(M.Map (q r a) (PathsPrefixTree q f a))
-    -> AStep q f r a
+  AStep ::
+    NiceQuiver q r a =>
+    !(M.Map (q r a) (PathsPrefixTree q f a)) ->
+    AStep q f r a
 
 mapAStep :: (forall x. f x -> f x) -> AStep q f r a -> AStep q f r a
 mapAStep f (AStep m) = AStep $ M.map (map f) m
@@ -215,12 +215,12 @@ null :: PathsPrefixTree q f r -> Bool
 null (PathsPrefixTree AnEmptySet s) = all (\(TRM.WrapTypeable (AStep x)) -> all null x) (Exts.toList s)
 null _ = False
 
-foldWith
-  :: forall q f m r.
-  Monoid m
-  => (forall a. Ord (f a) => Paths q r a -> f a -> m)
-  -> PathsPrefixTree q f r
-  -> m
+foldWith ::
+  forall q f m r.
+  Monoid m =>
+  (forall a. Ord (f a) => Paths q r a -> f a -> m) ->
+  PathsPrefixTree q f r ->
+  m
 foldWith k = goTPT Root
   where
     goTPT :: forall a. Paths q r a -> PathsPrefixTree q f a -> m

@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.OpenApi.Compare.Validate.MediaTypeObject
-  ( Issue (..)
-  , Behave (..)
+  ( Issue (..),
+    Behave (..),
   )
 where
 

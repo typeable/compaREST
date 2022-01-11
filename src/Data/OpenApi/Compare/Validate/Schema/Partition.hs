@@ -1,15 +1,15 @@
 module Data.OpenApi.Compare.Validate.Schema.Partition
-  ( partitionSchema
-  , partitionRefSchema
-  , selectPartition
-  , runPartitionM
-  , tryPartition
-  , showPartition
-  , intersectSchema
-  , intersectRefSchema
-  , IntersectionResult (..)
-  , runIntersectionM
-  , Partition
+  ( partitionSchema,
+    partitionRefSchema,
+    selectPartition,
+    runPartitionM,
+    tryPartition,
+    showPartition,
+    intersectSchema,
+    intersectRefSchema,
+    IntersectionResult (..),
+    runIntersectionM,
+    Partition,
   )
 where
 
@@ -143,10 +143,11 @@ partitionCondition = \case
           Just _ -> top
           Nothing ->
             singletonPart $
-              DByProperties $ LiteralDNF
-                ( M.keysSet $ M.filter (not . propRequired) props
-                , M.keysSet $ M.filter propRequired props
-                )
+              DByProperties $
+                LiteralDNF
+                  ( M.keysSet $ M.filter (not . propRequired) props
+                  , M.keysSet $ M.filter propRequired props
+                  )
     inProps <- forM (M.toList $ M.filter propRequired props) $ \(k, prop) -> do
       f <- partitionRefSchema $ propRefSchema prop
       pure $ fmap (\(Partitions m) -> Partitions $ M.mapKeysMonotonic (PInProperty k) m) f
@@ -156,10 +157,10 @@ partitionCondition = \case
 runPartitionM :: Traced (Definitions Schema) -> PartitionM a -> a
 runPartitionM defs = runIdentity . runMemo () . (`runReaderT` defs)
 
-partitionJsonFormulas
-  :: ProdCons (Traced (Definitions Schema))
-  -> ProdCons (JsonFormula t)
-  -> Lifted Partitions
+partitionJsonFormulas ::
+  ProdCons (Traced (Definitions Schema)) ->
+  ProdCons (JsonFormula t) ->
+  Lifted Partitions
 partitionJsonFormulas defs pc = producer pcPart \/ consumer pcPart
   where
     pcPart = partitionFormula <$> defs <*> pc
@@ -211,11 +212,11 @@ runIntersectionM defs act = case runWriterT $ runReaderT act defs of
   Just (x, Any False) -> Same x
   Just (x, Any True) -> New x
 
-intersectSchema
-  :: PartitionLocation
-  -> PartitionChoice
-  -> Traced Schema
-  -> IntersectionM Schema
+intersectSchema ::
+  PartitionLocation ->
+  PartitionChoice ->
+  Traced Schema ->
+  IntersectionM Schema
 intersectSchema loc part sch = do
   allOf' <- forM (tracedAllOf sch) $ \rss ->
     -- Assuming i ranges over a nonempty set (checked in processSchema)
@@ -258,11 +259,11 @@ intersectSchema loc part sch = do
         pure $ sch' {_schemaEnum = Just enum'}
       CByProperties {} -> error "CByProperties not implemented"
 
-intersectRefSchema
-  :: PartitionLocation
-  -> PartitionChoice
-  -> Traced (Referenced Schema)
-  -> IntersectionM (Referenced Schema)
+intersectRefSchema ::
+  PartitionLocation ->
+  PartitionChoice ->
+  Traced (Referenced Schema) ->
+  IntersectionM (Referenced Schema)
 intersectRefSchema loc part rs = do
   defs <- R.ask
   Inline <$> intersectSchema loc part (dereference defs rs)

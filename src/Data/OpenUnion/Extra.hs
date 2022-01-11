@@ -1,7 +1,7 @@
 module Data.OpenUnion.Extra
-  ( (@@>)
-  , TryLiftUnion (..)
-  , pattern SingletonUnion
+  ( (@@>),
+    TryLiftUnion (..),
+    pattern SingletonUnion,
   )
 where
 
@@ -18,8 +18,8 @@ instance TryLiftUnion '[] where
   tryLiftUnion _ = empty
 
 instance
-  (Typeable y, SubList ys (y : ys), TryLiftUnion ys)
-  => TryLiftUnion (y ': ys)
+  (Typeable y, SubList ys (y : ys), TryLiftUnion ys) =>
+  TryLiftUnion (y ': ys)
   where
   tryLiftUnion (x :: x) = case eqT @x @y of
     Nothing -> reUnion <$> tryLiftUnion @ys x

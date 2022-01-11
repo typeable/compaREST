@@ -1,5 +1,5 @@
 module Spec.Golden.TraceTree
-  ( tests
+  ( tests,
   )
 where
 

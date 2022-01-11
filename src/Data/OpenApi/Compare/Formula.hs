@@ -1,14 +1,15 @@
 module Data.OpenApi.Compare.Formula
-  ( FormulaF
-  , VarRef
-  , variable
-  , eitherOf
-  , anError
-  , errors
-  , calculate
-  , maxFixpoint
-  , mapErrors
-  ) where
+  ( FormulaF,
+    VarRef,
+    variable,
+    eitherOf,
+    anError,
+    errors,
+    calculate,
+    maxFixpoint,
+    mapErrors,
+  )
+where
 
 import Data.Kind
 import qualified Data.List.NonEmpty as NE
@@ -24,15 +25,24 @@ type VarRef = Int
 -- fixpoints always exist, i.e. that @x = f x@ has at least one solution.
 data FormulaF (q :: k -> k -> Type) (f :: k -> Type) (r :: k) (a :: Type) where
   Result :: a -> FormulaF q f r a
-  Errors :: !(P.PathsPrefixTree q f r) -> FormulaF q f r a
-    -- ^ invariant: never empty
-  Apply :: FormulaF q f r (b -> c) -> FormulaF q f r b -> (c -> a) -> FormulaF q f r a
-    -- ^ invariant: at least one of LHS and RHS is not 'Errors', and they are
+  Errors ::
+    !(P.PathsPrefixTree q f r) ->
+    -- | invariant: never empty
+    FormulaF q f r a
+  Apply ::
+    FormulaF q f r (b -> c) ->
+    FormulaF q f r b ->
+    (c -> a) ->
+    -- | invariant: at least one of LHS and RHS is not 'Errors', and they are
     -- both not 'Result'
-  SelectFirst :: NE.NonEmpty (SomeFormulaF b)
-    -> !(P.PathsPrefixTree q f r) -> (b -> a) -> FormulaF q f r a
-    -- ^ invariant: the list doesn't contain any 'Result's, 'Errors' or
+    FormulaF q f r a
+  SelectFirst ::
+    NE.NonEmpty (SomeFormulaF b) ->
+    !(P.PathsPrefixTree q f r) ->
+    (b -> a) ->
+    -- | invariant: the list doesn't contain any 'Result's, 'Errors' or
     -- 'SelectFirst'
+    FormulaF q f r a
   Variable :: !VarRef -> a -> FormulaF q f r a
 
 mkApply :: FormulaF q f r (b -> c) -> FormulaF q f r b -> (c -> a) -> FormulaF q f r a
@@ -44,13 +54,13 @@ mkApply f x h = Apply f x h
 mkSelectFirst :: [SomeFormulaF b] -> P.PathsPrefixTree q f r -> (b -> a) -> FormulaF q f r a
 mkSelectFirst fs allE h = case foldMap check fs of
   (First (Just x), _) -> Result (h x)
-  (First Nothing, x:xs) -> SelectFirst (x NE.:| xs) allE h
+  (First Nothing, x : xs) -> SelectFirst (x NE.:| xs) allE h
   (First Nothing, []) -> Errors allE
   where
     check (SomeFormulaF (Result x)) = (First (Just x), mempty)
     check (SomeFormulaF (Errors _)) = (mempty, mempty)
-    check (SomeFormulaF (SelectFirst xs _ h'))
-      = (mempty, NE.toList (fmap (fmap h') xs))
+    check (SomeFormulaF (SelectFirst xs _ h')) =
+      (mempty, NE.toList (fmap (fmap h') xs))
     check x = (mempty, [x])
 
 data SomeFormulaF (a :: Type) where
@@ -96,7 +106,7 @@ calculate (Apply f x h) = case calculate f of
     Right x' -> Right (h (f' x'))
 calculate (SelectFirst xs e h) = go (NE.toList xs)
   where
-    go (SomeFormulaF r:rs) = case calculate r of
+    go (SomeFormulaF r : rs) = case calculate r of
       Left _ -> go rs
       Right x -> Right (h x)
     go [] = Left e

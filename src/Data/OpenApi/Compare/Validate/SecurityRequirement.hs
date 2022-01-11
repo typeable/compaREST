@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.OpenApi.Compare.Validate.SecurityRequirement
-  ( Issue (..)
+  ( Issue (..),
   )
 where
 
@@ -41,18 +41,19 @@ instance Subtree SecurityRequirement where
             for (IOHM.toList $ getSecurityRequirement sec) $ \(key, scopes) ->
               (,scopes) <$> lookupScheme key defs
     structuralMaybeWith
-      (\pc' -> do
-         let ProdCons pScopes cScopes = fmap snd <$> pc'
-         unless (pScopes == cScopes) structuralIssue
-         structuralList env $ fmap fst <$> pc'
-         pure ())
+      ( \pc' -> do
+          let ProdCons pScopes cScopes = fmap snd <$> pc'
+          unless (pScopes == cScopes) structuralIssue
+          structuralList env $ fmap fst <$> pc'
+          pure ()
+      )
       normalized
     pure ()
   checkSemanticCompatibility env bhv' pc = do
     let schemes = getH @(ProdCons (Traced (Definitions SecurityScheme))) env
         ( ProdCons pErrs cErrs
-          , (ProdCons pSchemes cSchemes)
-              :: ProdCons [(Behavior 'SecuritySchemeLevel, Traced SecurityScheme, [Text])]
+          , (ProdCons pSchemes cSchemes) ::
+              ProdCons [(Behavior 'SecuritySchemeLevel, Traced SecurityScheme, [Text])]
           ) =
             NE.unzip $
               partitionEithers <$> do

@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.OpenApi.Compare.Validate.OAuth2Flows
-  ( Step (..)
-  , Issue (..)
-  , Behave (..)
+  ( Step (..),
+    Issue (..),
+    Behave (..),
   )
 where
 
@@ -26,11 +26,11 @@ instance Subtree OAuth2Flows where
   type SubtreeLevel OAuth2Flows = 'SecuritySchemeLevel
   checkStructuralCompatibility _ = structuralEq
   checkSemanticCompatibility env bhv pc = do
-    let supportFlow
-          :: (Subtree t, SubtreeLevel t ~ SubtreeLevel OAuth2Flows, CheckEnv OAuth2Flows ~ CheckEnv t)
-          => Issue 'SecuritySchemeLevel
-          -> ProdCons (Maybe (Traced t))
-          -> SemanticCompatFormula ()
+    let supportFlow ::
+          (Subtree t, SubtreeLevel t ~ SubtreeLevel OAuth2Flows, CheckEnv OAuth2Flows ~ CheckEnv t) =>
+          Issue 'SecuritySchemeLevel ->
+          ProdCons (Maybe (Traced t)) ->
+          SemanticCompatFormula ()
         supportFlow i x = case x of
           -- producer will not attempt this flow
           (ProdCons Nothing _) -> pure ()
@@ -38,11 +38,11 @@ instance Subtree OAuth2Flows where
           (ProdCons (Just _) Nothing) -> issueAt bhv i
           (ProdCons (Just p) (Just c)) ->
             checkCompatibility bhv env $ ProdCons p c
-        getFlow
-          :: Typeable x
-          => (OAuth2Flows -> Maybe (OAuth2Flow x))
-          -> Traced OAuth2Flows
-          -> Maybe (Traced (OAuth2Flow x))
+        getFlow ::
+          Typeable x =>
+          (OAuth2Flows -> Maybe (OAuth2Flow x)) ->
+          Traced OAuth2Flows ->
+          Maybe (Traced (OAuth2Flow x))
         getFlow f (Traced t a) = Traced (t >>> step (OAuth2FlowsFlow Proxy)) <$> f a
     supportFlow ConsumerDoesNotSupportImplicitFlow $ getFlow _oAuth2FlowsImplicit <$> pc
     supportFlow ConsumerDoesNotSupportPasswordFlow $ getFlow _oAuth2FlowsPassword <$> pc

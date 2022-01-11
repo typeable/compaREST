@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Data.OpenApi.Compare.Report.Html.Template
-  ( template
+  ( template,
   )
 where
 

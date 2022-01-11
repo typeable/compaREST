@@ -2,8 +2,8 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module Data.OpenApi.Compare.Validate.Param
-  ( Behave (..)
-  , Issue (..)
+  ( Behave (..),
+    Issue (..),
   )
 where
 
@@ -79,7 +79,7 @@ instance Issuable 'PathFragmentLevel where
   describeIssue _ ParamPlaceIncompatible = para "Parameters in incompatible locations."
   describeIssue _ ParamStyleMismatch = para "Different parameter styles (encodings)."
   describeIssue _ ParamSchemaMismatch = para "Expected a schema, but didn't find one."
-  describeIssue ori (PathFragmentsDontMatch (orientProdCons ori -> ProdCons e a)) = 
+  describeIssue ori (PathFragmentsDontMatch (orientProdCons ori -> ProdCons e a)) =
     para $ "Parameter changed from " <> code e <> " to " <> code a <> "."
 
 instance Behavable 'PathFragmentLevel 'SchemaLevel where
@@ -106,15 +106,17 @@ instance Subtree Param where
     when (_paramName (extract p) /= _paramName (extract c)) $
       issueAt beh ParamNameMismatch
     when
-      ((fromMaybe False . _paramRequired . extract $ c)
-         && not (fromMaybe False . _paramRequired . extract $ p))
+      ( (fromMaybe False . _paramRequired . extract $ c)
+          && not (fromMaybe False . _paramRequired . extract $ p)
+      )
       $ issueAt beh ParamRequired
     case (_paramIn . extract $ p, _paramIn . extract $ c) of
       (ParamQuery, ParamQuery) -> do
         -- Emptiness is only for query params
         when
-          ((fromMaybe False . _paramAllowEmptyValue . extract $ p)
-             && not (fromMaybe False . _paramAllowEmptyValue . extract $ c))
+          ( (fromMaybe False . _paramAllowEmptyValue . extract $ p)
+              && not (fromMaybe False . _paramAllowEmptyValue . extract $ c)
+          )
           $ issueAt beh ParamEmptinessIncompatible
       (a, b) | a == b -> pure ()
       _ -> issueAt beh ParamPlaceIncompatible

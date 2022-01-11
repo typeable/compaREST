@@ -1,9 +1,9 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.OpenApi.Compare.References
-  ( Step (..)
-  , dereference
-  , Typeable
+  ( Step (..),
+    dereference,
+    Typeable,
   )
 where
 
@@ -18,11 +18,11 @@ instance Typeable a => Steppable (Referenced a) a where
   data Step (Referenced a) a = InlineStep
     deriving stock (Eq, Ord, Show)
 
-dereference
-  :: Typeable a
-  => Traced (Definitions a)
-  -> Traced (Referenced a)
-  -> Traced a
+dereference ::
+  Typeable a =>
+  Traced (Definitions a) ->
+  Traced (Referenced a) ->
+  Traced a
 dereference defs x = case extract x of
   Inline a ->
     traced (ask x >>> step InlineStep) a

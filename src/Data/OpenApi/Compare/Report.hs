@@ -1,13 +1,13 @@
 module Data.OpenApi.Compare.Report
-  ( generateReport
-  , CheckerOutput(..)
-  , ReportInput (..)
-  , segregateIssues
-  , ReportStatus (..)
-  , Pandoc
-  , ReportConfig (..)
-  , ReportTreeStyle (..)
-  , ReportMode (..)
+  ( generateReport,
+    CheckerOutput (..),
+    ReportInput (..),
+    segregateIssues,
+    ReportStatus (..),
+    Pandoc,
+    ReportConfig (..),
+    ReportTreeStyle (..),
+    ReportMode (..),
   )
 where
 
@@ -30,8 +30,8 @@ import qualified Data.OpenApi.Compare.PathsPrefixTree as P hiding (empty)
 import Data.OpenApi.Compare.Report.Jet
 import Data.OpenApi.Compare.Subtree (invertIssueOrientationP)
 import Data.OpenApi.Compare.Validate.OpenApi
-import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Data.OpenApi.Compare.Validate.Schema.Issues
+import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Data.OpenUnion
 import Data.OpenUnion.Extra
 import Data.Set
@@ -54,22 +54,27 @@ data CheckerOutput = CheckerOutput
   deriving anyclass (ToJSON)
 
 data ReportInput = ReportInput
-  { breakingChanges :: Changes -- ^ forward 'CertainIssue', 'ProbablyIssue' and 'Comment'
-  , nonBreakingChanges :: Changes -- ^ backward 'CertainIssue', 'ProbablyIssue' and 'Comment', except those shadowed by 'relatedIssues'
-  , unsupportedChanges :: Changes -- ^ forward and backward 'Unsupported' (assumed to be the same anyway)
-  , schemaIssues :: Changes -- ^ forward and backward 'SchemaInvalid' (assumed to be the same anyway)
+  { -- | forward 'CertainIssue', 'ProbablyIssue' and 'Comment'
+    breakingChanges :: Changes
+  , -- | backward 'CertainIssue', 'ProbablyIssue' and 'Comment', except those shadowed by 'relatedIssues'
+    nonBreakingChanges :: Changes
+  , -- | forward and backward 'Unsupported' (assumed to be the same anyway)
+    unsupportedChanges :: Changes
+  , -- | forward and backward 'SchemaInvalid' (assumed to be the same anyway)
+    schemaIssues :: Changes
   }
   deriving stock (Generic)
   deriving (Semigroup, Monoid) via (Generically ReportInput)
   deriving anyclass (ToJSON)
 
 segregateIssues :: CheckerOutput -> ReportInput
-segregateIssues CheckerOutput {forwardChanges = fwd, backwardChanges = bck} = ReportInput
-  { breakingChanges = P.filter isBreaking fwd
-  , nonBreakingChanges = invertIssueOrientationP $ P.filterWithKey isNonBreaking bck
-  , unsupportedChanges = P.filter isUnsupported fwd <> P.filter isUnsupported bck
-  , schemaIssues = P.filter isSchemaIssue fwd <> P.filter isSchemaIssue bck
-  }
+segregateIssues CheckerOutput {forwardChanges = fwd, backwardChanges = bck} =
+  ReportInput
+    { breakingChanges = P.filter isBreaking fwd
+    , nonBreakingChanges = invertIssueOrientationP $ P.filterWithKey isNonBreaking bck
+    , unsupportedChanges = P.filter isUnsupported fwd <> P.filter isUnsupported bck
+    , schemaIssues = P.filter isSchemaIssue fwd <> P.filter isSchemaIssue bck
+    }
   where
     isBreaking i = anIssueKind i `elem` [CertainIssue, ProbablyIssue, Comment]
     isNonBreaking :: Paths Behave 'APILevel a -> AnIssue a -> Bool
@@ -106,8 +111,7 @@ twoRowTable x = simpleTable (para . fst <$> x) [para . snd <$> x]
 
 generateReport :: ReportConfig -> ReportInput -> (Blocks, ReportStatus)
 generateReport cfg inp =
-  let
-      schemaIssuesPresent = not $ P.null $ schemaIssues inp
+  let schemaIssuesPresent = not $ P.null $ schemaIssues inp
       breakingChangesPresent = not $ P.null $ breakingChanges inp
       nonBreakingChangesPresent = not $ P.null $ nonBreakingChanges inp
       unsupportedChangesPresent = not $ P.null $ unsupportedChanges inp
@@ -116,47 +120,55 @@ generateReport cfg inp =
         OnlyErrors -> False
       builder = buildReport cfg
       report =
-          header 1 "Summary"
-            <> twoRowTable
-              (when'
-                 schemaIssuesPresent
-                 [ ( refOpt schemaIssuesPresent schemaIssuesId "‼️ Schema issues"
-                   , show' $ P.size $ schemaIssues inp
-                   )
-                 ]
-                 ++
-                   [ ( refOpt breakingChangesPresent breakingChangesId "❌ Breaking changes"
+        header 1 "Summary"
+          <> twoRowTable
+            ( when'
+                schemaIssuesPresent
+                [
+                  ( refOpt schemaIssuesPresent schemaIssuesId "‼️ Schema issues"
+                  , show' $ P.size $ schemaIssues inp
+                  )
+                ]
+                ++ [
+                     ( refOpt breakingChangesPresent breakingChangesId "❌ Breaking changes"
                      , show' $ P.size $ breakingChanges inp
                      )
                    ]
-                 ++ when'
-                   nonBreakingChangesShown
-                   [ ( refOpt nonBreakingChangesPresent nonBreakingChangesId "⚠️ Non-breaking changes"
-                     , show' $ P.size $ nonBreakingChanges inp
-                     )
-                   ]
-                 ++ when'
-                   unsupportedChangesPresent
-                   [ ( refOpt unsupportedChangesPresent unsupportedChangesId "❓ Unsupported feature changes"
-                     , show' $ P.size $ unsupportedChanges inp
-                     )
-                   ])
-            <> when'
-              schemaIssuesPresent
-              (header 1 (anchor schemaIssuesId <> "‼️ Schema issues")
-                 <> builder (showErrs $ schemaIssues inp))
-            <> when'
-              breakingChangesPresent
-              (header 1 (anchor breakingChangesId <> "❌ Breaking changes")
-                 <> builder (showErrs $ breakingChanges inp))
-            <> when'
-              (nonBreakingChangesPresent && nonBreakingChangesShown)
-              (header 1 (anchor nonBreakingChangesId <> "⚠️ Non-breaking changes")
-                 <> builder (showErrs $ nonBreakingChanges inp))
-            <> when'
-              unsupportedChangesPresent
-              (header 1 (anchor unsupportedChangesId <> "❓ Unsupported feature changes")
-                 <> builder (showErrs $ unsupportedChanges inp))
+                ++ when'
+                  nonBreakingChangesShown
+                  [
+                    ( refOpt nonBreakingChangesPresent nonBreakingChangesId "⚠️ Non-breaking changes"
+                    , show' $ P.size $ nonBreakingChanges inp
+                    )
+                  ]
+                ++ when'
+                  unsupportedChangesPresent
+                  [
+                    ( refOpt unsupportedChangesPresent unsupportedChangesId "❓ Unsupported feature changes"
+                    , show' $ P.size $ unsupportedChanges inp
+                    )
+                  ]
+            )
+          <> when'
+            schemaIssuesPresent
+            ( header 1 (anchor schemaIssuesId <> "‼️ Schema issues")
+                <> builder (showErrs $ schemaIssues inp)
+            )
+          <> when'
+            breakingChangesPresent
+            ( header 1 (anchor breakingChangesId <> "❌ Breaking changes")
+                <> builder (showErrs $ breakingChanges inp)
+            )
+          <> when'
+            (nonBreakingChangesPresent && nonBreakingChangesShown)
+            ( header 1 (anchor nonBreakingChangesId <> "⚠️ Non-breaking changes")
+                <> builder (showErrs $ nonBreakingChanges inp)
+            )
+          <> when'
+            unsupportedChangesPresent
+            ( header 1 (anchor unsupportedChangesId <> "❓ Unsupported feature changes")
+                <> builder (showErrs $ unsupportedChanges inp)
+            )
       status =
         if
             | breakingChangesPresent -> BreakingChanges
@@ -186,13 +198,14 @@ showErrs x@(P.PathsPrefixNode currentIssues _) =
   let -- Extract this pattern if more cases like this arise
       ( removedPaths :: Maybe (Orientation, [Issue 'APILevel])
         , otherIssues :: Set (AnIssue a)
-        ) = case eqT @a @'APILevel of
+        ) = case eqT @a @ 'APILevel of
           Just Refl
             | (S.toList -> p@((AnIssue ori _) : _), o) <-
                 S.partition
-                  (\((AnIssue _ u)) -> case u of
-                     NoPathsMatched {} -> True
-                     AllPathsFailed {} -> True)
+                  ( \((AnIssue _ u)) -> case u of
+                      NoPathsMatched {} -> True
+                      AllPathsFailed {} -> True
+                  )
                   currentIssues ->
               let p' = p <&> (\(AnIssue _ i) -> i)
                in (Just (ori, p'), o)
@@ -203,9 +216,10 @@ showErrs x@(P.PathsPrefixNode currentIssues _) =
       paths = case removedPaths of
         Just (ori, ps) -> do
           singletonHeader
-            (case ori of
-               Forward -> "Removed paths"
-               Backward -> "Added paths")
+            ( case ori of
+                Forward -> "Removed paths"
+                Backward -> "Added paths"
+            )
             $ singletonBody $
               bulletList $
                 ps <&> \case
@@ -249,52 +263,54 @@ jets =
     unwrapReportJetResult (Pure _) = error "There really shouldn't be any results here."
     unwrapReportJetResult (Free f) = f
 
-    jsonPathJet
-      :: NonEmpty
-           ( Union
-               '[ Behave 'SchemaLevel 'TypedSchemaLevel
-                , Behave 'TypedSchemaLevel 'SchemaLevel
-                ]
-           )
-      -> Inlines
+    jsonPathJet ::
+      NonEmpty
+        ( Union
+            '[ Behave 'SchemaLevel 'TypedSchemaLevel
+             , Behave 'TypedSchemaLevel 'SchemaLevel
+             ]
+        ) ->
+      Inlines
     jsonPathJet x = code $ "$" <> showParts (NE.toList x)
       where
-        showParts
-          :: [ Union
-                 '[ Behave 'SchemaLevel 'TypedSchemaLevel
-                  , Behave 'TypedSchemaLevel 'SchemaLevel
-                  ]
-             ]
-          -> Text
+        showParts ::
+          [ Union
+              '[ Behave 'SchemaLevel 'TypedSchemaLevel
+               , Behave 'TypedSchemaLevel 'SchemaLevel
+               ]
+          ] ->
+          Text
         showParts [] = mempty
         showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion (InProperty _)) : _)) = showParts xs
         showParts (SingletonUnion (OfType Object) : xs@((SingletonUnion InAdditionalProperty) : _)) = showParts xs
         showParts (SingletonUnion (OfType Array) : xs@(SingletonUnion InItems : _)) = showParts xs
         showParts (SingletonUnion (OfType Array) : xs@(SingletonUnion (InItem _) : _)) = showParts xs
         showParts (y : ys) =
-          ((\(OfType t) -> "(" <> describeJSONType t <> ")")
-             @@> (\case
-                    InItems -> "[*]"
-                    InItem i -> "[" <> T.pack (show i) <> "]"
-                    InProperty p -> "." <> p
-                    InAdditionalProperty -> ".*")
-             @@> typesExhausted)
+          ( (\(OfType t) -> "(" <> describeJSONType t <> ")")
+              @@> ( \case
+                      InItems -> "[*]"
+                      InItem i -> "[" <> T.pack (show i) <> "]"
+                      InProperty p -> "." <> p
+                      InAdditionalProperty -> ".*"
+                  )
+              @@> typesExhausted
+          )
             y
             <> showParts ys
 
-observeJetShowErrs
-  :: ReportJet' Behave (Maybe Inlines)
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> (Report, P.PathsPrefixTree Behave AnIssue a)
+observeJetShowErrs ::
+  ReportJet' Behave (Maybe Inlines) ->
+  P.PathsPrefixTree Behave AnIssue a ->
+  (Report, P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs jet p = case observeJetShowErrs' jet p of
   Just m -> m
   Nothing -> (mempty, p)
 
-observeJetShowErrs'
-  :: forall a.
-     ReportJet' Behave (Maybe Inlines)
-  -> P.PathsPrefixTree Behave AnIssue a
-  -> Maybe (Report, P.PathsPrefixTree Behave AnIssue a)
+observeJetShowErrs' ::
+  forall a.
+  ReportJet' Behave (Maybe Inlines) ->
+  P.PathsPrefixTree Behave AnIssue a ->
+  Maybe (Report, P.PathsPrefixTree Behave AnIssue a)
 observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) =
   let results =
         subIssues >>= \(WrapTypeable (AStep m)) ->
@@ -302,21 +318,23 @@ observeJetShowErrs' (ReportJet jet) (P.PathsPrefixNode currentIssues subIssues) 
             maybe (Left $ embed (step bhv) subErrs) Right . listToMaybe $
               jet @_ @_ @[] bhv
                 & mapMaybe
-                  (\case
-                     Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
-                     Pure (Just h) ->
-                       if P.null subErrs
-                         then Just mempty
-                         else Just (singletonHeader h (showErrs subErrs), mempty)
-                     Pure Nothing -> Nothing)
+                  ( \case
+                      Free jet' -> fmap (embed $ step bhv) <$> observeJetShowErrs' jet' subErrs
+                      Pure (Just h) ->
+                        if P.null subErrs
+                          then Just mempty
+                          else Just (singletonHeader h (showErrs subErrs), mempty)
+                      Pure Nothing -> Nothing
+                  )
    in (fmap . fmap) (PathsPrefixNode currentIssues mempty <>) $
         if any isRight results
           then
             Just $
               foldMap
-                (\case
-                   Left e -> (mempty, e)
-                   Right m -> m)
+                ( \case
+                    Left e -> (mempty, e)
+                    Right m -> m
+                )
                 results
           else Nothing
 
@@ -339,8 +357,9 @@ buildReport cfg = case treeStyle cfg of
       body rprt
         <> foldOMapWithKey
           (headers rprt)
-          (\k v ->
-             header level k <> subBuilder v)
+          ( \k v ->
+              header level k <> subBuilder v
+          )
       where
         subBuilder = headerStyleBuilder (level + 1)
 
@@ -349,16 +368,17 @@ buildReport cfg = case treeStyle cfg of
       body rprt
         <> foldOMapWithKey
           (headers rprt)
-          (\k v ->
-             if (OM.size . headers $ rprt) < 2
-               then para k <> blockQuote (subBuilder v)
-               else
-                 rawHtml "<details>"
-                   <> rawHtml "<summary>"
-                   <> plain k
-                   <> rawHtml "</summary>"
-                   <> blockQuote (subBuilder v)
-                   <> rawHtml "</details>")
+          ( \k v ->
+              if (OM.size . headers $ rprt) < 2
+                then para k <> blockQuote (subBuilder v)
+                else
+                  rawHtml "<details>"
+                    <> rawHtml "<summary>"
+                    <> plain k
+                    <> rawHtml "</summary>"
+                    <> blockQuote (subBuilder v)
+                    <> rawHtml "</details>"
+          )
       where
         subBuilder = foldingStyleBuilder
 

@@ -1,11 +1,11 @@
 module Data.OpenApi.Compare.Validate.Schema.Process
-  ( schemaToFormula
+  ( schemaToFormula,
   )
 where
 
 import Algebra.Lattice
-import qualified Control.Monad.Reader as R
 import Control.Monad.Reader hiding (ask)
+import qualified Control.Monad.Reader as R
 import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.Aeson as A
@@ -71,10 +71,10 @@ warnKnot =
     , tieKnot = \_ -> pure
     }
 
-processRefSchema
-  :: MonadProcess m
-  => Traced (Referenced Schema)
-  -> m (ForeachType JsonFormula)
+processRefSchema ::
+  MonadProcess m =>
+  Traced (Referenced Schema) ->
+  m (ForeachType JsonFormula)
 processRefSchema x = do
   defs <- R.ask
   memoWithKnot warnKnot (processSchema $ dereference defs x) (ask x)
@@ -82,10 +82,10 @@ processRefSchema x = do
 -- | Turn a schema into a tuple of 'JsonFormula's that describes the condition
 -- for every possible type of a JSON value. The conditions are independent, and
 -- are thus checked independently.
-processSchema
-  :: MonadProcess m
-  => Traced Schema
-  -> m (ForeachType JsonFormula)
+processSchema ::
+  MonadProcess m =>
+  Traced Schema ->
+  m (ForeachType JsonFormula)
 processSchema sch@(extract -> Schema {..}) = do
   let singletonFormula :: Condition t -> JsonFormula t
       singletonFormula = JsonFormula . LiteralDNF
@@ -331,26 +331,27 @@ processSchema sch@(extract -> Schema {..}) = do
   pure $
     nullableClause
       \/ meets
-        (allClauses
-           <> [ anyClause
-              , oneClause
-              , typeClause
-              , enumClause
-              , maximumClause
-              , minimumClause
-              , multipleOfClause
-              , formatClause
-              , maxLengthClause
-              , minLengthClause
-              , patternClause
-              , itemsClause
-              , maxItemsClause
-              , minItemsClause
-              , uniqueItemsClause
-              , propertiesClause
-              , maxPropertiesClause
-              , minPropertiesClause
-              ])
+        ( allClauses
+            <> [ anyClause
+               , oneClause
+               , typeClause
+               , enumClause
+               , maximumClause
+               , minimumClause
+               , multipleOfClause
+               , formatClause
+               , maxLengthClause
+               , minLengthClause
+               , patternClause
+               , itemsClause
+               , maxItemsClause
+               , minItemsClause
+               , uniqueItemsClause
+               , propertiesClause
+               , maxPropertiesClause
+               , minPropertiesClause
+               ]
+        )
 
 {- TODO: ReadOnly/WriteOnly #68 -}
 
@@ -369,8 +370,8 @@ checkOneOfDisjoint schs = do
 runProcessM :: Traced (Definitions Schema) -> ProcessM a -> (a, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
 runProcessM defs = runWriter . (`runReaderT` defs) . runMemo ()
 
-schemaToFormula
-  :: Traced (Definitions Schema)
-  -> Traced Schema
-  -> (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
+schemaToFormula ::
+  Traced (Definitions Schema) ->
+  Traced Schema ->
+  (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
 schemaToFormula defs rs = runProcessM defs $ processSchema rs

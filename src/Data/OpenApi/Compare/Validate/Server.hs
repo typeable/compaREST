@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.OpenApi.Compare.Validate.Server
-  ( Issue (..)
+  ( Issue (..),
   )
 where
 
@@ -31,9 +31,9 @@ import Data.Traversable
 import Text.Pandoc.Builder
 import Prelude as P
 
-tracedParsedServerUrlParts
-  :: Server
-  -> Either (Issue 'ServerLevel) ProcessedServer
+tracedParsedServerUrlParts ::
+  Server ->
+  Either (Issue 'ServerLevel) ProcessedServer
 tracedParsedServerUrlParts s =
   let parsedUrl = parseServerUrl $ _serverUrl s
       lookupVar var = case IOHM.lookup var (_serverVariables s) of
@@ -63,11 +63,12 @@ instance Subtree [Server] where
           pcServer
             <&> partitionEithers
               . fmap
-                (\(Traced t s) ->
-                   let bhv = beh >>> step (InServer $ _serverUrl s)
-                    in case tracedParsedServerUrlParts s of
-                         Left e -> Left $ issueAt bhv e
-                         Right u -> Right (bhv, Traced (t >>> step (ServerStep $ _serverUrl s)) u))
+                ( \(Traced t s) ->
+                    let bhv = beh >>> step (InServer $ _serverUrl s)
+                     in case tracedParsedServerUrlParts s of
+                          Left e -> Left $ issueAt bhv e
+                          Right u -> Right (bhv, Traced (t >>> step (ServerStep $ _serverUrl s)) u)
+                )
               . sequence
     sequenceA_ pErrs
     sequenceA_ cErrs

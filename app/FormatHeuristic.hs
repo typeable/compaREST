@@ -2,7 +2,7 @@
 -- Originally based on:
 --   https://github.com/jgm/pandoc/blob/master/src/Text/Pandoc/App/FormatHeuristics.hs
 module FormatHeuristic
-  ( formatFromFilePath
+  ( formatFromFilePath,
   )
 where
 

@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
+
 module Data.OpenApi.Compare.Validate.Schema
   (
   )
@@ -10,9 +11,9 @@ import Data.Coerce
 import Data.Foldable (for_, toList)
 import Data.Functor
 import Data.HList
+import Data.List (genericIndex, genericLength, group)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import Data.List (group, genericLength, genericIndex)
 import Data.Maybe
 import Data.OpenApi
 import Data.OpenApi.Compare.Behavior
@@ -22,24 +23,24 @@ import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.Schema.DNF
 import Data.OpenApi.Compare.Validate.Schema.Issues
 import Data.OpenApi.Compare.Validate.Schema.JsonFormula
-import Data.OpenApi.Compare.Validate.Schema.Traced
-import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Data.OpenApi.Compare.Validate.Schema.Partition
 import Data.OpenApi.Compare.Validate.Schema.Process
+import Data.OpenApi.Compare.Validate.Schema.Traced
+import Data.OpenApi.Compare.Validate.Schema.TypedJson
 import Data.Ord
 import Data.Ratio
 import Data.Semigroup
 import qualified Data.Set as S
 import Data.Text (Text)
 
-checkFormulas
-  :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
-  => HList xs
-  -> Behavior 'SchemaLevel
-  -> ProdCons (Trace Schema)
-  -> ProdCons (Traced (Definitions Schema))
-  -> ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel)
-  -> SemanticCompatFormula ()
+checkFormulas ::
+  (ReassembleHList xs (CheckEnv (Referenced Schema))) =>
+  HList xs ->
+  Behavior 'SchemaLevel ->
+  ProdCons (Trace Schema) ->
+  ProdCons (Traced (Definitions Schema)) ->
+  ProdCons (ForeachType JsonFormula, P.PathsPrefixTree Behave AnIssue 'SchemaLevel) ->
+  SemanticCompatFormula ()
 checkFormulas env beh trs defs (ProdCons (fp, ep) (fc, ec)) =
   case P.toList ep ++ P.toList ec of
     issues@(_ : _) -> for_ issues $ embedFormula beh . anItem
@@ -144,21 +145,21 @@ checkFormulas env beh trs defs (ProdCons (fp, ep) (fc, ec)) =
         EnumDoesntSatisfy $ untypeValue e -- what does this look like when partitioned?
     issueFromDisjunct mPart ps = NoMatchingCondition mPart $ SomeCondition <$> S.toList ps
 
-checkContradiction
-  :: Behavior 'TypedSchemaLevel
-  -> Maybe Partition
-  -> S.Set (Condition t)
-  -> SemanticCompatFormula ()
+checkContradiction ::
+  Behavior 'TypedSchemaLevel ->
+  Maybe Partition ->
+  S.Set (Condition t) ->
+  SemanticCompatFormula ()
 checkContradiction beh mPart _ = issueAt beh $ maybe TypeBecomesEmpty PartitionBecomesEmpty mPart -- TODO #70
 
-checkImplication
-  :: (ReassembleHList xs (CheckEnv (Referenced Schema)))
-  => HList xs
-  -> Behavior 'TypedSchemaLevel
-  -> ProdCons (Trace Schema) -- the traces of the root schemas used in this comparison
-  -> S.Set (Condition t)
-  -> Condition t
-  -> SemanticCompatFormula ()
+checkImplication ::
+  (ReassembleHList xs (CheckEnv (Referenced Schema))) =>
+  HList xs ->
+  Behavior 'TypedSchemaLevel ->
+  ProdCons (Trace Schema) -> -- the traces of the root schemas used in this comparison
+  S.Set (Condition t) ->
+  Condition t ->
+  SemanticCompatFormula ()
 checkImplication env beh trs prods cons = case findExactly prods of
   Just e
     | all (satisfiesTyped e) prods ->
@@ -166,124 +167,104 @@ checkImplication env beh trs prods cons = case findExactly prods of
         then pure ()
         else issueAt beh (EnumDoesntSatisfy $ untypeValue e)
     | otherwise -> pure () -- vacuously true
-
   Nothing -> case cons of
     -- the above code didn't catch it, so there's no Exactly condition on the lhs
     Exactly e -> issueAt beh (NoMatchingEnum $ untypeValue e)
-
     Maximum m -> foldCheck min m NoMatchingMaximum MatchingMaximumWeak $ \case
       Maximum m' -> Just m'
       _ -> Nothing
-
     Minimum m -> foldCheck max m (NoMatchingMinimum . coerce) (MatchingMinimumWeak . coerce) $ \case
       Minimum m' -> Just m'
       _ -> Nothing
-
     MultipleOf m -> foldCheck lcmScientific m NoMatchingMultipleOf MatchingMultipleOfWeak $ \case
       MultipleOf m' -> Just m'
       _ -> Nothing
-
     NumberFormat f -> case flip any prods $ \case
-          NumberFormat f' -> f == f'
-          _ -> False
-        of
+      NumberFormat f' -> f == f'
+      _ -> False of
       True -> pure ()
       False -> issueAt beh (NoMatchingFormat f)
-
     MaxLength m -> foldCheck min m NoMatchingMaxLength MatchingMaxLengthWeak $ \case
       MaxLength m' -> Just m'
       _ -> Nothing
-
     MinLength m -> foldCheck max m NoMatchingMinLength MatchingMinLengthWeak $ \case
       MinLength m' -> Just m'
       _ -> Nothing
-
     Pattern p -> case flip any prods $ \case
-          Pattern p' -> p == p'
-          _ -> False
-        of
+      Pattern p' -> p == p'
+      _ -> False of
       True -> pure ()
       False -> issueAt beh (NoMatchingPattern p) -- TODO: regex comparison #32
-
     StringFormat f -> case flip any prods $ \case
-          StringFormat f' -> f == f'
-          _ -> False
-        of
+      StringFormat f' -> f == f'
+      _ -> False of
       True -> pure ()
       False -> issueAt beh (NoMatchingFormat f)
-
     Items _ cons' -> case foldSome (<>) prods $ \case
-          Items _ rs -> Just (Just (rs NE.:| []), mempty)
-          TupleItems (map snd -> fs) -> Just (mempty, Just (fs NE.:| []))
-          _ -> Nothing
-        of
+      Items _ rs -> Just (Just (rs NE.:| []), mempty)
+      TupleItems (map snd -> fs) -> Just (mempty, Just (fs NE.:| []))
+      _ -> Nothing of
       Just (mItems, Just pfs)
         | not $ allSame (length <$> pfs) -> pure () -- vacuously
-        | let plen = genericLength (NE.head pfs)
-        -> clarifyIssue (AnItem beh (anIssue TupleToArray)) $ for_ [0 .. plen - 1] $ \i -> do
-            let prod' = tracedConjunct $ case mItems of
-                  Just prods' -> ((`genericIndex` i) <$> pfs) <> prods'
-                  Nothing -> (`genericIndex` i) <$> pfs
-            checkCompatibility (beh >>> step (InItem i)) env $ ProdCons prod' cons'
+        | let plen = genericLength (NE.head pfs) ->
+          clarifyIssue (AnItem beh (anIssue TupleToArray)) $
+            for_ [0 .. plen - 1] $ \i -> do
+              let prod' = tracedConjunct $ case mItems of
+                    Just prods' -> ((`genericIndex` i) <$> pfs) <> prods'
+                    Nothing -> (`genericIndex` i) <$> pfs
+              checkCompatibility (beh >>> step (InItem i)) env $ ProdCons prod' cons'
       Just (Just prods', Nothing) -> do
         let prod' = tracedConjunct prods'
         checkCompatibility (beh >>> step InItems) env $ ProdCons prod' cons'
       _ -> clarifyIssue (AnItem beh (anIssue NoMatchingItems)) $ do
         checkCompatibility (beh >>> step InItems) env $ ProdCons prodTopSchema cons'
-
     TupleItems (map snd -> fs) -> case foldSome (<>) prods $ \case
-        TupleItems (map snd -> fs') -> Just (Just $ fs' NE.:| [], Just . Max $ genericLength fs', Just . Min $ genericLength fs', mempty)
-        MinItems m' -> Just (mempty, Just . Max $ m', mempty, mempty)
-        MaxItems m' -> Just (mempty, mempty, Just . Min $ m', mempty)
-        Items _ rs -> Just (mempty, mempty, mempty, Just (rs NE.:| []))
-        _ -> Nothing
-      of
-        -- if the length constraints in the producer are contradictory:
-        Just (_, Just (Max lowest), Just (Min highest), _) | lowest > highest -> pure ()
-        -- We have an explicit tuple items clause...
-        Just (Just pfs, Just (Max plen), _, _)
-          | plen /= genericLength fs -- ...of wrong length
-          -> issueAt beh (TupleItemsLengthChanged ProdCons {producer = plen, consumer = genericLength fs})
-          | otherwise
-          -> for_ [0 .. plen - 1] $ \i -> do
+      TupleItems (map snd -> fs') -> Just (Just $ fs' NE.:| [], Just . Max $ genericLength fs', Just . Min $ genericLength fs', mempty)
+      MinItems m' -> Just (mempty, Just . Max $ m', mempty, mempty)
+      MaxItems m' -> Just (mempty, mempty, Just . Min $ m', mempty)
+      Items _ rs -> Just (mempty, mempty, mempty, Just (rs NE.:| []))
+      _ -> Nothing of
+      -- if the length constraints in the producer are contradictory:
+      Just (_, Just (Max lowest), Just (Min highest), _) | lowest > highest -> pure ()
+      -- We have an explicit tuple items clause...
+      Just (Just pfs, Just (Max plen), _, _)
+        | plen /= genericLength fs -> -- ...of wrong length
+          issueAt beh (TupleItemsLengthChanged ProdCons {producer = plen, consumer = genericLength fs})
+        | otherwise ->
+          for_ [0 .. plen - 1] $ \i -> do
             checkCompatibility (beh >>> step (InItem i)) env $ ProdCons (tracedConjunct $ (`genericIndex` i) <$> pfs) (fs `genericIndex` i)
-        -- We have a fixed length array in the producer...
-        Just (Nothing, Just (Max plen), Just (Min plen'), mProd)
-          | plen == plen'
-          -> clarifyIssue (AnItem beh (anIssue ArrayToTuple)) $ case mProd of
-            _ | plen /= genericLength fs -> -- ...of wrong length
-              issueAt beh (TupleItemsLengthChanged ProdCons {producer = plen, consumer = genericLength fs})
+      -- We have a fixed length array in the producer...
+      Just (Nothing, Just (Max plen), Just (Min plen'), mProd)
+        | plen == plen' ->
+          clarifyIssue (AnItem beh (anIssue ArrayToTuple)) $ case mProd of
+            _
+              | plen /= genericLength fs -> -- ...of wrong length
+                issueAt beh (TupleItemsLengthChanged ProdCons {producer = plen, consumer = genericLength fs})
             Just rs -> for_ [0 .. plen - 1] $ \i -> do
               checkCompatibility (beh >>> step (InItem i)) env $ ProdCons (tracedConjunct rs) (fs `genericIndex` i)
             -- ...and no "items" schema
             Nothing -> clarifyIssue (AnItem beh (anIssue NoMatchingTupleItems)) $ do
               for_ [0 .. plen - 1] $ \i -> do
                 checkCompatibility (beh >>> step (InItem i)) env $ ProdCons prodTopSchema (fs `genericIndex` i)
-        _ -> issueAt beh NoMatchingTupleItems
-
+      _ -> issueAt beh NoMatchingTupleItems
     MaxItems m -> foldCheck min m NoMatchingMaxItems MatchingMaxItemsWeak $ \case
       MaxItems m' -> Just m'
       TupleItems fs -> Just $ toInteger $ length fs
       _ -> Nothing
-
     MinItems m -> foldCheck max m NoMatchingMinItems MatchingMinItemsWeak $ \case
       MinItems m' -> Just m'
       TupleItems fs -> Just $ toInteger $ length fs
       _ -> Nothing
-
     UniqueItems -> case flip any prods $ \case
-          UniqueItems -> True
-          MaxItems 1 -> True
-          TupleItems fs | length fs == 1 -> True
-          _ -> False
-        of
+      UniqueItems -> True
+      MaxItems 1 -> True
+      TupleItems fs | length fs == 1 -> True
+      _ -> False of
       True -> pure ()
       False -> issueAt beh NoMatchingUniqueItems
-
     Properties props _ madd -> case foldSome (<>) prods $ \case
-          Properties props' _ madd' -> Just $ (props', madd') NE.:| []
-          _ -> Nothing
-        of
+      Properties props' _ madd' -> Just $ (props', madd') NE.:| []
+      _ -> Nothing of
       Just pm ->
         anyOfAt beh NoMatchingProperties $ -- TODO: could first "concat" the lists
           NE.toList pm <&> \(props', madd') -> do
@@ -314,11 +295,9 @@ checkImplication env beh trs prods cons = case findExactly prods of
               (Just add', Just add) -> checkCompatibility (beh >>> step InAdditionalProperty) env (ProdCons add' add)
             pure ()
       Nothing -> issueAt beh NoMatchingProperties
-
     MaxProperties m -> foldCheck min m NoMatchingMaxProperties MatchingMaxPropertiesWeak $ \case
       MaxProperties m' -> Just m'
       _ -> Nothing
-
     MinProperties m -> foldCheck max m NoMatchingMinProperties MatchingMinPropertiesWeak $ \case
       MinProperties m' -> Just m'
       _ -> Nothing
@@ -326,14 +305,14 @@ checkImplication env beh trs prods cons = case findExactly prods of
     lcmScientific (toRational -> a) (toRational -> b) =
       fromRational $ lcm (numerator a) (numerator b) % gcd (denominator a) (denominator b)
 
-    foldCheck
-      :: Eq a
-      => (a -> a -> a)
-      -> a
-      -> (a -> Issue 'TypedSchemaLevel)
-      -> (ProdCons a -> Issue 'TypedSchemaLevel)
-      -> (forall t. Condition t -> Maybe a)
-      -> SemanticCompatFormula ()
+    foldCheck ::
+      Eq a =>
+      (a -> a -> a) ->
+      a ->
+      (a -> Issue 'TypedSchemaLevel) ->
+      (ProdCons a -> Issue 'TypedSchemaLevel) ->
+      (forall t. Condition t -> Maybe a) ->
+      SemanticCompatFormula ()
     foldCheck f m missing weak extr = case foldSome f prods extr of
       Just m'
         | f m' m == m' -> pure ()
