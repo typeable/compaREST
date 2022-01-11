@@ -9,6 +9,22 @@ on:
     types: [prereleased]
 
 jobs:
+  check-formatting:
+    name: Check Haskell formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Run fourmolu
+        run: |
+          nix-shell nix/ci.nix -j auto --run "git ls-files '*.hs' | xargs fourmolu -m inplace -o -XRecursiveDo -o -XTypeApplications -o -XPatternSynonyms -o -XBangPatterns"
+          git diff --exit-code
+
   policeman:
     runs-on: ubuntu-latest
     steps:
