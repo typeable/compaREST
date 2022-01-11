@@ -184,16 +184,49 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Cache
+        uses: actions/cache@v1
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+          key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-stack-${{ hashFiles('stack.yaml') }}
+            ${{ runner.os }}-stack
+
+      - name: Upgrade stack
+        shell: bash
+        # Needed for Hackage token authorization
+        run: stack upgrade --git
+
       - name: Build dist
         run: |
           stack sdist --pvp-bounds both --test-tarball
           echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
 
-      - name: compaREST sources artifact
+      - name: Upload compaREST sources artifact
         uses: actions/upload-artifact@v2
         with:
           name: compaREST sources
           path: ${{ env.distPath }}/*.tar.gz
+
+      - name: Upload compaREST sources to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file_glob: true
+          file: ${{ env.distPath }}/*.tar.gz
+          tag: ${{ github.ref }}
+
+      - name: Publish compaREST candidate to Hackage
+        shell: bash
+        if: github.event_name == 'release'
+        env:
+          HACKAGE_KEY: ${{ secrets.HACKAGE_KEY }}
+        run: |
+          stack upload --pvp-bounds both --test-tarball --candidate .
 
   macOS:
     needs: check_versions
