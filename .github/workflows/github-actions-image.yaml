@@ -176,6 +176,25 @@ jobs:
           file: compaREST-Linux-x86.zip
           tag: ${{ github.ref }}
 
+  dist:
+    needs: check_versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Build dist
+        run: |
+          stack sdist --pvp-bounds both --test-tarball
+          echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
+
+      - name: compaREST sources artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST sources
+          path: ${{ env.distPath }}/*.tar.gz
+
   macOS:
     needs: check_versions
     runs-on: macos-latest

@@ -207,6 +207,7 @@ test-suite compaREST-tests
     Spec.Golden.Extra
     Spec.Golden.TraceTree
     Paths_compaREST
+  autogen-modules: Paths_compaREST
   build-depends:
     , compaREST
     , tasty-golden
