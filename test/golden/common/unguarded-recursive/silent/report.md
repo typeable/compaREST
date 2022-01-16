@@ -1,25 +1,15 @@
 # Summary
 
-| [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
-|-----------------------------------------|--------------------------------------------------|
-| 1                                       | 1                                                |
+| ❌ Breaking changes | ⚠️ Non-breaking changes | [❓ Unsupported feature changes](#unsupported-changes) |
+|--------------------|-------------------------|-------------------------------------------------------|
+| 0                  | 0                       | 1                                                     |
 
-# <span id="breaking-changes"></span>❌ Breaking changes
-
-## **GET** /foo
-
-### ⬅️☁️ JSON Response – 200
-
-#### `$(Boolean)`
-
-The type has been added.
-
-# <span id="non-breaking-changes"></span>⚠️ Non-breaking changes
+# <span id="unsupported-changes"></span>❓ Unsupported feature changes
 
 ## **GET** /foo
 
 ### ⬅️☁️ JSON Response – 200
 
-#### `$(Object)`
+#### `$.bar`
 
-The type has been removed.
+Encountered recursion that is too complex for CompaREST to untangle.

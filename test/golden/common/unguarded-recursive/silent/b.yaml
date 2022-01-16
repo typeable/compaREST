@@ -12,5 +12,8 @@ paths:
           content:
             application/json;charset=utf-8:
               schema:
-                type: boolean
+                type: object
+                properties:
+                  bar:
+                    type: object
           description: ""

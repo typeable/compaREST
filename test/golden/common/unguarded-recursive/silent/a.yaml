@@ -6,8 +6,7 @@ components:
         bar:
           $ref: "#/components/schemas/B"
     B:
-      oneOf:
-        - $ref: "#/components/schemas/B"
+      anyOf:
         - $ref: "#/components/schemas/B"
       type: object
 openapi: 3.0.0

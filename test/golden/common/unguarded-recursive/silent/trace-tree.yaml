@@ -4,11 +4,13 @@ forwardChanges:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType Boolean: TypeBecomesEmpty
+            OfType Object:
+              InProperty "bar": UnguardedRecursion
 backwardChanges:
   AtPath "/foo":
     InOperation GetMethod:
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
-            OfType Object: TypeBecomesEmpty
+            OfType Object:
+              InProperty "bar": UnguardedRecursion
