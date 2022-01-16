@@ -1,0 +1,14 @@
+forwardChanges:
+  AtPath "/foo":
+    InOperation GetMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Boolean: TypeBecomesEmpty
+backwardChanges:
+  AtPath "/foo":
+    InOperation GetMethod:
+      WithStatusCode 200:
+        ResponsePayload:
+          PayloadSchema:
+            OfType Object: TypeBecomesEmpty

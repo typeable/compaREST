@@ -1,0 +1,26 @@
+components:
+  schemas:
+    A:
+      type: object
+      properties:
+        bar:
+          $ref: "#/components/schemas/B"
+    B:
+      oneOf:
+        - $ref: "#/components/schemas/B"
+        - $ref: "#/components/schemas/B"
+      type: object
+openapi: 3.0.0
+info:
+  version: ""
+  title: ""
+paths:
+  /foo:
+    get:
+      responses:
+        "200":
+          content:
+            application/json;charset=utf-8:
+              schema:
+                $ref: "#/components/schemas/A"
+          description: ""

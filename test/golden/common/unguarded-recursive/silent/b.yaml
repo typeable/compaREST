@@ -1,0 +1,16 @@
+components:
+  schemas: {}
+openapi: 3.0.0
+info:
+  version: ""
+  title: ""
+paths:
+  /foo:
+    get:
+      responses:
+        "200":
+          content:
+            application/json;charset=utf-8:
+              schema:
+                type: boolean
+          description: ""
