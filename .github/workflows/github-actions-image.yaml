@@ -72,6 +72,14 @@ jobs:
             exit 1
           fi
 
+      - name: Check changelog
+        if: github.event_name == 'release'
+        run: |
+          if [ ! grep '^## ${{ github.event.release.tag_name }}$' CHANGELOG.md ]; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md does not contain an entry for this release."
+            exit 1
+          fi
+
   Linux:
     needs: check_versions
     runs-on: ubuntu-latest
