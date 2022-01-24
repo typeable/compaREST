@@ -14,7 +14,7 @@ extra-doc-files:     README.md
                      CHANGELOG.md
 tested-with:         GHC == 8.10.4
 extra-source-files: awsm-css/dist/awsm.min.css
-data-files:
+extra-source-files:
   test/golden/**/*.yaml
   test/golden/**/*.md
 

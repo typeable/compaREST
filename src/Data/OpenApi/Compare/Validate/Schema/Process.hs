@@ -39,15 +39,11 @@ instance Monoid w => MonadWriter w (Silent w) where
   listen (Silent x) = Silent (x, mempty)
   pass (Silent (x, _)) = Silent x
 
-instance MonadState (MemoState ()) (Silent w) where
-  get = Silent $ runIdentity $ runMemo () get
-  put _ = pure ()
-
 type ProcessM = StateT (MemoState ()) (ReaderT (Traced (Definitions Schema)) (Writer (P.PathsPrefixTree Behave AnIssue 'SchemaLevel)))
 
-type SilentM = ReaderT (Traced (Definitions Schema)) (Silent (P.PathsPrefixTree Behave AnIssue 'SchemaLevel))
+type SilentM = StateT (MemoState ()) (ReaderT (Traced (Definitions Schema)) (Silent (P.PathsPrefixTree Behave AnIssue 'SchemaLevel)))
 
--- Either SilentM or ProcessM
+-- Either ProcessM or SilentM
 type MonadProcess m =
   ( MonadReader (Traced (Definitions Schema)) m
   , MonadWriter (P.PathsPrefixTree Behave AnIssue 'SchemaLevel) m
@@ -57,11 +53,11 @@ type MonadProcess m =
 warn :: MonadProcess m => Issue 'SchemaLevel -> m ()
 warn issue = tell $ P.singleton $ AnItem Root $ anIssue issue
 
--- | Ignore warnings but allow a recursive loop that lazily computes a recursive 'Condition'.
-silently :: MonadProcess m => SilentM a -> m a
-silently m = do
+-- Perform a computation lazily, ignoring the warnings and discarding memoization/loop detection information.
+lazily :: MonadProcess m => SilentM a -> m a
+lazily m = do
   defs <- R.ask
-  pure . runSilent $ runReaderT m defs
+  pure $ runSilent $ runReaderT (runMemo () m) defs
 
 warnKnot :: MonadProcess m => KnotTier (ForeachType JsonFormula) () m
 warnKnot =
@@ -243,11 +239,11 @@ processSchema sch@(extract -> Schema {..}) = do
   itemsClause <- case tracedItems sch of
     Nothing -> pure top
     Just (Left rs) -> do
-      f <- silently $ processRefSchema rs
+      f <- lazily $ processRefSchema rs
       pure top {forArray = singletonFormula $ Items f rs}
     Just (Right rss) -> do
       fsrs <- forM rss $ \rs -> do
-        f <- silently $ processRefSchema rs
+        f <- lazily $ processRefSchema rs
         pure (f, rs)
       pure top {forArray = singletonFormula $ TupleItems fsrs}
 
@@ -273,12 +269,12 @@ processSchema sch@(extract -> Schema {..}) = do
         _ -> top
 
   (addProps, addPropSchema) <- case tracedAdditionalProperties sch of
-    Just (Right rs) -> (,Just rs) <$> silently (processRefSchema rs)
+    Just (Right rs) -> (,Just rs) <$> lazily (processRefSchema rs)
     Just (Left False) -> pure (bottom, Nothing)
     _ -> pure (top, Just $ traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty)
   propList <- forM (S.toList . S.fromList $ IOHM.keys _schemaProperties <> _schemaRequired) $ \k -> do
     (f, psch) <- case IOHM.lookup k $ tracedProperties sch of
-      Just rs -> (,rs) <$> silently (processRefSchema rs)
+      Just rs -> (,rs) <$> lazily (processRefSchema rs)
       Nothing ->
         let fakeSchema = traced (ask sch `Snoc` AdditionalPropertiesStep) $ Inline mempty
          in -- The mempty here is incorrect, but if addPropSchema was Nothing, then
