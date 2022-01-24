@@ -1,5 +1,5 @@
 module Data.OpenApi.Compare.Common
-  ( zipAll
+  ( zipAll,
   )
 where
 

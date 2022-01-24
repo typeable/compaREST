@@ -1,15 +1,15 @@
 module Data.OpenApi.Compare.Behavior
-  ( BehaviorLevel (..)
-  , Behavable (..)
-  , IssueKind (..)
-  , Issuable (..)
-  , Orientation (..)
-  , toggleOrientation
-  , Behavior
-  , AnIssue (..)
-  , withClass
-  , anIssueKind
-  , relatedAnIssues
+  ( BehaviorLevel (..),
+    Behavable (..),
+    IssueKind (..),
+    Issuable (..),
+    Orientation (..),
+    toggleOrientation,
+    Behavior,
+    AnIssue (..),
+    withClass,
+    anIssueKind,
+    relatedAnIssues,
   )
 where
 

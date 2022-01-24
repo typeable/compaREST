@@ -1,8 +1,8 @@
 module Data.OpenApi.Compare.Report.Jet
-  ( ReportJet (..)
-  , ReportJet'
-  , ConstructReportJet (..)
-  , ReportJetResult
+  ( ReportJet (..),
+    ReportJet',
+    ConstructReportJet (..),
+    ReportJetResult,
   )
 where
 

@@ -1,18 +1,18 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Data.OpenApi.Compare.Validate.Schema.Traced
-  ( Step (..)
-  , tracedAllOf
-  , tracedAnyOf
-  , tracedOneOf
-  , tracedItems
-  , tracedAdditionalProperties
-  , tracedDiscriminator
-  , tracedProperties
-  , tracedConjunct
-  , PartitionLocation (..)
-  , PartitionChoice (..)
-  , Partition
+  ( Step (..),
+    tracedAllOf,
+    tracedAnyOf,
+    tracedOneOf,
+    tracedItems,
+    tracedAdditionalProperties,
+    tracedDiscriminator,
+    tracedProperties,
+    tracedConjunct,
+    PartitionLocation (..),
+    PartitionChoice (..),
+    Partition,
   )
 where
 

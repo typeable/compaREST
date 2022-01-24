@@ -5,6 +5,8 @@
 , nix-filter ? import sources.nix-filter
 }:
 let
+  masterPkgs = import sources.nixpkgs { inherit system; };
+
   hsPkgs = pkgs.haskell-nix.stackProject {
     src = nix-filter {
       root = ./.;
@@ -12,7 +14,7 @@ let
       include = [
         ./stack.yaml
         ./stack.yaml.lock
-        ./comparest.cabal
+        ./compaREST.cabal
       ];
     };
 
@@ -21,11 +23,17 @@ let
         dontStrip = false;
         dontPatchELF = false;
         enableDeadCodeElimination = true;
-        packages.comparest.src = nix-filter {
+        ghcOptions = [
+          "-O2"
+          "-fexpose-all-unfoldings"
+          "-fspecialise-aggressively"
+        ];
+        packages.pandoc.ghcOptions = [ "-O1" ];
+        packages.compaREST.src = nix-filter {
           root = ./.;
           name = "compaREST-src";
           include = with nix-filter; [
-            (./comparest.cabal)
+            (./compaREST.cabal)
             (inDirectory ./test)
             (inDirectory ./src)
             (inDirectory ./app)
@@ -45,27 +53,62 @@ let
     ${pkgs.nukeReferences}/bin/nuke-refs $out/bin/*
   '';
 
-  compaREST = pkgs.dockerTools.buildImage {
+  compaRESTBin = hsPkgs.compaREST.components.exes.compaREST;
+  compaRESTStaticBin = (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.exes.compaREST);
+
+
+  # doesn't work
+  armDarwinCompaREST = hsPkgs.projectCross.aarch64-darwin.hsPkgs.compaREST.components.exes.compaREST;
+
+  compaRESTImage = pkgs.dockerTools.buildImage {
     name = "compaREST";
-    contents = [ (staticify "compaREST-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest) ];
+    contents = [ compaRESTStaticBin ];
     config = {
-      Entrypoint = [ "/bin/comparest" ];
+      Entrypoint = [ "/bin/compaREST" ];
     };
   };
 
+  macOSCompaRESTBundle = pkgs.runCommand "compaREST-macOS-bundled"
+    {
+      buildInputs = [ masterPkgs.macdylibbundler ];
+    } ''
+    mkdir -p $out/lib
+    cp ${compaRESTBin}/bin/compaREST $out/compaREST
+    chmod 755 $out/compaREST
+    dylibbundler -b \
+      -x $out/compaREST \
+      -d $out/lib \
+      -p '@executable_path/lib'
+  '';
+
+
   compaRESTGithubAction =
     let
-      action = staticify "compaREST-github-action-static" hsPkgs.projectCross.musl64.hsPkgs.comparest.components.exes.comparest-github-action;
-      wrapped = pkgs.runCommand "wrapped-compaREST-github-action" { buildInputs = [ pkgs.makeWrapper ]; } ''
-        makeWrapper ${action}/bin/comparest-github-action $out/bin/pre --add-flags "pre"
-        makeWrapper ${action}/bin/comparest-github-action $out/bin/run --add-flags "run"
+      action = staticify "compaREST-GitHub-Action-static" hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.exes.compaREST-GitHub-Action;
+      wrapped = pkgs.runCommand "wrapped-compaREST-GitHub-Action" { buildInputs = [ pkgs.makeWrapper ]; } ''
+        makeWrapper ${action}/bin/compaREST-GitHub-Action $out/bin/pre --add-flags "pre"
+        makeWrapper ${action}/bin/compaREST-GitHub-Action $out/bin/run --add-flags "run"
       '';
     in
     pkgs.dockerTools.buildImage {
-      name = "typeable/comparest-github-action";
+      name = "typeable/compaREST-GitHub-Action";
       tag = "latest";
       contents = [ wrapped pkgs.cacert ];
     };
 
+  WindowsCompaRESTBin = hsPkgs.projectCross.mingwW64.hsPkgs.compaREST.components.exes.compaREST;
 in
-{ inherit compaREST compaRESTGithubAction hsPkgs haskellNix; }
+{
+  inherit
+    compaRESTImage
+    compaRESTGithubAction
+    compaRESTStaticBin
+    compaRESTBin
+    hsPkgs
+    macOSCompaRESTBundle
+    WindowsCompaRESTBin;
+
+  # We use the static version so that we don't have to rebuild everything on CI.
+  # The only binaries build on CI are static.
+  test = hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.tests.compaREST-tests;
+}

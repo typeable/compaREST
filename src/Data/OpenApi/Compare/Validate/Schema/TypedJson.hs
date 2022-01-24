@@ -1,11 +1,11 @@
 module Data.OpenApi.Compare.Validate.Schema.TypedJson
-  ( JsonType (..)
-  , describeJSONType
-  , TypedValue (..)
-  , untypeValue
-  , ForeachType (..)
-  , foldType
-  , forType_
+  ( JsonType (..),
+    describeJSONType,
+    TypedValue (..),
+    untypeValue,
+    ForeachType (..),
+    foldType,
+    forType_,
   )
 where
 
@@ -88,24 +88,26 @@ forType_ :: Applicative m => (forall x. Typeable x => JsonType -> (ForeachType f
 forType_ k = getAp $ foldType (\ty proj -> Ap $ k ty proj)
 
 broadcastType :: (forall x. Typeable x => f x) -> ForeachType f
-broadcastType k = ForeachType
-  { forNull = k
-  , forBoolean = k
-  , forNumber = k
-  , forString = k
-  , forArray = k
-  , forObject = k
-  }
+broadcastType k =
+  ForeachType
+    { forNull = k
+    , forBoolean = k
+    , forNumber = k
+    , forString = k
+    , forArray = k
+    , forObject = k
+    }
 
 zipType :: (forall x. Typeable x => f x -> g x -> h x) -> ForeachType f -> ForeachType g -> ForeachType h
-zipType k f1 f2 = ForeachType
-  { forNull = k (forNull f1) (forNull f2)
-  , forBoolean = k (forBoolean f1) (forBoolean f2)
-  , forNumber = k (forNumber f1) (forNumber f2)
-  , forString = k (forString f1) (forString f2)
-  , forArray = k (forArray f1) (forArray f2)
-  , forObject = k (forObject f1) (forObject f2)
-  }
+zipType k f1 f2 =
+  ForeachType
+    { forNull = k (forNull f1) (forNull f2)
+    , forBoolean = k (forBoolean f1) (forBoolean f2)
+    , forNumber = k (forNumber f1) (forNumber f2)
+    , forString = k (forString f1) (forString f2)
+    , forArray = k (forArray f1) (forArray f2)
+    , forObject = k (forObject f1) (forObject f2)
+    }
 
 instance (forall x. Lattice (f x)) => Lattice (ForeachType f) where
   (\/) = zipType (\/)

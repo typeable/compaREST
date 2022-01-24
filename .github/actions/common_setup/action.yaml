@@ -1,0 +1,42 @@
+name: "Common setup"
+description: "Common setup steps"
+inputs:
+  authToken:
+    description: "Cachix auth token"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Increase swap if linux
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+
+          echo "Is Linux"
+
+          free -h
+
+          sudo swapoff /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+
+          free -h
+
+        else
+
+          echo "Not Linux"
+
+        fi
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v16
+      with:
+        extra_nix_config: |
+          system-features = kvm
+          trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+          substituters = https://hydra.iohk.io https://cache.nixos.org/
+    - uses: cachix/cachix-action@v10
+      with:
+        name: typeable
+        authToken: "${{ inputs.authToken }}"

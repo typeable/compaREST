@@ -1,7 +1,7 @@
 module Data.OpenApi.Compare.Validate.PathFragment
-  ( parsePath
-  , PathFragment (..)
-  , PathFragmentParam
+  ( parsePath,
+    PathFragment (..),
+    PathFragmentParam,
   )
 where
 

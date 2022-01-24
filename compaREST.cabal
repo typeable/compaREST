@@ -1,12 +1,12 @@
 cabal-version:       2.4
-name:                comparest
+name:                compaREST
 version:             0.0.0.0
 synopsis:            Compatibility checker for OpenAPI
 description:         Compatibility checker for OpenAPI.
 license:             MIT
 license-file:        LICENSE
 author:              Typeable
-maintainer:          comparest@typeable.io
+maintainer:          compaREST@typeable.io
 copyright:           2021 Typeable
 category:            Web
 build-type:          Simple
@@ -14,16 +14,11 @@ extra-doc-files:     README.md
                      CHANGELOG.md
 tested-with:         GHC == 8.10.4
 extra-source-files: awsm-css/dist/awsm.min.css
-
-Flag static
-  Default:     False
-  Manual:      True
+data-files:
+  test/golden/**/*.yaml
+  test/golden/**/*.md
 
 common common-options
-  if flag(static)
-    cc-options: -static
-    ld-options: -static -pthread
-    ghc-options: -static
   ghc-options:
     -Weverything
     -Wno-implicit-prelude
@@ -39,6 +34,7 @@ common common-options
   default-language:    Haskell2010
   build-depends:       base >= 4.12.0.0 && < 4.16
                      , text
+
 
   default-extensions: ApplicativeDo
                     , BangPatterns
@@ -80,6 +76,7 @@ common common-options
                     , ViewPatterns
                     , QuantifiedConstraints
                     , DefaultSignatures
+
 
 library
   import:              common-options
@@ -151,12 +148,12 @@ library
   other-modules:    Data.HList
                   , Data.OpenUnion.Extra
 
-executable comparest
+executable compaREST
   import:              common-options
   hs-source-dirs:      app
   main-is:             Main.hs
   build-depends:
-      comparest
+      compaREST
     , pandoc
     , data-default
     , bytestring
@@ -175,12 +172,12 @@ executable comparest
     FormatHeuristic
     Data.OpenApi.Compare.Options
 
-executable comparest-github-action
+executable compaREST-GitHub-Action
   import:              common-options
   hs-source-dirs:      github-action
   main-is:             Main.hs
   build-depends:
-      comparest
+      compaREST
     , pandoc
     , yaml
     , aeson
@@ -201,7 +198,7 @@ executable comparest-github-action
     GitHub.Data.Checks
     GitHub.Endpoints.Checks
 
-test-suite comparest-tests
+test-suite compaREST-tests
   import:              common-options
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
@@ -209,8 +206,10 @@ test-suite comparest-tests
   other-modules:
     Spec.Golden.Extra
     Spec.Golden.TraceTree
+    Paths_compaREST
+  autogen-modules: Paths_compaREST
   build-depends:
-    , comparest
+    , compaREST
     , tasty-golden
     , tasty
     , bytestring

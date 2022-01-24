@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 module Data.OpenApi.Compare.Validate.Responses
-  ( Behave (..)
+  ( Behave (..),
   )
 where
 

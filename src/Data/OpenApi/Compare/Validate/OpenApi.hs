@@ -3,8 +3,8 @@
 {-# OPTIONS_GHC -fconstraint-solver-iterations=0 #-}
 
 module Data.OpenApi.Compare.Validate.OpenApi
-  ( Behave (..)
-  , Issue (..)
+  ( Behave (..),
+    Issue (..),
   )
 where
 
@@ -79,16 +79,17 @@ instance Subtree OpenApi where
   checkSemanticCompatibility _ beh prodCons = do
     checkCompatibility @ProcessedPathItems
       beh
-      ((tracedRequestBodies <$> prodCons)
-         `HCons` (tracedParameters <$> prodCons)
-         `HCons` (tracedSecuritySchemes <$> prodCons)
-         `HCons` (tracedResponses <$> prodCons)
-         `HCons` (tracedHeaders <$> prodCons)
-         `HCons` (tracedSchemas <$> prodCons)
-         `HCons` (_openApiServers . extract <$> prodCons)
-         `HCons` (tracedLinks <$> prodCons)
-         `HCons` (tracedCallbacks <$> prodCons)
-         `HCons` HNil)
+      ( (tracedRequestBodies <$> prodCons)
+          `HCons` (tracedParameters <$> prodCons)
+          `HCons` (tracedSecuritySchemes <$> prodCons)
+          `HCons` (tracedResponses <$> prodCons)
+          `HCons` (tracedHeaders <$> prodCons)
+          `HCons` (tracedSchemas <$> prodCons)
+          `HCons` (_openApiServers . extract <$> prodCons)
+          `HCons` (tracedLinks <$> prodCons)
+          `HCons` (tracedCallbacks <$> prodCons)
+          `HCons` HNil
+      )
       (tracedPaths <$> prodCons)
 
 instance Steppable OpenApi ProcessedPathItems where

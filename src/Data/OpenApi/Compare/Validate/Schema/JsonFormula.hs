@@ -1,18 +1,18 @@
 module Data.OpenApi.Compare.Validate.Schema.JsonFormula
-  ( Bound (..)
-  , showBound
-  , Property (..)
-  , Condition (..)
-  , showCondition
-  , satisfiesTyped
-  , checkStringFormat
-  , checkNumberFormat
-  , SomeCondition (..)
-  , JsonFormula (..)
-  , satisfiesFormula
-  , satisfies
-  , showJSONValue
-  , showJSONValueInline
+  ( Bound (..),
+    showBound,
+    Property (..),
+    Condition (..),
+    showCondition,
+    satisfiesTyped,
+    checkStringFormat,
+    checkNumberFormat,
+    SomeCondition (..),
+    JsonFormula (..),
+    satisfiesFormula,
+    satisfies,
+    showJSONValue,
+    showJSONValueInline,
   )
 where
 
@@ -20,8 +20,8 @@ import Algebra.Lattice
 import qualified Data.Aeson as A
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Foldable as F
-import qualified Data.HashMap.Strict as HM
 import Data.Functor
+import qualified Data.HashMap.Strict as HM
 import Data.Int
 import Data.Kind
 import qualified Data.Map as M
@@ -67,30 +67,33 @@ data Property = Property
 data Condition :: JsonType -> Type where
   Exactly :: TypedValue t -> Condition t
   Maximum :: !(Bound Scientific) -> Condition 'Number
-  Minimum
-    :: !(Down (Bound (Down Scientific)))
-    -> Condition 'Number -- ^ this has the right Ord
+  Minimum ::
+    !(Down (Bound (Down Scientific))) ->
+    -- | this has the right Ord
+    Condition 'Number
   MultipleOf :: !Scientific -> Condition 'Number
   NumberFormat :: !Format -> Condition 'Number
   MaxLength :: !Integer -> Condition 'String
   MinLength :: !Integer -> Condition 'String
   Pattern :: !Pattern -> Condition 'String
   StringFormat :: !Format -> Condition 'String
-  Items
-    :: !(ForeachType JsonFormula)
-    -> !(Traced (Referenced Schema))
-    -> Condition 'Array
-  TupleItems
-    :: ![(ForeachType JsonFormula, Traced (Referenced Schema))]
-    -> Condition 'Array
+  Items ::
+    !(ForeachType JsonFormula) ->
+    !(Traced (Referenced Schema)) ->
+    Condition 'Array
+  TupleItems ::
+    ![(ForeachType JsonFormula, Traced (Referenced Schema))] ->
+    Condition 'Array
   MaxItems :: !Integer -> Condition 'Array
   MinItems :: !Integer -> Condition 'Array
   UniqueItems :: Condition 'Array
-  Properties
-    :: !(M.Map Text Property)
-    -> !(ForeachType JsonFormula) -- ^ formula for additional properties
-    -> !(Maybe (Traced (Referenced Schema))) -- ^ schema for additional properties, Nothing means bottom
-    -> Condition 'Object
+  Properties ::
+    !(M.Map Text Property) ->
+    -- | formula for additional properties
+    !(ForeachType JsonFormula) ->
+    -- | schema for additional properties, Nothing means bottom
+    !(Maybe (Traced (Referenced Schema))) ->
+    Condition 'Object
   MaxProperties :: !Integer -> Condition 'Object
   MinProperties :: !Integer -> Condition 'Object
 
@@ -118,13 +121,15 @@ showCondition = \case
   UniqueItems -> para "The elements in the array should be unique."
   (Properties props additional _) ->
     bulletList $
-      (M.toList props
-         <&> (\(k, p) ->
-                para (code k)
-                  <> para (strong $ if propRequired p then "Required" else "Optional")
-                  <> showForEachJsonFormula (propFormula p)))
+      ( M.toList props
+          <&> ( \(k, p) ->
+                  para (code k)
+                    <> para (strong $ if propRequired p then "Required" else "Optional")
+                    <> showForEachJsonFormula (propFormula p)
+              )
+      )
         <> [ para (emph "Additional properties")
-               <> showForEachJsonFormula additional
+              <> showForEachJsonFormula additional
            ]
   (MaxProperties n) -> para $ "The maximum number of fields should be " <> show' n <> "."
   (MinProperties n) -> para $ "The minimum number of fields should be " <> show' n <> "."
@@ -133,15 +138,17 @@ showCondition = \case
     showForEachJsonFormula i =
       bulletList $
         foldType
-          (\t f -> case getJsonFormula $ f i of
-             BottomDNF -> mempty
-             (DNF conds) ->
+          ( \t f -> case getJsonFormula $ f i of
+              BottomDNF -> mempty
+              (DNF conds) ->
                 [ para (describeJSONType t)
                     <> bulletList
-                      (S.toList conds <&> \case
-                         Disjunct (S.toList -> []) -> para "Empty"
-                         Disjunct (S.toList -> cond) -> bulletList (showCondition <$> cond))
-                ])
+                      ( S.toList conds <&> \case
+                          Disjunct (S.toList -> []) -> para "Empty"
+                          Disjunct (S.toList -> cond) -> bulletList (showCondition <$> cond)
+                      )
+                ]
+          )
 
 showJSONValue :: A.Value -> Blocks
 showJSONValue v = codeBlockWith ("", ["json"], mempty) (T.decodeUtf8 . BSL.toStrict . A.encode $ v)

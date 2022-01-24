@@ -5,52 +5,307 @@ on:
     branches: [master]
   pull_request:
     branches: [master]
+  release:
+    types: [prereleased]
 
 jobs:
-  build-github-action-image:
+  check-formatting:
+    name: Check Haskell formatting
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
 
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Run fourmolu
+        run: |
+          nix-shell nix/ci.nix -j auto --run "git ls-files '*.hs' | xargs fourmolu -m inplace -o -XRecursiveDo -o -XTypeApplications -o -XPatternSynonyms -o -XBangPatterns"
+          git diff --exit-code
+
+  policeman:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
-      - name: Increase swap
-        run: |
-          free -h
 
-          sudo swapoff /mnt/swapfile
-          sudo fallocate -l 12G /mnt/swapfile
-          sudo mkswap /mnt/swapfile
-          sudo swapon /mnt/swapfile
-
-          free -h
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v12
+      - name: Common setup
+        uses: ./.github/actions/common_setup
         with:
-          extra_nix_config: |
-            trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-            substituters = https://hydra.iohk.io https://cache.nixos.org/
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Login to Cachix
-        uses: cachix/cachix-action@v8
-        with:
-          name: octopod
-          signingKey: ${{ secrets.CACHIX_SIGNING_KEY }}
-
-      - name: Build Github Action Docker Image
+      - name: Run policeman
         run: |
-          nix-build -A compaRESTGithubAction -j auto -o image
+          jq --argjson msg "$( $(nix-build ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . )" ".[0].message = \$msg" <policeman.json  >message.json
+          cat message.json
 
-      - name: Log into Docker Hub
-        if: github.ref == 'refs/heads/master'
-        uses: docker/login-action@v1
+      - name: Post notice
+        uses: yuzutech/annotations-action@v0.4.0
+        with:
+          title: 👮 Policeman
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          input: "./message.json"
+
+  check_versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Check library version
+        if: github.event_name == 'release'
+        run: |
+          if [ "$(awk -F ':' '/^version/ {gsub(/ /, "", $2); print $2}' compaREST.cabal)" != "${{ github.event.release.tag_name }}" ]; then
+            echo "::error file=compaREST.cabal::Library version does not match release version."
+            exit 1
+          fi
+
+      - name: Check docker tag
+        if: github.event_name == 'release'
+        run: |
+          if [ "$(yq eval '.runs.image' action.yaml | awk -F ':' '{print $NF}')" != "${{ github.event.release.tag_name }}" ]; then
+            echo "::error file=action.yaml::Action docker tag does not match release tag."
+            exit 1
+          fi
+
+      - name: Check changelog
+        if: github.event_name == 'release'
+        run: |
+          if ! grep '^## ${{ github.event.release.tag_name }}$' CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md does not contain an entry for this release."
+            exit 1
+          fi
+
+  Linux:
+    needs: check_versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Test
+        shell: bash
+        run: |
+          $(nix-build -A test -j auto --no-out-link)/bin/compaREST-tests
+
+      - name: Build Linux static binary
+        shell: bash
+        run: |
+          cp $(nix-build -A compaRESTStaticBin -j auto --no-out-link)/bin/compaREST compaREST
+
+      - name: Upload compaREST Linux Binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST-Linux
+          path: compaREST
+
+      - name: Build Docker Images
+        shell: bash
+        run: |
+          cp $(nix-build -A compaRESTGithubAction -j auto --no-out-link) compaREST-Github-Action-image.tar.gz
+          cp $(nix-build -A compaRESTImage -j auto --no-out-link) compaREST-image.tar.gz
+
+      - name: Upload compaREST Docker Github Action Image
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST Github Action Docker Image
+          path: compaREST-Github-Action-image.tar.gz
+
+      - name: Upload compaREST Docker Image
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST Docker Image
+          path: compaREST-image.tar.gz
+
+      - name: Install skopeo
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install skopeo
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1.10.0
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Upload Image to Docker Hub
-        if: github.ref == 'refs/heads/master'
+      - name: Push Nightly Docker Images to DockerHub
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        shell: bash
         run: |
-          docker load -i image
-          docker push typeable/comparest-github-action:latest
+          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto --no-out-link) docker://typeable/comparest-github-action:nightly
+          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto --no-out-link) docker://typeable/comparest:nightly
+
+      - name: Push Release Docker Images to DockerHub
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          skopeo copy docker-archive:$(nix-build -A compaRESTGithubAction -j auto --no-out-link) docker://typeable/comparest-github-action:${{ github.event.release.tag_name }}
+          skopeo copy docker-archive:$(nix-build -A compaRESTImage -j auto --no-out-link) docker://typeable/comparest:${{ github.event.release.tag_name }}
+
+      - name: Zip Release Assets
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          zip compaREST-Linux-x86.zip compaREST
+
+      - name: Upload compaREST Github Action Docker Image to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST-Github-Action-image.tar.gz
+          tag: ${{ github.ref }}
+
+      - name: Upload compaREST Docker Image to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST-image.tar.gz
+          tag: ${{ github.ref }}
+
+      - name: Upload compaREST binary – Linux – x86 to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST-Linux-x86.zip
+          tag: ${{ github.ref }}
+
+  dist:
+    needs: check_versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Cache
+        uses: actions/cache@v1
+        with:
+          path: |
+            ~/.stack
+            .stack-work
+          key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml') }}-${{ hashFiles('**.cabal') }}
+          restore-keys: |
+            ${{ runner.os }}-stack-${{ hashFiles('stack.yaml') }}
+            ${{ runner.os }}-stack
+
+      - name: Upgrade stack
+        shell: bash
+        # Needed for Hackage token authorization
+        run: stack upgrade --git
+
+      - name: Build dist
+        run: |
+          stack sdist --pvp-bounds both --test-tarball
+          echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
+
+      - name: Upload compaREST sources artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST sources
+          path: ${{ env.distPath }}/*.tar.gz
+
+      - name: Upload compaREST sources to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file_glob: true
+          file: ${{ env.distPath }}/*.tar.gz
+          tag: ${{ github.ref }}
+
+      - name: Publish compaREST candidate to Hackage
+        shell: bash
+        if: github.event_name == 'release'
+        env:
+          HACKAGE_KEY: ${{ secrets.HACKAGE_KEY }}
+        run: |
+          stack upload --pvp-bounds both --test-tarball --candidate .
+
+  macOS:
+    needs: check_versions
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build macOS binary bundle
+        run: |
+          cp -LR $(nix-build -A macOSCompaRESTBundle -j auto --no-out-link) compaREST
+
+      - name: Upload macOS compaREST bundle
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST binary – macOS – x86
+          path: compaREST
+
+      - name: Zip Release Assets
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          zip -r compaREST-macOS-x86.zip compaREST
+
+      - name: Upload compaREST binary – macOS – x86 to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST-macOS-x86.zip
+          tag: ${{ github.ref }}
+
+  Linux-Windows:
+    needs: check_versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build Windows binary
+        run: |
+          cp -LR $(nix-build -A WindowsCompaRESTBin -j auto --no-out-link)/bin compaREST
+
+      - name: Upload Windows compaREST bundle
+        uses: actions/upload-artifact@v2
+        with:
+          name: compaREST binary – Windows
+          path: compaREST
+
+      - name: Zip Release Assets
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          zip -r compaREST-Windows.zip compaREST
+
+      - name: Upload compaREST binary – Windows to release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: compaREST-Windows.zip
+          tag: ${{ github.ref }}

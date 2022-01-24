@@ -4,17 +4,17 @@
 
 module Data.OpenApi.Compare.Validate.Operation
   ( -- * Operation
-    MatchedOperation (..)
-  , OperationMethod (..)
-  , pathItemMethod
+    MatchedOperation (..),
+    OperationMethod (..),
+    pathItemMethod,
 
     -- * ProcessedPathItem
-  , ProcessedPathItem (..)
-  , ProcessedPathItems (..)
-  , processPathItems
-  , Step (..)
-  , Behave (..)
-  , Issue (..)
+    ProcessedPathItem (..),
+    ProcessedPathItems (..),
+    processPathItems,
+    Step (..),
+    Behave (..),
+    Issue (..),
   )
 where
 
@@ -87,10 +87,11 @@ tracedCallbacks (Traced t oper) =
   ]
 
 -- FIXME: #28
-getServers
-  :: [Server] -- ^ Servers from env
-  -> MatchedOperation
-  -> [Server]
+getServers ::
+  -- | Servers from env
+  [Server] ->
+  MatchedOperation ->
+  [Server]
 getServers env oper =
   case _operationServers . operation $ oper of
     [] -> env
@@ -337,9 +338,10 @@ instance Issuable 'APILevel where
     deriving stock (Eq, Ord, Show)
   issueKind = \case
     _ -> CertainIssue
-  relatedIssues = (==) `withClass` \case
-    NoPathsMatched fp -> Just fp
-    AllPathsFailed fp -> Just fp
+  relatedIssues =
+    (==) `withClass` \case
+      NoPathsMatched fp -> Just fp
+      AllPathsFailed fp -> Just fp
   describeIssue Forward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
   describeIssue Backward (NoPathsMatched p) = para $ "The path " <> (code . T.pack) p <> " has been added."
   describeIssue Forward (AllPathsFailed p) = para $ "The path " <> (code . T.pack) p <> " has been removed."
@@ -434,10 +436,10 @@ tracedFragments mpi =
   | (i, x) <- L.zip [0 ..] $ pathFragments $ extract mpi
   ]
 
-tracedMethod
-  :: OperationMethod
-  -> Traced MatchedPathItem
-  -> Maybe (Traced' MatchedOperation Operation)
+tracedMethod ::
+  OperationMethod ->
+  Traced MatchedPathItem ->
+  Maybe (Traced' MatchedOperation Operation)
 tracedMethod s mpi = env (ask mpi >>> step (OperationMethodStep s)) <$> (pathItemMethod s . pathItem . extract $ mpi)
 
 instance Issuable 'PathLevel where
@@ -485,10 +487,10 @@ instance Subtree MatchedPathItem where
   checkSemanticCompatibility env beh prodCons = do
     let paramDefs = getH @(ProdCons (Traced (Definitions Param))) env
         pathTracedParams = getPathParams <$> paramDefs <*> prodCons
-        getPathParams
-          :: Traced (Definitions Param)
-          -> Traced MatchedPathItem
-          -> [Traced Param]
+        getPathParams ::
+          Traced (Definitions Param) ->
+          Traced MatchedPathItem ->
+          [Traced Param]
         getPathParams defs mpi = do
           paramRef <- tracedMatchedPathItemParameters mpi
           pure $ dereference defs paramRef

@@ -2,17 +2,17 @@
 -- collection of datatypes that "contain" eachother in some form of tree
 -- structure.
 module Data.OpenApi.Compare.Paths
-  ( NiceQuiver
-  , AdditionalQuiverConstraints
-  , Paths (..)
-  , DiffPaths (..)
-  , catDiffPaths
-  , AnItem (..)
-  , step
+  ( NiceQuiver,
+    AdditionalQuiverConstraints,
+    Paths (..),
+    DiffPaths (..),
+    catDiffPaths,
+    AnItem (..),
+    step,
 
     -- * Reexports
-  , (>>>)
-  , (<<<)
+    (>>>),
+    (<<<),
   )
 where
 

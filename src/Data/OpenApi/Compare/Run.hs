@@ -1,17 +1,17 @@
 module Data.OpenApi.Compare.Run
-  ( runChecker
-  , runReport
-  , module Data.OpenApi.Compare.Report
+  ( runChecker,
+    runReport,
+    module Data.OpenApi.Compare.Report,
   )
 where
 
 import Data.HList
 import Data.OpenApi (OpenApi)
-import Text.Pandoc.Builder
 import Data.OpenApi.Compare.Paths
 import Data.OpenApi.Compare.Report
 import Data.OpenApi.Compare.Subtree
 import Data.OpenApi.Compare.Validate.OpenApi ()
+import Text.Pandoc.Builder
 
 runChecker :: (OpenApi, OpenApi) -> CheckerOutput
 runChecker (client, server) =
