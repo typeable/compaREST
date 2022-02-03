@@ -1,14 +1,35 @@
 # CompaREST
 
-[![Hackage](https://img.shields.io/hackage/v/comparest.svg?logo=haskell)](https://hackage.haskell.org/package/comparest)
-[![Stackage Lts](http://stackage.org/package/comparest/badge/lts)](http://stackage.org/lts/package/comparest)
+[![Hackage](https://img.shields.io/hackage/v/compaREST.svg?logo=haskell)](https://hackage.haskell.org/package/comparest)
+[![Stackage Lts](http://stackage.org/package/compaREST/badge/lts)](http://stackage.org/lts/package/comparest)
 [![Stackage Nightly](http://stackage.org/package/comparest/badge/nightly)](http://stackage.org/nightly/package/comparest)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Compatibility checker for OpenAPI
-# Quick Start Guide
 
-## Your situation
+## Using compaREST in Github Actions
+
+Add the following step to your  Github Actions workflow:
+
+```yaml
+- uses: typeable/comparest
+    if: ${{ github.event_name == 'pull_request' }}
+    with:
+      old: old-openapi.yaml
+      new: new-openapi.yaml
+```
+
+The `new` and `old` values should be paths to your OpenAPI specifications you want to compare.
+
+You will get something like this in your pull requests:
+
+![](docs/img/github-action-report.png)
+
+For more detail please see our [integration guide](docs/Integration_guide.md).
+
+## An example
+
+### Your situation
 
 You are developing a very important server with a REST API. You have clients who use your API that you do not control. Say, you are also developing a mobile app that uses your API and you can't force someone to update to the latest version. (Or you prefer not to for UX reasons.)
 
@@ -75,7 +96,7 @@ components:
         $ref: "#/components/schemas/Pet"
 ```
 
-## Evolving your product
+### Evolving your product
 
 Enthused over your initial success you hurry to release a new and improved version of your API and mobile app.
 
@@ -144,7 +165,7 @@ components:
 
 Looking at the very large and complex API description, you grow more and more concerned that your old mobile app might stop working when you update the server. But the spec is too large and too complex to reasonably assess this manually.
 
-## Assessing compatibility automatically
+### Assessing compatibility automatically
 
 Luckily, you have access to compaREST which can programmatically analyze your APIs and determine what, if anything, breaks compatibility and what doesn't.
 
@@ -158,15 +179,15 @@ Running this command will output a file `report.md`, containing the compatibilit
 
 > # Summary
 >
-> | [⚠️ Breaking changes](#breaking-changes) | [🙆 Non-breaking changes](#non-breaking-changes) | 🤷 Unsupported feature changes |
-> |------------------------------------------|-------------------------------------------------|-------------------------------|
-> | 5                                        | 6                                               | 0                             |
+> | [❌ Breaking changes](#breaking-changes) | [⚠️ Non-breaking changes](#non-breaking-changes) |
+> |------------------------------------------|--------------------------------------------------|
+> | 5                                        | 6                                                |
 >
-> # <span id="breaking-changes"></span>⚠️ Breaking changes
+> # <span id="breaking-changes"></span>❌ Breaking changes
 >
 > ## **GET** /pets
 >
-> ### 📱⬅️ JSON Response – 200
+> ### ⬅️☁️ JSON Response – 200
 >
 > #### `$[*].name(String)`
 >
@@ -176,7 +197,7 @@ Running this command will output a file `report.md`, containing the compatibilit
 >
 > ## **POST** /pets
 >
-> ### 📱➡️ JSON Request
+> ### ➡️☁️ JSON Request
 >
 > #### `$.weight`
 >
@@ -191,7 +212,7 @@ Running this command will output a file `report.md`, containing the compatibilit
 >
 > Value is now a multiple of 1.0.
 >
-> # <span id="non-breaking-changes"></span>🙆 Non-breaking changes
+> # <span id="non-breaking-changes"></span>⚠️ Non-breaking changes
 >
 > ## **GET** /pets
 >
@@ -203,7 +224,7 @@ Running this command will output a file `report.md`, containing the compatibilit
 >
 > Upper bound changed from 20.0 inclusive to 30.0 inclusive.
 >
-> ### 📱⬅️ JSON Response – 200
+> ### ⬅️☁️ JSON Response – 200
 >
 > #### `$[*].weight`
 >
@@ -220,7 +241,7 @@ Running this command will output a file `report.md`, containing the compatibilit
 >
 > ## **POST** /pets
 >
-> ### 📱➡️ JSON Request
+> ### ➡️☁️ JSON Request
 >
 > #### `$.name(String)`
 >
@@ -230,7 +251,7 @@ Running this command will output a file `report.md`, containing the compatibilit
 
 You now know exactly in what situations and in what way your 1.0 version of the app will break if you deploy your 1.1 version of the server.
 
-## Additional formats
+### Additional formats
 
 You can also produce a self-contained HTML report that you can open in your browser by simply omitting the file extension of the output file:
 
@@ -238,7 +259,9 @@ You can also produce a self-contained HTML report that you can open in your brow
 docker run --rm -v $(pwd):/data:rw typeable/comparest --client /data/api-1.0.0.yaml --server /data/api-1.1.0.yaml --output /data/report
 ```
 
-# CLI docs
+## CLI docs
+
+For more detail please see our [user guide](docs/User_guide.md).
 
 ```
 Usage: comparest (-c|--client ARG) (-s|--server ARG)
