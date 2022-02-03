@@ -127,13 +127,6 @@ jobs:
           name: compaREST Docker Image
           path: compaREST-image.tar.gz
 
-      - name: Install skopeo
-        if: github.event_name == 'release'
-        shell: bash
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install skopeo
-
       - name: Login to DockerHub
         uses: docker/login-action@v1.10.0
         with:
