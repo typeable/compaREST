@@ -7,21 +7,22 @@ inputs:
     default: "${{ github.token }}"
     required: false
   repo:
-    description: The owner of the repo in which to post the comment.
+    description: The owner of the repo in which to post the results.
     default: "${{ github.repository }}"
     required: false
   project_name:
-    description: The name of the project to which the API pertains.
-    required: true
+    description: The name of the project to which the API pertains. Used to name the check. Useful when you have multiple APIs in the same repo.
+    required: false
+    default: ""
   footer:
-    description: A footer that can be appended to the comment.
+    description: A footer that can be appended to the check body.
     required: false
     default: ""
   old:
-    description: The path to old specification of the API.
+    description: The path to the old (client) specification of the API.
     required: true
   new:
-    description: The path to new specification of the API.
+    description: The path to new (server) specification of the API.
     required: true
   sha:
     description: The sha of the commit to post the check for.
@@ -44,4 +45,4 @@ runs:
 
 branding:
   icon: crosshair
-  color: gray-dark
+  color: blue

@@ -29,7 +29,7 @@ postStatusProcessing = do
         repoOwner
         repoName
         Check
-          { checkName = mkName Proxy $ "compaREST – " <> projectName
+          { checkName = mkName Proxy checkName
           , checkSha = sha
           , checkDetailsURL = Nothing
           , checkExternalId = Nothing
@@ -60,7 +60,7 @@ postStatus x = do
         repoOwner
         repoName
         Check
-          { checkName = mkName Proxy $ "compaREST – " <> projectName
+          { checkName = mkName Proxy checkName
           , checkSha = sha
           , checkDetailsURL = Nothing
           , checkExternalId = Nothing
