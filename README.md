@@ -1,4 +1,4 @@
-# CompaREST
+# compaREST
 
 [![Hackage](https://img.shields.io/hackage/v/compaREST.svg?logo=haskell)](https://hackage.haskell.org/package/comparest)
 [![Stackage Lts](http://stackage.org/package/compaREST/badge/lts)](http://stackage.org/lts/package/comparest)
