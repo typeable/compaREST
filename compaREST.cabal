@@ -1,6 +1,6 @@
 cabal-version:       2.4
 name:                compaREST
-version:             0.0.0.0
+version:             0.1.0.0
 synopsis:            Compatibility checker for OpenAPI
 description:         Compatibility checker for OpenAPI.
 license:             MIT
