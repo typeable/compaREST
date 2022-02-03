@@ -30,7 +30,7 @@ inputs:
     default: "${{ github.event.pull_request.head.sha }}"
 runs:
   using: "docker"
-  image: "docker://typeable/comparest-github-action:latest"
+  image: "docker://typeable/comparest-github-action:0.1.0.0"
   env:
     GITHUB_TOKEN: "${{ inputs.GITHUB_TOKEN }}"
     REPO: "${{ inputs.repo }}"
