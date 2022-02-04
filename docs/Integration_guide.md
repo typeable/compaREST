@@ -28,8 +28,6 @@ In our example we have already generated the two OpenAPI specs and placed them i
 
 We can now run our action:
 
-##### NOTE: will only work after public release
-
 ```yaml
 - uses: typeable/comparest
     with:
