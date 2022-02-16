@@ -9,6 +9,7 @@ import Control.Monad.Freer.GitHub
 import Control.Monad.Freer.Reader
 import Data.OpenApi.Compare.Run
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Yaml.Aeson as Yaml
 import qualified GitHub as GH
 import System.Environment
@@ -22,13 +23,16 @@ import Text.Pandoc.Writers
 main :: IO ()
 main = do
   cfg <- decodeEnv >>= either error pure
-  getArgs >>= \case
-    ["pre"] -> runPre cfg
-    ["run"] -> do
-      oldFile <- getEnv "OLD"
-      newFile <- getEnv "NEW"
-      runRun cfg (root cfg </> oldFile) (root cfg </> newFile)
-    _ -> error "Invalid arguments."
+  if T.null . T.strip . GH.untagName . sha $ cfg
+    then putStrLn "Supplied empty SHA. Assuming you don't want me to run."
+    else
+      getArgs >>= \case
+        ["pre"] -> runPre cfg
+        ["run"] -> do
+          oldFile <- getEnv "OLD"
+          newFile <- getEnv "NEW"
+          runRun cfg (root cfg </> oldFile) (root cfg </> newFile)
+        _ -> error "Invalid arguments."
 
 runner :: Config -> Eff '[GitHub, Error GH.Error, Reader Config, IO] a -> IO a
 runner cfg =
