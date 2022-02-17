@@ -37,17 +37,24 @@ jobs:
         with:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      - name: Create dist
+        run: |
+          stack sdist --pvp-bounds both --tar-dir $HOME/dist-tar
+          mkdir -p $HOME/dist
+          tar xf $HOME/dist-tar/*.tar -C $HOME/dist
+          cd $HOME/dist
+
       - name: Run policeman
         run: |
-          jq --argjson msg "$( $(nix-build ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . )" ".[0].message = \$msg" <policeman.json  >message.json
-          cat message.json
+          jq --argjson msg "$( $(nix-build ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . )" ".[0].message = \$msg" <$GITHUB_WORKSPACE/policeman.json  >$HOME/message.json
+          cat $HOME/message.json
 
       - name: Post notice
         uses: yuzutech/annotations-action@v0.4.0
         with:
           title: 👮 Policeman
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          input: "./message.json"
+          input: "${{ env.HOME }}/message.json"
 
   check_versions:
     runs-on: ubuntu-latest
