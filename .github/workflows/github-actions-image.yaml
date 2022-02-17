@@ -41,7 +41,7 @@ jobs:
         run: |
           stack sdist --pvp-bounds both --tar-dir $HOME/dist-tar
           mkdir -p $HOME/dist
-          tar xf $HOME/dist-tar/*.tar -C $HOME/dist
+          tar xf $(find $HOME/dist-tar -type f) -C $HOME/dist
           cd $HOME/dist
 
       - name: Run policeman
