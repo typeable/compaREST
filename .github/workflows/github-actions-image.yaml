@@ -41,6 +41,7 @@ jobs:
         run: |
           ghcup install ghc 8.10.7
           ghcup set ghc 8.10.7
+          cabal update
 
       - name: Create dist
         run: |
