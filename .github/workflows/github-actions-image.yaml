@@ -37,6 +37,11 @@ jobs:
         with:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      - name: Set up ghc
+        run: |
+          ghcup install ghc 8.10.7
+          ghcup set ghc 8.10.7
+
       - name: Create dist
         run: |
           stack sdist --pvp-bounds both --tar-dir $HOME/dist-tar
