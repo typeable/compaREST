@@ -53,7 +53,7 @@ jobs:
         run: |
           cd /home/dist/*
 
-          jq --argjson msg "$( $(nix-build $GITHUB_WORKSPACE/ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . )" ".[0].message = \$msg" <$GITHUB_WORKSPACE/policeman.json  >/home/message.json
+          jq --argjson msg "$( { $(nix-build $GITHUB_WORKSPACE/ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" & echo '```';)" ".[0].message = \$msg" <$GITHUB_WORKSPACE/policeman.json  >/home/message.json
           cat /home/message.json
 
       - name: Post notice
