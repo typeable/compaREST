@@ -48,10 +48,10 @@ jobs:
           stack sdist --pvp-bounds both --tar-dir $HOME/dist-tar
           mkdir -p $HOME/dist
           tar xf $(find $HOME/dist-tar -type f) -C $HOME/dist
-          cd $HOME/dist
 
       - name: Run policeman
         run: |
+          cd $HOME/dist/*
 
           cabal v2-build '--ghc-options=-fwrite-ide-info' '--ghc-options=-hiedir=.hie'
 
