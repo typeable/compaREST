@@ -53,9 +53,7 @@ jobs:
         run: |
           cd $HOME/dist/*
 
-          cabal v2-build '--ghc-options=-fwrite-ide-info' '--ghc-options=-hiedir=.hie'
-
-          jq --argjson msg "$( $(nix-build ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . )" ".[0].message = \$msg" <$GITHUB_WORKSPACE/policeman.json  >$HOME/message.json
+          jq --argjson msg "$( $(nix-build $GITHUB_WORKSPACE/ci/policeman.nix)/bin/policeman | grep -v "⚙" | jq -aRs . )" ".[0].message = \$msg" <$GITHUB_WORKSPACE/policeman.json  >$HOME/message.json
           cat $HOME/message.json
 
       - name: Post notice
