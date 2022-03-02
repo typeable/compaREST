@@ -23,6 +23,10 @@ forwardChanges:
 backwardChanges:
   AtPath "/pets":
     InOperation GetMethod:
+      InParam "limit":
+        InParamSchema:
+          OfType Number: MatchingMaximumWeak (ProdCons {producer = Inclusive 30.0,
+            consumer = Inclusive 20.0})
       WithStatusCode 200:
         ResponsePayload:
           PayloadSchema:
@@ -33,10 +37,6 @@ backwardChanges:
                   - TypesRestricted [Number]
                   - AdditionalToProperty
                   - OfType Number: NoMatchingMultipleOf 1.0
-      InParam "limit":
-        InParamSchema:
-          OfType Number: MatchingMaximumWeak (ProdCons {producer = Inclusive 30.0,
-            consumer = Inclusive 20.0})
     InOperation PostMethod:
       InRequest:
         InPayload:
