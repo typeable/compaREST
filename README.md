@@ -1,8 +1,6 @@
 # compaREST
 
-[![Hackage](https://img.shields.io/hackage/v/compaREST.svg?logo=haskell)](https://hackage.haskell.org/package/comparest)
-[![Stackage Lts](http://stackage.org/package/compaREST/badge/lts)](http://stackage.org/lts/package/comparest)
-[![Stackage Nightly](http://stackage.org/package/comparest/badge/nightly)](http://stackage.org/nightly/package/comparest)
+[![Hackage](https://img.shields.io/hackage/v/compaREST.svg?logo=haskell)](https://hackage.haskell.org/package/compaREST)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Compatibility checker for OpenAPI
