@@ -16,6 +16,7 @@ where
 import Algebra.Lattice
 import Algebra.Lattice.Lifted
 import Control.Applicative
+import Control.Monad (when)
 import Control.Monad.Reader hiding (ask)
 import qualified Control.Monad.Reader as R
 import Control.Monad.State
@@ -31,6 +32,7 @@ import qualified Data.List as L
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import Data.Maybe
+import Data.Monoid
 import Data.OpenApi
 import Data.OpenApi.Compare.Memo
 import Data.OpenApi.Compare.References
@@ -43,7 +45,8 @@ import Data.Ord
 import qualified Data.Set as S
 import Data.Text (Text)
 import qualified Data.Text as T
-import Text.Pandoc.Builder hiding (Format, Null)
+import Data.Traversable (forM)
+import Text.Pandoc.Builder hiding (Format)
 
 data PartitionData
   = DByEnumValue (DNF (S.Set A.Value))

@@ -198,7 +198,7 @@ showErrs x@(P.PathsPrefixNode currentIssues _) =
   let -- Extract this pattern if more cases like this arise
       ( removedPaths :: Maybe (Orientation, [Issue 'APILevel])
         , otherIssues :: Set (AnIssue a)
-        ) = case eqT @a @ 'APILevel of
+        ) = case eqT @a @'APILevel of
           Just Refl
             | (S.toList -> p@((AnIssue ori _) : _), o) <-
                 S.partition

@@ -1,11 +1,19 @@
-resolver: lts-18.27
+resolver: lts-22.17
 
 packages:
   - .
 
 extra-deps:
+  - base16-bytestring-1.0.2.0
+  - freer-simple-1.2.1.2
+  - github-0.29
+  - http-link-header-1.2.1
   - open-union-0.4.0.0
   - type-fun-0.1.3
-  - github-0.26
-  - base16-bytestring-0.1.1.7
-  - http-link-header-1.0.3.1
+  - typerep-map-0.6.0.0
+
+# Required for freer-simple and typerep-map
+allow-newer: true
+
+nix:
+  packages: [pkg-config zlib]
