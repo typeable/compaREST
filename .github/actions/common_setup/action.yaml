@@ -30,13 +30,13 @@ runs:
         fi
 
     - name: Install Nix
-      uses: cachix/install-nix-action@v16
+      uses: cachix/install-nix-action@v27
       with:
         extra_nix_config: |
           system-features = kvm
           trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
           substituters = https://hydra.iohk.io https://cache.nixos.org/
-    - uses: cachix/cachix-action@v10
+    - uses: cachix/cachix-action@v15
       with:
         name: typeable
         authToken: "${{ inputs.authToken }}"
