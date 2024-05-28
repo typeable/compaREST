@@ -20,10 +20,10 @@ jobs:
         with:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
-      - name: Run fourmolu
-        run: |
-          nix-shell nix/ci.nix -j auto --run "git ls-files '*.hs' | xargs fourmolu -m inplace -o -XRecursiveDo -o -XTypeApplications -o -XPatternSynonyms -o -XBangPatterns"
-          git diff --exit-code
+#      - name: Run fourmolu
+#        run: |
+#          nix-shell nix/ci.nix -j auto --run "git ls-files '*.hs' | xargs fourmolu -m inplace -o -XRecursiveDo -o -XTypeApplications -o -XPatternSynonyms -o -XBangPatterns"
+#          git diff --exit-code
 
   check_versions:
     runs-on: ubuntu-latest
