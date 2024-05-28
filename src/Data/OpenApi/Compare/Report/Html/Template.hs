@@ -36,4 +36,4 @@ template =
          \</html>"
 
 awsmCss :: ByteString
-awsmCss = $(makeRelativeToProject "awsm-css/dist/awsm.min.css" >>= embedFile)
+awsmCss = $(makeRelativeToProject "css/awsm.min.css" >>= embedFile)

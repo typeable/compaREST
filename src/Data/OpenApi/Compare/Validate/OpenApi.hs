@@ -38,7 +38,8 @@ tracedSecuritySchemes :: Traced OpenApi -> Traced (Definitions SecurityScheme)
 tracedSecuritySchemes oa =
   traced
     (ask oa >>> step ComponentsSecurityScheme)
-    (_componentsSecuritySchemes . _openApiComponents . extract $ oa)
+    (unSecurityDefinitions . _componentsSecuritySchemes . _openApiComponents . extract $ oa)
+  where unSecurityDefinitions (SecurityDefinitions ds) = ds
 
 tracedResponses :: Traced OpenApi -> Traced (Definitions Response)
 tracedResponses oa =

@@ -23,7 +23,8 @@ where
 import Control.Monad
 import Data.Aeson
 import Data.Foldable hiding (null, toList)
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Kind
 import qualified Data.Map as M
 import Data.Monoid
@@ -256,7 +257,7 @@ newtype MergableObject = MergableObject {getMergableObject :: Object}
 
 instance Semigroup MergableObject where
   (MergableObject x) <> (MergableObject y) =
-    MergableObject $ HM.unionWith mergeValue x y
+    MergableObject $ KeyMap.unionWith mergeValue x y
     where
       mergeValue :: Value -> Value -> Value
       mergeValue (Object a) (Object b) =
@@ -271,6 +272,6 @@ instance Monoid MergableObject where
 
 traceObject :: Paths q r a -> Value -> Object
 traceObject Root (Object o) = o
-traceObject Root v = HM.singleton "root" v
+traceObject Root v = KeyMap.singleton "root" v
 traceObject (root `Snoc` s) v =
-  traceObject root . Object $ HM.singleton (T.pack . show $ s) v
+  traceObject root . Object $ KeyMap.singleton (Key.fromText . T.pack . show $ s) v

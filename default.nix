@@ -38,7 +38,7 @@ let
             (inDirectory ./src)
             (inDirectory ./app)
             (inDirectory ./github-action)
-            ./awsm-css/dist/awsm.min.css
+            ./css/awsm.min.css
             ./LICENSE
           ];
         };

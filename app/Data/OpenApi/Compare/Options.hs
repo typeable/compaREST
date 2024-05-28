@@ -9,6 +9,7 @@ import Data.OpenApi.Compare.Report
 import GHC.Generics (Generic)
 import Options.Applicative
 import Options.Applicative.Help hiding (fullDesc)
+import Text.PrettyPrint.ANSI.Leijen ((<$$>),string)
 
 parseOptions :: IO Options
 parseOptions = customExecParser (prefs $ showHelpOnError) optionsParserInfo

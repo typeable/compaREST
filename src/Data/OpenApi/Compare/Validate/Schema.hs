@@ -5,7 +5,7 @@ module Data.OpenApi.Compare.Validate.Schema
   )
 where
 
-import Control.Monad.Writer
+import Control.Monad (when,unless)
 import qualified Data.Aeson as A
 import Data.Coerce
 import Data.Foldable (for_, toList)

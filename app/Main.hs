@@ -2,6 +2,7 @@ module Main (main) where
 
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.Trans (lift)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import Data.Default

@@ -18,10 +18,11 @@ where
 
 import Algebra.Lattice
 import qualified Data.Aeson as A
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Foldable as F
 import Data.Functor
-import qualified Data.HashMap.Strict as HM
 import Data.Int
 import Data.Kind
 import qualified Data.Map as M
@@ -39,7 +40,7 @@ import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Typeable
-import Text.Pandoc.Builder hiding (Format, Null)
+import Text.Pandoc.Builder hiding (Format)
 import Text.Regex.Pcre2
 
 data Bound a = Exclusive !a | Inclusive !a
@@ -177,10 +178,10 @@ satisfiesTyped (TArray a) (MaxItems m) = fromIntegral (F.length a) <= m
 satisfiesTyped (TArray a) (MinItems m) = fromIntegral (F.length a) >= m
 satisfiesTyped (TArray a) UniqueItems = S.size (S.fromList $ F.toList a) == F.length a -- TODO: could be better #36
 satisfiesTyped (TObject o) (Properties props additional _) =
-  all (`HM.member` o) (M.keys (M.filter propRequired props))
-    && all (\(k, v) -> satisfies v $ maybe additional propFormula $ M.lookup k props) (HM.toList o)
-satisfiesTyped (TObject o) (MaxProperties m) = fromIntegral (HM.size o) <= m
-satisfiesTyped (TObject o) (MinProperties m) = fromIntegral (HM.size o) >= m
+  all (`KeyMap.member` o) (map Key.fromText $ M.keys (M.filter propRequired props))
+    && all (\(k, v) -> satisfies v $ maybe additional propFormula $ M.lookup (Key.toText k) props) (KeyMap.toList o)
+satisfiesTyped (TObject o) (MaxProperties m) = fromIntegral (KeyMap.size o) <= m
+satisfiesTyped (TObject o) (MinProperties m) = fromIntegral (KeyMap.size o) >= m
 
 checkNumberFormat :: Format -> Scientific -> Bool
 checkNumberFormat "int32" (toRational -> n) =
