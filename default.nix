@@ -6,6 +6,8 @@
 }:
 let
   masterPkgs = import sources.nixpkgs { inherit system; };
+  yq = import ./nix/yq.nix { pkgs = masterPkgs; };
+  diffYaml = import ./nix/diff-yaml.nix { pkgs = masterPkgs; };
 
   hsPkgs = pkgs.haskell-nix.stackProject {
     src = nix-filter {
@@ -97,6 +99,18 @@ let
     };
 
   WindowsCompaRESTBin = hsPkgs.projectCross.mingwW64.hsPkgs.compaREST.components.exes.compaREST;
+
+  # We use the static version so that we don't have to rebuild everything on CI.
+  # The only binaries build on CI are static.
+  test = hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.tests.compaREST-tests.overrideAttrs (final: old: {
+    buildInputs = old.buildInputs ++ [ diffYaml yq ];
+    nativeBuildInputs = old.nativeBuildInputs ++ (with masterPkgs; [ makeWrapper ]);
+
+    postInstall = ''
+      wrapProgram $out/bin/compaREST-tests \
+        --prefix PATH : ${masterPkgs.lib.makeBinPath [ diffYaml yq ]}
+    '';
+  });
 in
 {
   inherit
@@ -106,9 +120,6 @@ in
     compaRESTBin
     hsPkgs
     macOSCompaRESTBundle
-    WindowsCompaRESTBin;
-
-  # We use the static version so that we don't have to rebuild everything on CI.
-  # The only binaries build on CI are static.
-  test = hsPkgs.projectCross.musl64.hsPkgs.compaREST.components.tests.compaREST-tests;
+    WindowsCompaRESTBin
+    test;
 }

@@ -59,7 +59,7 @@ goldenInputsTree ::
   s ->
   (t -> IO BSL.ByteString) ->
   IO TestTree
-goldenInputsTree name filepath golden inp f = do
+goldenInputsTree name filepath golden inp f =
   runTestInputTree golden f <$> getGoldenInputs name filepath inp
 
 runTestInputTree ::

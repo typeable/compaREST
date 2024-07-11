@@ -1,6 +1,8 @@
 { pkgs ? import <nixpkgs> {} }:
 
 # Make yq work inside whatever `stack test` launches.
+# Nuke this when https://github.com/kislyuk/yq/pull/193 is merged
+# and nixpkgs includes that fix.
 
 let
   yq-patch = pkgs.writeText "yq-tty-fix.patch" ''
