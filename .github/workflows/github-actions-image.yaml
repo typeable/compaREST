@@ -166,6 +166,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
       - name: Cache
         uses: actions/cache@v1
         with:
@@ -184,7 +189,7 @@ jobs:
 
       - name: Build dist
         run: |
-          stack sdist --pvp-bounds both --test-tarball
+          stack --nix sdist --pvp-bounds both --test-tarball
           echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
 
       - name: Upload compaREST sources artifact
