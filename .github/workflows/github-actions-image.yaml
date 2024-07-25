@@ -32,6 +32,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
       - name: Check library version
         if: github.event_name == 'release'
         run: |
