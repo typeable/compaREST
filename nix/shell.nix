@@ -1,4 +1,6 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ sources ? import ./sources.nix
+, pkgs ? import sources.nixpkgs {  }
+}:
 
 let
   patched-yq = import ./yq.nix { inherit pkgs; };
