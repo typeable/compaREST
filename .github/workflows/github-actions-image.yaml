@@ -184,7 +184,7 @@ jobs:
 
       - name: Build dist
         run: |
-          nix-shell nix/shell.nix --run "stack sdist --pvp-bounds both --test-tarball"
+          stack sdist --pvp-bounds both --test-tarball
           echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
 
       - name: Upload compaREST sources artifact
