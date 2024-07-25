@@ -2,7 +2,8 @@
 
 let
   patched-yq = import ./yq.nix { inherit pkgs; };
+  diffYaml = import ./diff-yaml.nix { inherit pkgs; };
 in
 pkgs.mkShell {
-  buildInputs = with pkgs; [ pkg-config patched-yq zlib ];
+  buildInputs = with pkgs; [ pkg-config diffYaml patched-yq zlib ];
 }
