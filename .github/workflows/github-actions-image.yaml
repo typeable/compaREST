@@ -159,7 +159,7 @@ jobs:
           tag: ${{ github.ref }}
 
   dist:
-    needs: check_versions Linux
+    needs: [check_versions, Linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
