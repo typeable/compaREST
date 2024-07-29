@@ -159,7 +159,7 @@ jobs:
           tag: ${{ github.ref }}
 
   dist:
-    needs: check_versions
+    needs: check_versions Linux
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -189,7 +189,7 @@ jobs:
 
       - name: Build dist
         run: |
-          stack --nix sdist --pvp-bounds both --test-tarball
+          stack --nix sdist --pvp-bounds both
           echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
 
       - name: Upload compaREST sources artifact
@@ -213,7 +213,7 @@ jobs:
         env:
           HACKAGE_KEY: ${{ secrets.HACKAGE_KEY }}
         run: |
-          stack upload --pvp-bounds both --test-tarball --candidate .
+          stack upload --pvp-bounds both --candidate .
 
   macOS:
     needs: check_versions
