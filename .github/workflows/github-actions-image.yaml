@@ -189,7 +189,7 @@ jobs:
 
       - name: Build dist
         run: |
-          stack --nix sdist --pvp-bounds both
+          stack sdist --pvp-bounds both
           echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
 
       - name: Upload compaREST sources artifact
