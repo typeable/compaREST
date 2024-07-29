@@ -1,4 +1,4 @@
-resolver: lts-22.17
+resolver: lts-22.23
 
 packages:
   - .
@@ -16,4 +16,6 @@ extra-deps:
 allow-newer: true
 
 nix:
-  packages: [pkg-config zlib]
+#  packages: [pkg-config yq zlib]
+  shell-file: ./nix/shell.nix
+  pure: false

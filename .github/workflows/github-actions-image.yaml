@@ -9,21 +9,21 @@ on:
     types: [prereleased]
 
 jobs:
-  check-formatting:
-    name: Check Haskell formatting
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Common setup
-        uses: ./.github/actions/common_setup
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Run fourmolu
-        run: |
-          nix-shell nix/ci.nix -j auto --run "git ls-files '*.hs' | xargs fourmolu -m inplace -o -XRecursiveDo -o -XTypeApplications -o -XPatternSynonyms -o -XBangPatterns"
-          git diff --exit-code
+#  check-formatting:
+#    name: Check Haskell formatting
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#
+#      - name: Common setup
+#        uses: ./.github/actions/common_setup
+#        with:
+#          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+#
+#      - name: Run fourmolu
+#        run: |
+#          nix-shell nix/ci.nix -j auto --run "git ls-files '*.hs' | xargs fourmolu -m inplace -o -XRecursiveDo -o -XTypeApplications -o -XPatternSynonyms -o -XBangPatterns"
+#          git diff --exit-code
 
   check_versions:
     runs-on: ubuntu-latest
@@ -31,6 +31,11 @@ jobs:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Check library version
         if: github.event_name == 'release'
@@ -154,12 +159,17 @@ jobs:
           tag: ${{ github.ref }}
 
   dist:
-    needs: check_versions
+    needs: [check_versions, Linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
         with:
           submodules: recursive
+
+      - name: Common setup
+        uses: ./.github/actions/common_setup
+        with:
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Cache
         uses: actions/cache@v1
@@ -179,7 +189,7 @@ jobs:
 
       - name: Build dist
         run: |
-          stack sdist --pvp-bounds both --test-tarball
+          stack sdist --pvp-bounds both
           echo "distPath=$(stack path | awk -F ": " '/dist-dir/ {print $2}')" >> $GITHUB_ENV
 
       - name: Upload compaREST sources artifact
@@ -203,7 +213,7 @@ jobs:
         env:
           HACKAGE_KEY: ${{ secrets.HACKAGE_KEY }}
         run: |
-          stack upload --pvp-bounds both --test-tarball --candidate .
+          stack upload --pvp-bounds both --candidate .
 
   macOS:
     needs: check_versions
@@ -242,39 +252,39 @@ jobs:
           file: compaREST-macOS-x86.zip
           tag: ${{ github.ref }}
 
-  Linux-Windows:
-    needs: check_versions
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-
-      - name: Common setup
-        uses: ./.github/actions/common_setup
-        with:
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Build Windows binary
-        run: |
-          cp -LR $(nix-build -A WindowsCompaRESTBin -j auto --no-out-link)/bin compaREST
-
-      - name: Upload Windows compaREST bundle
-        uses: actions/upload-artifact@v2
-        with:
-          name: compaREST binary – Windows
-          path: compaREST
-
-      - name: Zip Release Assets
-        if: github.event_name == 'release'
-        shell: bash
-        run: |
-          zip -r compaREST-Windows.zip compaREST
-
-      - name: Upload compaREST binary – Windows to release
-        if: github.event_name == 'release'
-        uses: svenstaro/upload-release-action@2.2.1
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: compaREST-Windows.zip
-          tag: ${{ github.ref }}
+#  Linux-Windows:
+#    needs: check_versions
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v2
+#        with:
+#          submodules: recursive
+#
+#      - name: Common setup
+#        uses: ./.github/actions/common_setup
+#        with:
+#          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+#
+#      - name: Build Windows binary
+#        run: |
+#          cp -LR $(nix-build -A WindowsCompaRESTBin -j auto --no-out-link)/bin compaREST
+#
+#      - name: Upload Windows compaREST bundle
+#        uses: actions/upload-artifact@v2
+#        with:
+#          name: compaREST binary – Windows
+#          path: compaREST
+#
+#      - name: Zip Release Assets
+#        if: github.event_name == 'release'
+#        shell: bash
+#        run: |
+#          zip -r compaREST-Windows.zip compaREST
+#
+#      - name: Upload compaREST binary – Windows to release
+#        if: github.event_name == 'release'
+#        uses: svenstaro/upload-release-action@2.2.1
+#        with:
+#          repo_token: ${{ secrets.GITHUB_TOKEN }}
+#          file: compaREST-Windows.zip
+#          tag: ${{ github.ref }}

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -e
+
+# Normalise YAML files passed as inputs, then run diff on them.
+
+check_util() {
+  local util=$1
+
+  if [ -z $util ]; then
+     echo "Error: $util not found in PATH"
+     exit 1
+  fi
+}
+
+DIFF=`which diff`
+check_util $DIFF
+
+YQ=`which yq`
+check_util $YQ
+
+# Only normalise YAML files.
+# Print anything else as is.
+normalise() {
+  local file=$1
+  local contents=($YQ -y -S '.' $file)
+
+  # if $contents contains actual YAML data, print it
+  if [[ $? == 0 ]]; then
+     echo $contents
+  else
+      cat $file
+  fi
+}
+
+$DIFF -u <(normalise $1) <(normalise $2)

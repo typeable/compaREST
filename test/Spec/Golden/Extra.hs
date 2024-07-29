@@ -59,7 +59,7 @@ goldenInputsTree ::
   s ->
   (t -> IO BSL.ByteString) ->
   IO TestTree
-goldenInputsTree name filepath golden inp f = do
+goldenInputsTree name filepath golden inp f =
   runTestInputTree golden f <$> getGoldenInputs name filepath inp
 
 runTestInputTree ::
@@ -72,7 +72,7 @@ runTestInputTree golden f (TestInputNode name rest) =
 runTestInputTree golden f (TestInputLeaf name t path) =
   goldenVsStringDiff
     name
-    (\ref new -> ["diff", "-u", ref, new])
+    (\ref new -> ["diff-yaml", ref, new])
     (path </> golden)
     (f t)
 
